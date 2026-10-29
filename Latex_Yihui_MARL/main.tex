@@ -621,6 +621,20 @@ archive under the stated interpolation scheme, rather than as resolved
 high-resolution truth or statistically optimal reconstructions of unobserved
 sub-grid variability.
 
+Policy training and evaluation are offline with respect to the environmental
+data: the ERA5 and HYCOM trajectories are precomputed, and vehicle motion does
+not feed back into the wind or current fields. This one-way forcing assumption
+is motivated by the large separation of scales between a small SUV and a
+TC-scale atmosphere--ocean system, for which the momentum and energy transferred
+by the vehicles are negligible relative to those driving the environmental
+fields. It differs from an online two-way coupled simulation in which actions
+modify the environment and the modified environment then changes subsequent
+observations. The term offline here does not mean batch or offline RL: the
+policy is still trained through sequential closed-loop interaction with the
+precomputed environment, but the environmental trajectory itself is independent
+of the policy. A two-way coupled simulation would be required if vehicle-induced
+wakes or other local environmental feedback were the object of study.
+
 The 10 min decision interval is selected as a compromise between control
 responsiveness and the information content of the source products. A longer
 interval would reduce the frequency of trajectory correction and degrade
