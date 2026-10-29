@@ -619,9 +619,11 @@ The 10 min decision interval is selected as a compromise between control
 responsiveness and the information content of the source products. A longer
 interval would reduce the frequency of trajectory correction and degrade
 decision precision. A substantially shorter interval would increase decision
-and execution overhead while requiring temporal detail beyond what can be
-supported by interpolating hourly ERA5 winds and three-hourly HYCOM currents;
-using such an interval would create a false impression of higher temporal
+and execution overhead and would substantially increase the number of
+decisions per episode, the required interaction samples, and the training
+workload. It would also require temporal detail beyond what can be supported by
+interpolating hourly ERA5 winds and three-hourly HYCOM currents. Using such an
+interval would therefore create a false impression of higher temporal
 resolution without introducing genuinely new environmental information.
 
 Each IBTrACS track is first linearly interpolated to the 10 min simulation
