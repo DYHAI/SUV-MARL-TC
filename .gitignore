@@ -1,0 +1,59 @@
+# Secrets and local credentials
+cds_api_keys.json
+.cdsapirc
+.env
+*.pem
+*.key
+
+# Downloaded datasets and local links
+data
+data/
+**/data/
+*.nc
+*.nc4
+*.npz
+
+# Runtime products
+logs*/
+runs/
+tb_logs/
+eval_out/
+ppo_*/
+*_cache/
+*.mp4
+*.avi
+*.mov
+*.done
+*.done.nodump
+*.nodump
+*.DONE
+*_tmp/
+Latex_Yihui_MARL/figures/pre_unitdisk_static_history_backup/
+Latex_Yihui_MARL/figures/underwater_methods_10seed.csv
+Latex_Yihui_MARL/figures/underwater_methods_10seed.png
+
+# Python and Jupyter
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.ipynb_checkpoints/
+
+# LaTeX build products
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.xdv
+*.abs
+
+# Archives and OS/editor files
+*.tar.gz
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

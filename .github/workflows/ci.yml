@@ -1,0 +1,38 @@
+name: repository-checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile maintained Python files
+        run: |
+          python -m py_compile \
+            fleet_segment_env.py \
+            fleet_sb3.py \
+            surface_wind_env.py \
+            train_fleet_segment_actfilter.py \
+            eval_deploy_xfer.py \
+            eval_fleet_energy.py \
+            underwater_flow_env.py \
+            underwater_fleet_flow_env.py \
+            train_uwflow_sb3.py \
+            eval_uwflow_info.py \
+            run_uwflow_eval.py \
+            summarize_uwflow_500.py \
+            build_uwflow_cache.py \
+            audit_hycom_currents.py
+      - name: Check maintained shell scripts
+        run: |
+          bash -n run_surface_distance_recompute.sh
+          bash -n run_uwflow_7depth_completion.sh
+          bash -n run_uwflow_complete_depths_first.sh
+      - name: Ensure credentials are absent
+        run: test ! -e cds_api_keys.json

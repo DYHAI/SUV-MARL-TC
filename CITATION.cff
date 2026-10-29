@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite the associated manuscript."
+title: "Multi-Agent Reinforcement Learning for Surface-Subsurface Observation of Tropical Cyclones Using Submersible Unmanned Vessels"
+type: software
+authors:
+  - family-names: Ding
+    given-names: Yihui
+  - family-names: Ma
+    given-names: Xiwen
+  - family-names: Peng
+    given-names: Wenlei
+  - family-names: Yang
+    given-names: Jingsong
+repository-code: "https://github.com/DYHAI/SUV-MARL-TC"
+date-released: "2026-10-29"
+keywords:
+  - tropical cyclone
+  - multi-agent reinforcement learning
+  - autonomous underwater vehicle
+  - IPPO
+  - HYCOM
+  - ERA5
