@@ -61,12 +61,30 @@ def main() -> None:
         r"\midrule",
     ]
     for fleet in (4, 8, 12, 16):
+        states = ("off", "on")
+        values = {
+            metric: {
+                state: lowpass[fleet][state][index]
+                for state in states
+            }
+            for index, metric in enumerate(("final", "path", "mean", "maximum"))
+        }
+        best = {
+            metric: min(states, key=lambda state: values[metric][state])
+            for metric in values
+        }
         for state, label in (("off", "Off"), ("on", "On")):
             final, path, mean, maximum = lowpass[fleet][state]
-            lines.append(
-                f"{fleet} & {label} & {final:.1f} & {path:.1f} & "
-                f"{mean:.2f} & {maximum:.2f} \\\\"
-            )
+            cells = []
+            for metric, value, digits in (
+                ("final", final, 1),
+                ("path", path, 1),
+                ("mean", mean, 2),
+                ("maximum", maximum, 2),
+            ):
+                text = f"{value:.{digits}f}"
+                cells.append(r"\textbf{" + text + "}" if best[metric] == state else text)
+            lines.append(f"{fleet} & {label} & " + " & ".join(cells) + r" \\")
     lines += [
         r"\bottomrule",
         r"\end{tabular}}",
