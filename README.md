@@ -28,6 +28,8 @@ IBTrACS reanalysis/best-track products. The final manuscript is in
   projection and to update the five-frame current history at every step.
 - All seven underwater depths must therefore be retrained. Pre-correction
   weights are excluded from this public repository.
+- Corrected training has started for the complete 0/30/50 m layers; the public
+  result files will be updated only after the full seven-depth matrix is frozen.
 - The seven-depth data archive and retraining pipeline are in progress.
   Manuscript preview figures are explicitly marked and must be replaced by the
   final matrix before submission.
