@@ -605,6 +605,16 @@ NaN or infinity produced by interpolation or coastal masking is replaced by a
 pre-specified neutral value after finite-difference gradients are computed. The
 resulting observations are checked for finiteness before entering the policy.
 
+Although the native grids and sampling intervals are much coarser than the
+10 min decision step, the environment performs online spatial and temporal
+interpolation at every decision time. Each SUV queries the interpolated field at
+its current position and at the corresponding simulation time, and the same
+interpolated values are used for its observation and for current-induced
+motion. These values are treated as the best available estimates from the
+archive under the stated interpolation scheme, rather than as resolved
+high-resolution truth or statistically optimal reconstructions of unobserved
+sub-grid variability.
+
 Each IBTrACS track is first linearly interpolated to the 10 min simulation
 interval. The cumulative along-track distance is computed using the local
 equirectangular approximation
