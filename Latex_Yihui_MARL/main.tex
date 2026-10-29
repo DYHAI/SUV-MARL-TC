@@ -345,6 +345,12 @@ V_{\max}^{\mathrm{u}}, & m_i(t)=\mathrm{u}.
 \label{eq:speed_constraint}
 \end{equation}
 
+Each simulated episode is assigned to one stage, consistent with the separate
+surface and subsurface environments used in training and evaluation. Thus,
+$m_i(t)$ selects the applicable speed bound and motion law for that episode;
+continuous diving, ballast transitions, and resurfacing are not simulated
+within a single decision trajectory.
+
 The horizontal motion of the SUV is modeled as
 \begin{equation}
 \dot{\mathbf{x}}_i(t)=
