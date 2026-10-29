@@ -246,6 +246,13 @@ experiments evaluate fleets of 8, 12, and 16 vehicles.}
 \end{figure*}
 
 Classical graph-search, sampling-based, potential-field, and model predictive control methods have been used extensively for autonomous vehicle planning. Dijkstra and A* obtain optimal paths on known cost graphs, A* uses a heuristic to reduce search effort, and D* Lite repairs a previous solution when edge costs change \citep{r43,r44}. RRT and RRT* handle high-dimensional and nonholonomic constraints and approach feasible or asymptotically optimal solutions through sampling \citep{r45}. Artificial potential fields are computationally efficient but can become trapped in local minima \citep{r46}. Model predictive control explicitly handles dynamics, energy, and obstacle constraints over a receding horizon, but requires a reliable prediction model and repeated online optimization \citep{r47}. A comprehensive review of AUV planning is given by Panda et al. \citep{r48}. These methods remain valuable when the cost map and dynamics are known. In a TC environment, however, the wind and current fields vary continuously, vehicle ground velocity is the superposition of propulsion and ambient flow, and the moving cost graph would need frequent reconstruction. Each vehicle observes only a local patch, while multiple vehicles are coupled through coverage, redundancy, communication, and coastal safety.
+Traditional planning pipelines often decouple observation from path
+generation: a field estimate, cost map, or waypoint sequence is first
+constructed and then executed. In the RL formulation used here, the current
+measurement directly enters the policy state and changes the next action; that
+action changes the vehicle position and produces a new measurement. Observation
+and motion planning are therefore coupled in one feedback law rather than
+treated as separate sequential modules.
 Reinforcement learning provides an alternative for closed-loop decision making
 under uncertainty. A policy is optimized through repeated interaction with the
 environment and can approximate a state-to-action mapping without explicitly
@@ -787,10 +794,16 @@ observes the updated environment, and repeats:
 \label{eq:closed_loop}
 \end{equation}
 This feedback process allows the fleet to revise its motion as the wind and
-current fields evolve. Because the coupled environment is nonstationary and
-stochastic, closed-loop feedback is a principal distinction from a fixed
-trajectory. The same mechanism can support adaptation to changing local
-observations, partial observability, and deployment uncertainty.
+current fields evolve. The observation is not only an output recorded after
+motion; it is also the next control input that determines subsequent motion.
+Here, "supervision" refers to this measurement-driven feedback role rather than
+to supervised learning with target action labels: the policy is trained from
+scalar rewards, but each new observation directly supervises the next decision
+through the closed-loop state. Because the coupled environment is nonstationary
+and stochastic, this observation--planning coupling is the principal
+distinction from static or decoupled trajectory-planning pipelines. The same
+mechanism supports adaptation to changing local observations, partial
+observability, and deployment uncertainty.
 
 \subsection{Surface and Subsurface Reward Design}
 
