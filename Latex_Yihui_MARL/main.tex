@@ -111,7 +111,7 @@ forecasts are constrained by sparse near-core observations. Conventional
 platforms rarely combine rapid transit, surface-wind sampling, and
 subsurface-current sensing. We develop and evaluate a simulation-based
 multi-agent reinforcement learning framework for surface--subsurface TC
-observation using a parameterized Blue Whale-class submersible unmanned vessel.
+observation using parameterized Blue Whale-class submersible unmanned vessels.
 Event-specific environments combine ERA5 10 m winds, HYCOM currents from 0--60
 m, and IBTrACS tracks for 500 western North Pacific TCs. A parameter-sharing
 IPPO policy maps local observations to continuous commands every 10 min.
@@ -1017,7 +1017,7 @@ hypothesis tests.
 
 \section{Simulation and Results}
 
-\subsection{Surface Active Tracking}
+\subsection{Surface Active Tracking}\label{subsec:surface_results}
 
 Using the surface protocol in Section~\ref{subsec:surface_protocol}, we
 evaluate the extent to which the trained policies reduce forecast-induced
@@ -1162,6 +1162,55 @@ shortening trajectories and reducing mean and peak speed.
 \IfFileExists{tables/surface_control_ablations.tex}{%
 \input{tables/surface_control_ablations.tex}
 }{}
+
+\subsection{Speed-Limit and Deployment-Error Analysis}
+
+The 12 and 20 m/s cases answer different engineering questions. The 12 m/s
+value is close to the published surface-speed scale of the current Blue Whale,
+whereas 20 m/s represents a future high-speed scenario. A simple direct-pursuit
+estimate illustrates why deployment radius changes the effect of this choice.
+If the TC translates at speed \(U_{\mathrm{c}}\) and the SUV moves toward it at
+\(V_{\max}\), the nominal closure rate is approximately
+\begin{equation}
+V_{\mathrm{close}}=V_{\max}-U_{\mathrm{c}}.
+\label{eq:closure_speed}
+\end{equation}
+For a deployment error \(D\), the corresponding correction time is
+\begin{equation}
+t_{\mathrm{corr}}\approx\frac{D}{V_{\mathrm{close}}}.
+\label{eq:correction_time}
+\end{equation}
+This is only a kinematic lower bound because it neglects turning and imperfect
+center estimation, but it exposes the dominant scale. At 100--200 km, both
+speed limits provide enough closure to correct a moderate forecast
+displacement. At 600--800 km, a TC translation speed of 4--7 m/s removes a
+substantial fraction of the 12 m/s speed budget. The required correction time
+can then approach or exceed the 20 h mean segment duration. A 20 m/s vehicle
+retains a larger reserve for reducing initial center error, but its benefit is
+expected mainly at the larger radii; at short radii both cases already have
+sufficient speed.
+
+The radius-dependent pattern reported in Section~\ref{subsec:surface_results} is consistent with this
+closure-rate argument. At the 800 km setting,
+the mean time-averaged distances of the 20 m/s fleets are 585.6--617.0 km,
+compared with 658.2--701.0 km for the 12 m/s fleets. The 12 m/s policy instead
+follows a shorter path, saving 78.7--233.3 km per vehicle on average across the
+five radii and operating at a lower mean speed. This is a genuine
+efficiency--error trade-off: the 12 m/s scenario spends less propulsion effort
+but has less ability to recover a large forecast displacement error. The gap
+is relatively modest at 100--200 km, where both speed caps are adequate, and
+becomes operationally material at 400--800 km.
+
+This mechanism determines how the deployment-error curves should be read.
+Differences between 12 and 20 m/s that grow with radius indicate insufficient
+relative speed for forecast-error correction, whereas a similar residual error
+at both speeds indicates that the limiting factor is observation information,
+formation geometry, or unresolved TC motion rather than the velocity cap. The
+800 km protocol is therefore conservative for the 12 m/s platform: it includes
+errors that cannot always be fully removed within one segment. Operationally,
+that case argues for either a faster platform, a tighter track-forecast error
+envelope, or earlier deployment rather than relying on post-deployment speed
+alone.
 
 \subsection{Underwater Strategy Comparison}
 
@@ -1340,58 +1389,6 @@ the corresponding ground path across depths and speed limits. It is interpreted
 only as a relative computational proxy, not as measured electrical energy.
 }{}
 
-\subsection{Speed-Limit and Deployment-Error Analysis}
-
-The 12 and 20 m/s cases answer different engineering questions. The 12 m/s
-value is close to the published surface-speed scale of the current Blue Whale,
-whereas 20 m/s represents a future high-speed scenario. A simple direct-pursuit
-estimate illustrates why deployment radius changes the effect of this choice.
-If the TC translates at speed \(U_{\mathrm{c}}\) and the SUV moves toward it at
-\(V_{\max}\), the nominal closure rate is approximately
-\begin{equation}
-V_{\mathrm{close}}=V_{\max}-U_{\mathrm{c}}.
-\label{eq:closure_speed}
-\end{equation}
-For a deployment error \(D\), the corresponding correction time is
-\begin{equation}
-t_{\mathrm{corr}}\approx\frac{D}{V_{\mathrm{close}}}.
-\label{eq:correction_time}
-\end{equation}
-This is only a kinematic lower bound because it neglects turning, wind-driven
-deviations, and imperfect center estimation, but it exposes the dominant scale.
-At 100--200 km, both speed limits provide enough closure to correct a moderate
-forecast displacement. At 600--800 km, a TC translation speed of 4--7 m/s
-removes a substantial fraction of the 12 m/s speed budget. The required
-correction time can then approach or exceed the 20 h mean segment duration. A
-20 m/s vehicle retains a larger reserve for reducing initial center error, but
-its benefit is expected mainly at the larger radii; at short radii both cases
-already have sufficient speed.
-
-The ten-seed experiments are consistent with this predicted trend. The 20 m/s
-policy has a smaller mean time-averaged distance in all 20 fleet-size/radius
-combinations, and uncorrected two-sided paired tests indicate a difference at
-$p<0.05$ in 19 of them. The fleet-averaged 12-minus-20 m/s distance difference
-increases from 10.1 km at 100 km to 84.2 km at 800 km. At the 800 km setting,
-the mean time-averaged distances of the 20 m/s fleets are 585.6--617.0 km,
-compared with 658.2--701.0 km for the 12 m/s fleets. The 12 m/s policy instead follows a
-shorter path, saving 78.7--233.3 km per vehicle on average across the five
-radii and operating at a lower mean speed. This is a genuine efficiency--error
-trade-off: the 12 m/s scenario spends less propulsion effort but has
-less ability to recover a large forecast/displacement error. The gap is
-relatively modest at 100--200 km, where both speed caps are adequate, and
-becomes operationally material at 400--800 km.
-
-This mechanism determines how the deployment-error curves should be read.
-Differences between 12 and 20 m/s that grow with radius indicate insufficient
-relative speed for forecast-error correction, whereas a similar residual error
-at both speeds indicates that the limiting factor is observation information,
-formation geometry, or unresolved TC motion rather than the velocity cap. The
-800 km protocol is therefore conservative for the 12 m/s platform: it includes
-errors that cannot always be fully removed within one segment. Operationally,
-that case argues for either a faster platform, a tighter track-forecast error
-envelope, or earlier deployment rather than relying on post-deployment speed
-alone.
-
 \section{Conclusion}
 
 This paper presented a simulation-based multi-agent reinforcement learning
@@ -1410,7 +1407,9 @@ The surface results support an asymmetric surface operating strategy: 20 m/s
 improved long-range error correction, whereas 12 m/s reduced path length and
 mean speed but left a larger residual tracking error. Low-pass filtering
 improved final tracking on average while further reducing path length and peak
-speed. The underwater evaluation is configured to compare
+speed. These results also show the intended observation--planning coupling:
+surface measurements continuously alter the next motion command rather than
+only populating a post hoc map. The underwater evaluation is configured to compare
 active IPPO, random control, and passive drift across all seven depths under
 the corrected unit-disk action and causal five-frame observation
 implementation; final quantitative conclusions are deferred until this matrix
