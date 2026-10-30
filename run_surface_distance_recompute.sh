@@ -4,7 +4,7 @@
 set -u
 cd "$(dirname "$0")"
 
-RL=${PYTHON_BIN:-python}
+RL=/home/ding/main/miniconda3/envs/RL/bin/python
 LOGDIR=logs_surface_final_distance
 mkdir -p "$LOGDIR"
 MAXJOBS=${MAXJOBS:-6}

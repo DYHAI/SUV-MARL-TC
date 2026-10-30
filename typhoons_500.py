@@ -109,10 +109,7 @@ def tag_of(storm):
 
 
 # ---------------------------------------------------------------- 落盘到第二块 NVMe
-STORE_ROOT = os.environ.get(
-    "MARL_STORE_ROOT",
-    os.path.join(T.ROOT, "data", "typhoon500"),
-)
+STORE_ROOT = "/home/ding/main/data/typhoon500"
 _KIND2LINK = {
     "union": "data/union_region",
     "era5_wind": "data/era5_wind",

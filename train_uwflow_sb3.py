@@ -28,7 +28,9 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 BASE = os.path.dirname(os.path.abspath(__file__))
 SPLIT = os.environ.get("SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_64.json"))
 SEGCSV = os.environ.get("SEGMENTS_CSV", os.path.join(BASE, "data", "segments_64.csv"))
-OUT = os.path.join(BASE, "ppo_underwater_fleet")
+OUT = os.path.abspath(
+    os.environ.get("UWFLOW_MODEL_DIR", os.path.join(BASE, "ppo_underwater_fleet"))
+)
 os.makedirs(OUT, exist_ok=True)
 
 TOTAL_STEPS = int(sys.argv[1]) if len(sys.argv) > 1 else 2_000_000

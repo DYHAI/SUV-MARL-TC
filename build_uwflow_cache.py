@@ -12,7 +12,7 @@
 用法：
     python build_uwflow_cache.py <depth_m> [grid_deg] [crop_margin]
 """
-import os, sys, time, gc
+import fcntl, os, sys, time, gc
 import numpy as np
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -21,9 +21,7 @@ os.chdir(ROOT)
 
 import underwater_flow_env as ufe
 
-CACHE_ROOT = os.path.expanduser(
-    os.environ.get("UWFLOW_CACHE_DIR", "~/.cache/auv_tc/uwflow")
-)
+CACHE_ROOT = os.environ.get("UWFLOW_CACHE_DIR", "/home/ding/main/data/uwflow_cache")
 
 FIELDS = ["u", "v", "spd", "dist_to_land", "lon", "lat",
           "track_lon", "track_lat", "track_x", "track_y", "track_cum",
@@ -40,13 +38,28 @@ def main():
     crop = float(sys.argv[3]) if len(sys.argv) > 3 else 3.0
     out = cache_dir(depth, grid, crop)
     os.makedirs(out, exist_ok=True)
+    shard_index = int(os.environ.get("CACHE_SHARD_INDEX", "0"))
+    shard_count = int(os.environ.get("CACHE_SHARD_COUNT", "1"))
+    if shard_count < 1 or not (0 <= shard_index < shard_count):
+        raise ValueError("invalid cache shard configuration")
+    lock_path = os.path.join(out, ".build_s%d_of_%d.lock" % (
+        shard_index, shard_count
+    ))
+    lock_handle = open(lock_path, "w", encoding="utf-8")
+    try:
+        fcntl.flock(lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print("[cache] another builder is active for %s" % out, flush=True)
+        return
 
     storms = sorted(os.listdir(os.path.join(ROOT, "data", "union_region")))
     storms = [s for s in storms
               if os.path.isfile(os.path.join(ROOT, "data", "union_region", s,
                                              "hycom_uv_%dm.nc" % int(depth)))]
-    print("[cache] depth=%g grid=%g crop=%g storms=%d -> %s"
-          % (depth, grid, crop, len(storms), out), flush=True)
+    storms = storms[shard_index::shard_count]
+    print("[cache] depth=%g grid=%g crop=%g shard=%d/%d storms=%d -> %s"
+          % (depth, grid, crop, shard_index, shard_count, len(storms), out),
+          flush=True)
 
     t0 = time.time()
     ok = skip = fail = 0
@@ -83,6 +96,8 @@ def main():
     size = sum(os.path.getsize(os.path.join(out, f)) for f in os.listdir(out)) / 1e9
     print("[cache] DONE depth=%g ok=%d skip=%d fail=%d size=%.2f GB  %.0fs"
           % (depth, ok, skip, fail, size, time.time() - t0), flush=True)
+    fcntl.flock(lock_handle, fcntl.LOCK_UN)
+    lock_handle.close()
 
 
 if __name__ == "__main__":

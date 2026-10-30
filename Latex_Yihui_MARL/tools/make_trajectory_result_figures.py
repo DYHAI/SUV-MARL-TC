@@ -48,6 +48,15 @@ SEGMENTS = ROOT / "data" / "segments_500.csv"
 SURFACE_MATRIX_CASE = ("CHAMPI_2015_2015286", 1518)
 SURFACE_EVOLUTION_CASE = ("CHAMPI_2015_2015286", 1518)
 UNDERWATER_CASE = ("CHAMPI_2015_2015286", 1518)
+UNDERWATER_DEPTHS = (0, 30, 50)
+
+
+def display_storm(storm):
+    """Return a publication label without the internal IBTrACS record ID."""
+    parts = storm.split("_")
+    if len(parts) >= 2 and parts[1].isdigit():
+        return f"{parts[0]} ({parts[1]})"
+    return storm
 FLEETS = (4, 8, 12, 16)
 RADII = (100, 200, 400, 600, 800)
 BETA = 0.8
@@ -306,7 +315,8 @@ def make_surface_snapshots(row, storm):
     cbar = fig.colorbar(mesh, ax=axes, shrink=0.60, pad=0.02)
     cbar.set_label("10 m wind speed (m s$^{-1}$)")
     fig.suptitle(
-        f"Four-SUV surface tracking from a 400 km deployment radius ({storm}, 20 m/s)",
+        "Four-SUV surface tracking from a 400 km deployment radius: "
+        f"{display_storm(storm)}, 20 m/s",
         fontsize=14, fontweight="bold",
     )
     out = FIGDIR / "surface_trajectory_4suv_400km_20ms"
@@ -398,93 +408,134 @@ def draw_current_background(ax, d, speed, extent, vmax):
 
 
 def make_underwater_comparison(row, storm):
-    model = PPO.load(
-        UW_MODELDIR / "ppo_uwflow_500_d30_v2.0_rC_20h_sb3_s0.zip",
-        device="cpu",
+    depth_results = {}
+    common_env = None
+    common_extent = None
+    for depth in UNDERWATER_DEPTHS:
+        model = PPO.load(
+            UW_MODELDIR
+            / f"ppo_uwflow_500_d{depth}_v2.0_rC_20h_sb3_s0.zip",
+            device="cpu",
+        )
+
+        def active(obs, env, model=model):
+            action, _ = model.predict(
+                np.asarray(obs, dtype=np.float32).reshape(-1), deterministic=True
+            )
+            return np.asarray(action, dtype=np.float32).reshape(env.n_auv, 2)
+
+        policies = (
+            ("Active IPPO", active),
+            ("Random control",
+             lambda o, e: np.random.uniform(-1, 1, (e.n_auv, 2))),
+            ("Passive drift",
+             lambda o, e: np.zeros((e.n_auv, 2), dtype=np.float32)),
+        )
+        rows = []
+        for label, policy in policies:
+            env = UnderwaterFleetFlowEnv(
+                storms=[storm],
+                segments_df=pd.DataFrame([row]),
+                vmax=2.0,
+                reward_mode="C",
+                N=1,
+                use_frame_stack=True,
+                frame_k=5,
+                start_radius=200.0,
+                crop_margin=3.0,
+                depth_m=depth,
+                grid_deg=0.25,
+                duration_h=20.0,
+            )
+            trajs, speeds, env = underwater_rollout(env, policy)
+            rows.append((label, trajs, speeds, env))
+            common_env = common_env or env
+            lon_all = np.concatenate([tr[:, 0] for tr in trajs])
+            lat_all = np.concatenate([tr[:, 1] for tr in trajs])
+            local_extent = crop_extent(common_env.d, lon_all, lat_all, margin=0.8)
+            if common_extent is None:
+                common_extent = local_extent
+            else:
+                common_extent = (
+                    min(common_extent[0], local_extent[0]),
+                    max(common_extent[1], local_extent[1]),
+                    min(common_extent[2], local_extent[2]),
+                    max(common_extent[3], local_extent[3]),
+                )
+        depth_results[depth] = rows
+
+    d = common_env.d
+    fig = plt.figure(figsize=(15.0, 4.1 * len(UNDERWATER_DEPTHS)),
+                     layout="constrained")
+    grid = fig.add_gridspec(
+        len(UNDERWATER_DEPTHS), 4,
+        width_ratios=(1.0, 1.0, 1.0, 0.055),
+        wspace=0.08, hspace=0.20,
     )
+    for r, depth in enumerate(UNDERWATER_DEPTHS):
+        vmax = max(
+            float(np.nanpercentile(envx.M_mean, 99))
+            for _, _, _, envx in depth_results[depth]
+        )
+        row_mesh = None
+        for c, (label, trajs, speeds, envx) in enumerate(depth_results[depth]):
+            ax = fig.add_subplot(grid[r, c])
+            row_mesh = draw_current_background(
+                ax, d, envx.M_mean, common_extent, vmax
+            )
+            ax.plot(d["track_lon"], d["track_lat"], color="white",
+                    lw=1.2, ls="--", alpha=0.8, zorder=3)
+            t_start = int(np.argmin(np.hypot(
+                (d["track_lon"] - row["end_lon"])
+                * D2KM * np.cos(np.deg2rad(row["end_lat"])),
+                (d["track_lat"] - row["end_lat"]) * D2KM,
+            )))
+            center_lon = float(d["track_lon"][t_start])
+            center_lat = float(d["track_lat"][t_start])
+            theta = np.linspace(0.0, 2.0 * np.pi, 181)
+            ring_lon = center_lon + 200.0 * np.cos(theta) / (
+                D2KM * np.cos(np.deg2rad(center_lat))
+            )
+            ring_lat = center_lat + 200.0 * np.sin(theta) / D2KM
+            ax.plot(ring_lon, ring_lat, color="white", lw=0.8,
+                    ls=":", alpha=0.75, zorder=2)
+            for i, tr in enumerate(trajs):
+                ax.plot(tr[:, 0], tr[:, 1], color=COLORS[i], lw=1.5, zorder=5)
+                ax.plot(tr[0, 0], tr[0, 1], "o", ms=4, color="white",
+                        mec="#d62728", mew=1.0, zorder=8)
+                add_auv(ax, tr[-1, 0], tr[-1, 1])
+            path = np.mean([
+                np.hypot(
+                    np.diff(tr[:, 0]) * D2KM * np.cos(np.deg2rad(tr[:-1, 1])),
+                    np.diff(tr[:, 1]) * D2KM,
+                ).sum()
+                for tr in trajs
+            ])
+            ax.set_xlim(common_extent[0], common_extent[1])
+            ax.set_ylim(common_extent[2], common_extent[3])
+            ax.set_box_aspect(0.72)
+            ax.set_title(
+                f"{label}\nmean |V|={speeds.mean():.2f} m/s, path={path:.1f} km",
+                fontsize=10,
+            )
+            ax.set_xlabel("Longitude (°E)")
+            ax.set_ylabel("Latitude (°N)")
+            if c == 0:
+                ax.text(
+                    -0.22, 0.5, f"{depth} m",
+                    transform=ax.transAxes, rotation=90,
+                    ha="center", va="center", fontsize=12, fontweight="bold",
+                )
+        cax = fig.add_subplot(grid[r, 3])
+        cbar = fig.colorbar(row_mesh, cax=cax)
+        cbar.set_label(f"{depth} m current speed (m s$^{{-1}}$)")
 
-    def active(obs, env):
-        action, _ = model.predict(
-            np.asarray(obs, dtype=np.float32).reshape(-1), deterministic=True
-        )
-        return np.asarray(action, dtype=np.float32).reshape(env.n_auv, 2)
-
-    policies = (
-        ("Active IPPO", active),
-        ("Random control", lambda o, e: np.random.uniform(-1, 1, (e.n_auv, 2))),
-        ("Passive drift", lambda o, e: np.zeros((e.n_auv, 2), dtype=np.float32)),
-    )
-    results = []
-    base_env = None
-    for label, policy in policies:
-        env = UnderwaterFleetFlowEnv(
-            storms=[storm],
-            segments_df=pd.DataFrame([row]),
-            vmax=2.0,
-            reward_mode="C",
-            N=1,
-            use_frame_stack=True,
-            frame_k=5,
-            start_radius=200.0,
-            crop_margin=3.0,
-            depth_m=30,
-            grid_deg=0.25,
-            duration_h=20.0,
-        )
-        trajs, speeds, env = underwater_rollout(env, policy)
-        results.append((label, trajs, speeds, env))
-        base_env = base_env or env
-
-    d = base_env.d
-    fig, axes = plt.subplots(1, 3, figsize=(15.0, 5.0), layout="constrained")
-    lon_all = np.concatenate([tr[:, 0] for _, trs, _, _ in results for tr in trs])
-    lat_all = np.concatenate([tr[:, 1] for _, trs, _, _ in results for tr in trs])
-    extent = crop_extent(d, lon_all, lat_all, margin=0.8)
-    vmax = max(float(np.nanpercentile(env.M_mean, 99)), 1.0)
-    mesh = None
-    for ax, (label, trajs, speeds, envx) in zip(axes, results):
-        mesh = draw_current_background(ax, d, envx.M_mean, extent, vmax)
-        ax.plot(d["track_lon"], d["track_lat"], color="white",
-                lw=1.2, ls="--", alpha=0.8, zorder=3)
-        t_start = int(np.argmin(np.hypot(
-            (d["track_lon"] - row["end_lon"])
-            * D2KM * np.cos(np.deg2rad(row["end_lat"])),
-            (d["track_lat"] - row["end_lat"]) * D2KM,
-        )))
-        center_lon = float(d["track_lon"][t_start])
-        center_lat = float(d["track_lat"][t_start])
-        theta = np.linspace(0.0, 2.0 * np.pi, 181)
-        ring_lon = center_lon + 200.0 * np.cos(theta) / (
-            D2KM * np.cos(np.deg2rad(center_lat))
-        )
-        ring_lat = center_lat + 200.0 * np.sin(theta) / D2KM
-        ax.plot(ring_lon, ring_lat, color="white", lw=0.8,
-                ls=":", alpha=0.75, zorder=2)
-        for i, tr in enumerate(trajs):
-            ax.plot(tr[:, 0], tr[:, 1], color=COLORS[i], lw=1.5, zorder=5)
-            ax.plot(tr[0, 0], tr[0, 1], "o", ms=4, color="white",
-                    mec="#d62728", mew=1.0, zorder=8)
-            add_auv(ax, tr[-1, 0], tr[-1, 1])
-        path = np.mean([
-            np.hypot(np.diff(tr[:, 0]) * D2KM * np.cos(np.deg2rad(tr[:-1, 1])),
-                     np.diff(tr[:, 1]) * D2KM).sum()
-            for tr in trajs
-        ])
-        ax.set_xlim(extent[0], extent[1]); ax.set_ylim(extent[2], extent[3])
-        ax.set_box_aspect(0.72)
-        ax.set_title(
-            f"{label}\nmean |V|={speeds.mean():.2f} m/s, path={path:.1f} km",
-            fontsize=10,
-        )
-        ax.set_xlabel("Longitude (°E)"); ax.set_ylabel("Latitude (°N)")
-    cbar = fig.colorbar(mesh, ax=axes, shrink=0.78, pad=0.02)
-    cbar.set_label("30 m current speed (m s$^{-1}$)")
     fig.suptitle(
-        f"Representative four-SUV subsurface strategies at 30 m "
-        f"({storm}, Vmax=2.0 m/s, 20 h)",
+        "Representative four-SUV subsurface strategies at 0, 30, and 60 m: "
+        f"{display_storm(storm)}, Vmax=2.0 m/s, 20 h",
         fontsize=14, fontweight="bold",
     )
-    out = FIGDIR / "underwater_strategy_trajectories_30m"
+    out = FIGDIR / "underwater_strategy_trajectories_multidepth"
     fig.savefig(out.with_suffix(".pdf"), bbox_inches="tight")
     fig.savefig(out.with_suffix(".png"), dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -508,6 +559,9 @@ def main():
         & (segments.t0 == underwater_t0)
     ].iloc[0]
     FIGDIR.mkdir(parents=True, exist_ok=True)
+    if os.environ.get("UNDERWATER_ONLY", "0") == "1":
+        make_underwater_comparison(underwater_row, underwater_storm)
+        return
     make_surface_matrix(matrix_row, matrix_storm)
     make_surface_snapshots(evolution_row, evolution_storm)
     make_underwater_comparison(underwater_row, underwater_storm)

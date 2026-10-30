@@ -47,8 +47,9 @@ def main() -> None:
         r"\begin{table*}[htbp]",
         r"\centering",
         r"\caption{Effect of execution-layer low-pass filtering for 4/8/12/16 "
-        r"SUVs on the 500-TC benchmark. The same trained policy is evaluated "
-        r"with the filter off and on ($\beta=0.8$) over 768 held-out segments.}",
+        r"SUVs on 768 held-out segments from 50 unseen TCs in the 500-TC "
+        r"archive. The same trained policy is evaluated with the filter off "
+        r"and on ($\beta=0.8$).}",
         r"\label{tab:surface_control_ablations}",
         r"\scriptsize",
         r"\setlength{\tabcolsep}{2.5pt}",
@@ -56,7 +57,7 @@ def main() -> None:
         r"\resizebox{0.94\textwidth}{!}{%",
         r"\begin{tabular}{@{}llrrrr@{}}",
         r"\toprule",
-        r"Fleet & Filter & Final mean distance (km) & Path per SUV (km) & "
+        r"Fleet & Filter & Final tracking error (km) & Path per SUV (km) & "
         r"Mean speed (m/s) & Maximum speed (m/s) \\",
         r"\midrule",
     ]
@@ -89,7 +90,7 @@ def main() -> None:
         r"\bottomrule",
         r"\end{tabular}}",
         r"\par\smallskip",
-        r"\parbox{0.94\textwidth}{\footnotesize Final mean distance is the "
+        r"\parbox{0.94\textwidth}{\footnotesize Final tracking error is the "
         r"fleet average of the individual SUV-to-best-track-center distances "
         r"at the final time step. Off/on changes only the "
         r"execution-layer filter on the same trained actor.}",

@@ -1,6 +1,8 @@
 """Ten-seed underwater comparison: active policy, random control, passive drift."""
 
 from pathlib import Path
+import subprocess
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -62,9 +64,54 @@ def aggregate(d: pd.DataFrame) -> pd.DataFrame:
                         "mean_speed_ms_std": (
                             part.mean_speed_ms.std(ddof=1) if nseed > 1 else 0.0
                         ),
+                        "energy": part.mean_a2.mean(),
+                        "energy_std": (
+                            part.mean_a2.std(ddof=1) if nseed > 1 else 0.0
+                        ),
                     }
                 )
     return pd.DataFrame(rows)
+
+
+def make_energy_csv(d: pd.DataFrame) -> Path:
+    rows = []
+    for depth in DEPTHS:
+        for speed in SPEEDS:
+            q = d[
+                (d.depth == depth)
+                & (d.vmax == speed)
+                & (d.dur == 20.0)
+            ]
+            active = q[
+                (q.algo == "sb3")
+                & (q.reward == "C")
+                & (q.train_seed >= 0)
+            ]
+            random = q[(q.algo == "random") & (q.reward == "random")]
+            drift = q[(q.algo == "idle") & (q.reward == "idle")]
+            if len(active) != 10 or random.empty or drift.empty:
+                raise ValueError(
+                    f"incomplete underwater data for depth={depth}, vmax={speed}"
+                )
+            for method, part in (
+                ("Active IPPO", active),
+                ("Random", random.iloc[[0]]),
+                ("Passive drift", drift.iloc[[0]]),
+            ):
+                for _, row in part.iterrows():
+                    rows.append(
+                        {
+                            "depth_m": depth,
+                            "vmax_ms": speed,
+                            "method": method,
+                            "energy": row.mean_a2,
+                            "path_km": row.path_km,
+                            "seed": int(row.train_seed),
+                        }
+                    )
+    path = ROOT / "Latex_Yihui_MARL" / "underwater_methods_energy_path.csv"
+    pd.DataFrame(rows).to_csv(path, index=False)
+    return path
 
 
 def make_table(s: pd.DataFrame) -> None:
@@ -78,11 +125,11 @@ def make_table(s: pd.DataFrame) -> None:
         r"episodes and have no training-seed variability.}",
         r"\label{tab:underwater_methods_10seed}",
         r"\small",
-        r"\begin{tabular}{@{}rrlrrrr@{}}",
+        r"\begin{tabular}{@{}rrlrrrrr@{}}",
         r"\toprule",
         r"Depth (m) & $V_{\max}$ (m/s) & Method & "
         r"Mean current (m/s) & Coverage (km$^2$) & "
-        r"Path (km) & Mean ground speed (m/s) \\",
+        r"Path (km) & Mean speed (m/s) & Energy proxy \\",
         r"\midrule",
     ]
     for depth in DEPTHS:
@@ -102,7 +149,8 @@ def make_table(s: pd.DataFrame) -> None:
                     f"{field('mean_current_speed', 3)} & "
                     f"{field('coverage_area_km2', 0)} & "
                     f"{field('path_km', 1)} & "
-                    f"{field('mean_speed_ms', 2)} \\\\"
+                    f"{field('mean_speed_ms', 2)} & "
+                    f"{field('energy', 3)} \\\\"
                 )
             if not (depth == DEPTHS[-1] and speed == SPEEDS[-1]):
                 lines.append(r"\midrule")
@@ -147,9 +195,9 @@ def make_figure(s: pd.DataFrame) -> None:
                     label=method,
                 )
             ax.set_xticks(x, [f"{int(d)} m" for d in DEPTHS])
-            if r == 1:
-                ax.set_xlabel("Ocean depth")
-            else:
+            ax.set_xlabel("Observation depth (m)")
+            ax.set_ylabel(ylabel, fontsize=9)
+            if r == 0:
                 ax.set_title(ylabel)
             ax.text(
                 0.01, 0.98, rf"$V_{{\max}}$ = {speed:.1f} m/s",
@@ -181,6 +229,17 @@ def main() -> None:
     csv_path = ROOT / "Latex_Yihui_MARL" / "underwater_methods_10seed.csv"
     s.to_csv(csv_path, index=False)
     make_figure(s)
+    energy_csv = make_energy_csv(d)
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "plot_final_underwater_results.py"),
+            str(energy_csv),
+            "--out-dir",
+            str(FIGDIR),
+        ],
+        check=True,
+    )
     print(csv_path)
     print(FIGDIR / "underwater_methods_7depth.pdf")
 

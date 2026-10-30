@@ -4,9 +4,8 @@
 set -u
 cd "$(dirname "$0")"
 
-RL=${PYTHON_BIN:-python}
-NAS=${MARL_NAS_ROOT:-$PWD/data/union_current_depths}
-CACHE_ROOT=${UWFLOW_CACHE_DIR:-$HOME/.cache/auv_tc/uwflow}
+RL=/home/ding/main/miniconda3/envs/RL/bin/python
+NAS=/mnt/nas/multi_auv_typhoon_tracking/union_current_depths
 COMPLETE=logs_hycom_depth_10_20_40_60/ALL_CURRENT_DEPTHS_COMPLETE
 LOGDIR=logs_uwflow_7depth
 mkdir -p "$LOGDIR"
@@ -30,10 +29,9 @@ done < <(find "$NAS" -mindepth 2 -maxdepth 2 -type f -name 'hycom_uv_*m.nc' | so
 
 # The 0/30/50 m caches already exist. Build caches for the four new depths.
 for D in 10 20 40 60; do
-  if [ ! -d "$CACHE_ROOT/d${D}_g0.25_c3" ]; then
+  if [ ! -d "/home/ding/main/data/uwflow_cache/d${D}_g0.25_c3" ]; then
     echo "$(date '+%F %T') building cache depth=$D" >> "$LOGDIR/run.log"
-    UWFLOW_CACHE_DIR="$CACHE_ROOT" "$RL" build_uwflow_cache.py "$D" 0.25 3 \
-      >> "$LOGDIR/cache_d${D}.log" 2>&1
+    "$RL" build_uwflow_cache.py "$D" 0.25 3 >> "$LOGDIR/cache_d${D}.log" 2>&1
   fi
 done
 
@@ -49,7 +47,8 @@ MAXJOBS=${MAXJOBS:-3}
 
 nrun() {
   pgrep -af "[t]rain_uwflow_sb3.py" 2>/dev/null |
-    grep -oE 'ppo_uwflow_500_[A-Za-z0-9._]+' | sort -u | wc -l
+    grep -oE 'ppo_uwflow_500_[A-Za-z0-9._]+' |
+    sed 's/\.log$//' | sort -u | wc -l
 }
 
 for D in 0 10 20 30 40 50 60; do
@@ -63,8 +62,7 @@ for D in 0 10 20 30 40 50 60; do
       echo "$(date '+%F %T') training $NAME" >> "$LOGDIR/run.log"
       setsid bash -c "cd '$PWD' || exit 1; \
         SPLIT_JSON='$SPLIT' SEGMENTS_CSV='$SEGS' PRELOAD=1 TRAIN_SEED='$S' \
-        UWFLOW_CACHE_DIR='$CACHE_ROOT' OMP_NUM_THREADS=3 \
-        MKL_NUM_THREADS=3 '$RL' train_uwflow_sb3.py \
+        OMP_NUM_THREADS=3 MKL_NUM_THREADS=3 '$RL' train_uwflow_sb3.py \
         '$STEPS' '$NAME' '$V' C '$D' 20 '$S' 0.25 '$START_KM' '$NENV' \
         >> '$LOGDIR/train_${NAME}.log' 2>&1" < /dev/null &
       sleep 20

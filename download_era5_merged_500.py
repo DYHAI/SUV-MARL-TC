@@ -27,10 +27,7 @@ import cdsapi
 import typhoons_500 as T
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-MERGED_DIR = os.environ.get(
-    "ERA5_MERGED_DIR",
-    os.path.join(ROOT, "data", "era5_merged"),
-)
+MERGED_DIR = "/home/ding/main/data/typhoon500/era5_merged"
 VARS = ["10m_u_component_of_wind", "10m_v_component_of_wind",
         "sea_surface_temperature", "mean_sea_level_pressure"]
 TIMES = [f"{h:02d}:00" for h in range(24)]

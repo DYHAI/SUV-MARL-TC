@@ -16,10 +16,7 @@ import sys
 
 DEFAULT_DEPTHS = (0, 10, 20, 30, 40, 50, 60)
 LOCAL_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "union_region")
-NAS_ROOT = os.environ.get(
-    "MARL_NAS_ROOT",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "union_current_depths"),
-)
+NAS_ROOT = "/mnt/nas/multi_auv_typhoon_tracking/union_current_depths"
 
 
 def tags_from(module: str) -> list[str]:
@@ -32,18 +29,14 @@ def tags_from(module: str) -> list[str]:
     return [line.strip() for line in out.splitlines() if line.strip()]
 
 
-def audit(
-    depths: tuple[int, ...],
-    local_root: str = LOCAL_ROOT,
-    nas_root: str = NAS_ROOT,
-) -> dict[str, object]:
+def audit(depths: tuple[int, ...]) -> dict[str, object]:
     expected = sorted(set(tags_from("typhoons_200") + tags_from("typhoons_500")))
     if len(expected) != 500:
         raise RuntimeError(f"expected 500 unique storm tags, found {len(expected)}")
 
     result: dict[str, object] = {
         "expected_events": len(expected),
-        "roots": [local_root, nas_root],
+        "roots": [LOCAL_ROOT, NAS_ROOT],
         "depths": {},
     }
     for depth in depths:
@@ -51,7 +44,7 @@ def audit(
         for tag in expected:
             name = f"hycom_uv_{depth}m.nc"
             sources = [
-                root for root in (local_root, nas_root)
+                root for root in (LOCAL_ROOT, NAS_ROOT)
                 if os.path.isfile(os.path.join(root, tag, name))
                 and os.path.getsize(os.path.join(root, tag, name)) > 0
             ]
@@ -61,7 +54,7 @@ def audit(
         missing = [tag for tag in expected if tag not in available]
         counts = {
             root: sum(root in sources for sources in available.values())
-            for root in (local_root, nas_root)
+            for root in (LOCAL_ROOT, NAS_ROOT)
         }
         result["depths"][str(depth)] = {
             "available": len(available),
@@ -77,12 +70,10 @@ def main() -> int:
     parser.add_argument("--depths", default=",".join(map(str, DEFAULT_DEPTHS)))
     parser.add_argument("--json")
     parser.add_argument("--print-missing-depths", action="store_true")
-    parser.add_argument("--local-root", default=LOCAL_ROOT)
-    parser.add_argument("--nas-root", default=NAS_ROOT)
     args = parser.parse_args()
 
     depths = tuple(int(item) for item in args.depths.split(",") if item.strip())
-    report = audit(depths, args.local_root, args.nas_root)
+    report = audit(depths)
 
     if args.json:
         with open(args.json, "w", encoding="utf-8") as handle:
@@ -95,8 +86,7 @@ def main() -> int:
         missing = item["missing"]
         print(
             f"{depth:>2} m: {available:3}/500 "
-            f"(local {item['sources'][args.local_root]:3}, "
-            f"NAS {item['sources'][args.nas_root]:3}), "
+            f"(local {item['sources'][LOCAL_ROOT]:3}, NAS {item['sources'][NAS_ROOT]:3}), "
             f"missing {len(missing):3}"
         )
         if missing:

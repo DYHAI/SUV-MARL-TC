@@ -80,7 +80,7 @@ def main() -> None:
     )
     metrics = (
         ("distance", "distance_std", "Time-averaged distance (km)"),
-        ("final_distance", "final_distance_std", "Final distance (km)"),
+        ("final_distance", "final_distance_std", "Final tracking error (km)"),
     )
     colors = {
         4: "#0072B2",
@@ -131,7 +131,7 @@ def main() -> None:
         loc="outside lower center",
     )
     fig.suptitle(
-        "Surface tracking performance across deployment errors",
+        "SUV Surface tracking performance across deployment errors",
         fontsize=14,
         fontweight="bold",
     )

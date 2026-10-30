@@ -43,9 +43,7 @@ _LOAD_CACHE = {}
 # load_storm 优先 mmap 读取：多个训练/评测进程共享同一份 page cache，
 # 载入从 ~50min/450台风 降到 ~1min，且不重复占内存。
 # 只对 (native_res=False, grid_deg=0.25, crop_margin=3.0) 生效，其余走 netCDF。
-_DISK_CACHE_ROOT = os.path.expanduser(
-    os.environ.get("UWFLOW_CACHE_DIR", "~/.cache/auv_tc/uwflow")
-)
+_DISK_CACHE_ROOT = os.environ.get("UWFLOW_CACHE_DIR", "/home/ding/main/data/uwflow_cache")
 
 
 def _disk_cache_path(storm, depth_m, grid_deg, crop_margin, native_res):

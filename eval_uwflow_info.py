@@ -53,7 +53,12 @@ class Actor(nn.Module):
 BASE = os.path.dirname(os.path.abspath(__file__))
 SPLIT = os.environ.get("SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_64.json"))
 SEGCSV = os.environ.get("SEGMENTS_CSV", os.path.join(BASE, "data", "segments_64.csv"))
-OUT = os.path.join(BASE, "ppo_underwater_fleet")
+OUT = os.path.abspath(
+    os.environ.get("UWFLOW_MODEL_DIR", os.path.join(BASE, "ppo_underwater_fleet"))
+)
+EVAL_OUT = os.path.abspath(
+    os.environ.get("UWFLOW_EVAL_DIR", os.path.join(BASE, "eval_out"))
+)
 R_EVAL_KM = 250.0
 IDW_POWER = 2.0
 IDW_K = 8
@@ -315,7 +320,7 @@ def main():
             print("%-30s   ↳ 分层口径: infoLayer=%4.1f%%  coreLayer=%4.1f%%" % (
                 "", df.info_layer_pct.mean(), df.core_layer_pct.mean()), flush=True)
 
-    out = os.path.join(BASE, "eval_out")
+    out = EVAL_OUT
     os.makedirs(out, exist_ok=True)
     tag = "info_d%g_start%g_%gh%s" % (depth, start, dur, os.environ.get("EVAL_TAG", ""))
     pd.DataFrame(rows).to_csv(os.path.join(out, "eval_info_%s.csv" % tag), index=False)

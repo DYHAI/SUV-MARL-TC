@@ -5,8 +5,7 @@
 set -u
 cd "$(dirname "$0")"
 
-RL=${PYTHON_BIN:-python}
-CACHE_ROOT=${UWFLOW_CACHE_DIR:-$HOME/.cache/auv_tc/uwflow}
+RL=/home/ding/main/miniconda3/envs/RL/bin/python
 LOGDIR=logs_uwflow_7depth
 SPLIT="$PWD/data/typhoon_split_500.json"
 SEGS="$PWD/data/segments_500.csv"
@@ -19,7 +18,15 @@ mkdir -p "$LOGDIR"
 
 nrun() {
   pgrep -af "[t]rain_uwflow_sb3.py" 2>/dev/null |
-    grep -oE 'ppo_uwflow_500_[A-Za-z0-9._]+' | sort -u | wc -l
+    awk '$2 ~ /\/python$/ && $3 == "train_uwflow_sb3.py" {print $5}' |
+    sort -u | wc -l
+}
+
+active_model() {
+  pgrep -af "[t]rain_uwflow_sb3.py" 2>/dev/null |
+    awk -v name="$1" \
+      '$2 ~ /\/python$/ && $3 == "train_uwflow_sb3.py" && $5 == name {found=1}
+       END {exit !found}'
 }
 
 for D in $DEPTHS; do
@@ -27,6 +34,7 @@ for D in $DEPTHS; do
     for S in $(seq 0 9); do
       NAME="ppo_uwflow_500_d${D}_v${V}_rC_20h_sb3_s${S}"
       [ -f "ppo_underwater_fleet/${NAME}.zip" ] && continue
+      active_model "$NAME" && continue
       while [ "$(nrun)" -ge "$MAXJOBS" ]; do
         sleep 30
       done
@@ -34,8 +42,7 @@ for D in $DEPTHS; do
         >> "$LOGDIR/complete_depths_run.log"
       setsid bash -c "cd '$PWD' || exit 1; \
         SPLIT_JSON='$SPLIT' SEGMENTS_CSV='$SEGS' PRELOAD=1 TRAIN_SEED='$S' \
-        UWFLOW_CACHE_DIR='$CACHE_ROOT' OMP_NUM_THREADS=3 \
-        MKL_NUM_THREADS=3 '$RL' train_uwflow_sb3.py \
+        OMP_NUM_THREADS=3 MKL_NUM_THREADS=3 '$RL' train_uwflow_sb3.py \
         '$STEPS' '$NAME' '$V' C '$D' 20 '$S' 0.25 '$START_KM' '$NENV' \
         >> '$LOGDIR/train_${NAME}.log' 2>&1" < /dev/null &
       sleep 20
