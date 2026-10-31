@@ -205,7 +205,7 @@ def main():
     ax2 = fig.add_subplot(gs[0, 1])
     cax1 = fig.add_subplot(gs[1, 0])
     cax2 = fig.add_subplot(gs[1, 1])
-    fig.suptitle("Multi-SUV surface--subsurface observation under TC conditions",
+    fig.suptitle("Multi-SUV surface-subsurface observation under TC conditions",
                  fontsize=24, fontweight="bold", y=0.965)
 
     draw_land(ax1, ocean_w, wlon, wlat)

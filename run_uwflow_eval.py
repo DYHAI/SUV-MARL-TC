@@ -12,6 +12,7 @@ Output:
     eval_out/eval_info_info_d<depth>_start200_<dur>h_v<vmax>_500.csv
 """
 import os, sys, glob, subprocess, time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -31,6 +32,7 @@ DEPTHS = [float(x) for x in (sys.argv[2] if len(sys.argv) > 2 else "0 30 50").sp
 VMAXES = [float(x) for x in (sys.argv[3] if len(sys.argv) > 3 else "1.5 2.0").split()]
 DURS = [float(x) for x in (sys.argv[4] if len(sys.argv) > 4 else "10 20").split()]
 START_KM = 200.0
+PARALLEL = int(os.environ.get("UWFLOW_EVAL_WORKERS", "4"))
 
 
 def models_for(depth, vmax, dur):
@@ -42,6 +44,29 @@ def models_for(depth, vmax, dur):
     )
     files = sorted(glob.glob(pat))
     return [os.path.basename(f) for f in files]
+
+
+def evaluate_combo(depth, vmax, dur, models):
+    tag = "d%g_v%.1f_%gh" % (depth, vmax, dur)
+    log = os.path.join(LOGDIR, tag + ".log")
+    result_name = (
+        "eval_info_info_d%g_start%g_%gh_v%g_500.csv"
+        % (depth, START_KM, dur, vmax)
+    )
+    env = dict(os.environ)
+    env.update({
+        "VMAX": str(vmax), "REWARD": "C", "GRID_DEG": "0.25",
+        "SPLIT_JSON": SPLIT, "SEGMENTS_CSV": SEGS,
+        "EVAL_TAG": "_v%g_500" % vmax,
+        "OMP_NUM_THREADS": os.environ.get("OMP_THREADS", "4"),
+        "MKL_NUM_THREADS": os.environ.get("OMP_THREADS", "4"),
+    })
+    argv = [RL, "eval_uwflow_info.py", str(N_SEED), "%g" % depth,
+            "%g" % START_KM, "%g" % dur] + models
+    t0 = time.time()
+    with open(log, "w") as f:
+        rc = subprocess.call(argv, env=env, stdout=f, stderr=subprocess.STDOUT)
+    return tag, rc, (time.time() - t0) / 60.0, log, result_name
 
 
 def main():
@@ -60,10 +85,9 @@ def main():
                 todo.append((depth, vmax, dur, ms))
     print("[eval] combos=%d n_seed=%d" % (len(todo), N_SEED), flush=True)
 
-    for i, (depth, vmax, dur, ms) in enumerate(todo, 1):
+    pending = []
+    for depth, vmax, dur, ms in todo:
         tag = "d%g_v%.1f_%gh" % (depth, vmax, dur)
-        log = os.path.join(LOGDIR, tag + ".log")
-        print("[%d/%d] %s  models=%d" % (i, len(todo), tag, len(ms)), flush=True)
         result_name = (
             "eval_info_info_d%g_start%g_%gh_v%g_500.csv"
             % (depth, START_KM, dur, vmax)
@@ -75,22 +99,24 @@ def main():
                cached["policy"].nunique() == N_SEED + 2:
                 print("      -> reuse complete result %s" % result_name, flush=True)
                 continue
-        env = dict(os.environ)
-        env.update({
-            "VMAX": str(vmax), "REWARD": "C", "GRID_DEG": "0.25",
-            "SPLIT_JSON": SPLIT, "SEGMENTS_CSV": SEGS,
-            "EVAL_TAG": "_v%g_500" % vmax,
-            "OMP_NUM_THREADS": os.environ.get("OMP_THREADS", "4"),
-            "MKL_NUM_THREADS": os.environ.get("OMP_THREADS", "4"),
-        })
-        argv = [RL, "eval_uwflow_info.py", str(N_SEED), "%g" % depth,
-                "%g" % START_KM, "%g" % dur] + ms
-        t0 = time.time()
-        with open(log, "w") as f:
-            rc = subprocess.call(argv, env=env, stdout=f, stderr=subprocess.STDOUT)
-        print("      -> rc=%d  %.1f min  %s" % (rc, (time.time() - t0) / 60.0, log), flush=True)
-        if rc:
-            failures.append(tag)
+        pending.append((tag, depth, vmax, dur, ms))
+
+    workers = max(1, min(PARALLEL, len(pending)))
+    print("[eval] pending=%d parallel=%d" % (len(pending), workers), flush=True)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(evaluate_combo, depth, vmax, dur, ms): tag
+            for tag, depth, vmax, dur, ms in pending
+        }
+        for future in as_completed(futures):
+            tag, rc, elapsed, log, _result_name = future.result()
+            print(
+                "      -> %s rc=%d  %.1f min  %s"
+                % (tag, rc, elapsed, log),
+                flush=True,
+            )
+            if rc:
+                failures.append(tag)
     if failures:
         raise SystemExit("evaluation failed for: " + ", ".join(failures))
     print("[eval] ALL DONE", flush=True)

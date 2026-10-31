@@ -260,7 +260,10 @@ Files:
 - The seven-depth completion pipeline now retrains all seven depths under the
   corrected implementation after the current HYCOM current archive finishes.
 
-### Interim 40/60 m seven-depth experiment (2026-10-30)
+### Superseded interim 40/60 m seven-depth experiment (2026-10-30)
+
+This section is retained only as development history. Its partial-archive
+weights and results are not manuscript evidence.
 
 - Frozen partial archives: 40 m used 200 training TCs and 3,123 segments;
   60 m used 203 training TCs and 3,094 segments.
@@ -305,3 +308,59 @@ Files:
   surface findings, subsurface findings, and limitations.
 - Consolidated Appendix Table A.2 into grouped rows so that it fits on one
   page without a caption-only or overlap page.
+
+### Abstract and HYCOM mirror update (2026-10-30)
+
+- Rewrote the abstract to 249 words with a clearer problem--method--evidence--
+  implication structure, including the surface-to-60 m transit/dive concept,
+  upper-ocean temperature--salinity--current observation goal, and the
+  requirement for autonomous decisions from environmental observations alone.
+- Added `NCSS_BASE` support to the HYCOM downloaders and switched the 40/60 m
+  recovery pool to `https://tds.hycom.org/thredds/ncss/grid/` after
+  `ncss.hycom.org` began returning persistent HTTP 500/502 and empty replies.
+- Added `watch_hycom_tds_40_60.py`, which keeps the 40/60 m tds download pool
+  populated until the archive audit reaches 500/500 at both depths.
+
+### Full-description rollback to the 2026-10-30 09:32 PDF
+
+- Restored the complete manuscript prose from the `main(3).pdf` version
+  compiled at 2026-10-30 09:32:55 CST.
+- The source was reconstructed by replaying the recorded edit history from the
+  copied `main_revised_keep_ippo.tex` base and verified against the attached PDF
+  text.
+- Preserved the later author-list correction: Fangzheng Qi remains the third
+  author between Xiwen Ma and Wenlei Peng.
+- Saved the superseded prose version as `main_20261030_before_rollback.tex`.
+- Consolidated the restored abstract into one paragraph of 249 words while
+  retaining the rolled-back manuscript's experiment settings and numerical
+  ranges.
+
+### Final complete seven-depth experiment (2026-10-31)
+
+- Completed the 40 and 60 m HYCOM current archives at 500 events each. The
+  final missing TDS case, `JANGMI_2014_2014362`, required stitching the
+  2014/2015 archive boundary; the resulting 40/60 m files contain the same 39
+  time slices as the completed 10/20/30/50 m files.
+- Rebuilt all seven 0.25-degree caches from the complete archives; every depth
+  contains 500 storm caches.
+- Trained 140 corrected final models: seven depths x two propulsion limits x
+  ten independent active-policy seeds.
+- Evaluated active IPPO, random control, and passive drift on the same 500
+  held-out episodes (50 TCs x 10 deployment seeds). The final matrix contains
+  14/14 complete evaluation files with 6,000 policy-episode rows each.
+- Final active-versus-drift ranges are +2.11% to +5.36% mean experienced
+  current speed, 3.63x to 7.27x path length, and 3.25x to 5.70x coverage.
+  Every one of the 14 depth/speed configurations has a higher mean current
+  speed than drift and random control.
+- Active 2.0 m/s paths are 1.24--1.31 times longer than active 1.5 m/s paths.
+  Of 140 seed-configuration comparisons, active control wins 133; uncorrected
+  paired tests identify 117 significant improvements and three significant
+  deficits.
+- Replaced all interim/preview fallbacks in `main.tex` with fixed final figure
+  inputs. Updated the abstract, underwater results, and conclusion to the
+  complete seven-depth ranges and added the propulsion-proxy cost.
+- Fixed two aggregation blockers: the underwater table generator is now
+  called by `aggregate_underwater_method_ablation.py`, and the final plotting
+  script compares speed sets independent of the requested plotting order.
+- `verify_uwflow_completion.py` passes with 7 x 500 archives/caches, 140/140
+  models, 14/14 evaluations, and all final figures/tables present.

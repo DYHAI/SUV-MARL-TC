@@ -28,15 +28,16 @@ OUTROOT = os.environ.get(
 DEPTH = int(sys.argv[3]) if len(sys.argv) > 3 else 50
 CHUNK_H = int(os.environ.get("CHUNK_H", "24"))
 
-NCSS_93 = ("https://ncss.hycom.org/thredds/ncss/grid/GLBy0.08/expt_93.0/uv3z/{year}"
+NCSS_BASE = os.environ.get("NCSS_BASE", "https://ncss.hycom.org/thredds/ncss/grid/")
+NCSS_93 = (f"{NCSS_BASE}GLBy0.08/expt_93.0/uv3z/{{year}}"
            "?var=water_u&var=water_v&vertCoord={depth}&accept=netcdf4"
            "&north={north}&west={west}&east={east}&south={south}"
            "&time_start={t0}&time_end={t1}")
-NCSS_ESPC_U = ("https://ncss.hycom.org/thredds/ncss/grid/ESPC-D-V02/u3z/{year}"
+NCSS_ESPC_U = (f"{NCSS_BASE}ESPC-D-V02/u3z/{{year}}"
                "?var=water_u&vertCoord={depth}&accept=netcdf4"
                "&north={north}&west={west}&east={east}&south={south}"
                "&time_start={t0}&time_end={t1}")
-NCSS_ESPC_V = ("https://ncss.hycom.org/thredds/ncss/grid/ESPC-D-V02/v3z/{year}"
+NCSS_ESPC_V = (f"{NCSS_BASE}ESPC-D-V02/v3z/{{year}}"
                "?var=water_v&vertCoord={depth}&accept=netcdf4"
                "&north={north}&west={west}&east={east}&south={south}"
                "&time_start={t0}&time_end={t1}")

@@ -17,22 +17,18 @@ The environments are event-specific simulations driven by ERA5, HYCOM, and
 IBTrACS reanalysis/best-track products. The final manuscript is in
 [`Latex_Yihui_MARL/`](Latex_Yihui_MARL/).
 
-## Current Status
+## Final Status
 
+- The 500-TC HYCOM current archive is complete at every evaluated depth from
+  0 to 60 m.
+- The corrected underwater matrix is complete: seven depths, two propulsion
+  limits, ten independent active-policy seeds, and paired random-control and
+  passive-drift baselines.
 - The surface 12/20 m/s matrix is complete for 4/8/12/16 SUVs, ten seeds, and
   deployment radii of 100/200/400/600/800 km.
-- The execution-filter ablation includes final-distance and trajectory metrics.
-- The final-distance recomputation for the two-panel surface figure is being
-  completed.
-- The underwater implementation was corrected to enforce unit-disk action
-  projection and to update the five-frame current history at every step.
-- All seven underwater depths must therefore be retrained. Pre-correction
-  weights are excluded from this public repository.
-- Corrected training has started for the complete 0/30/50 m layers; the public
-  result files will be updated only after the full seven-depth matrix is frozen.
-- The seven-depth data archive and retraining pipeline are in progress.
-  Manuscript preview figures are explicitly marked and must be replaced by the
-  final matrix before submission.
+- Final processed results and the compiled manuscript are included. Large
+  model weights, caches, raw NetCDF files, and experimental logs are excluded
+  from this public repository.
 
 ## Key Experimental Design
 
@@ -156,13 +152,6 @@ $PYTHON_BIN make_surface_control_ablation_table.py
 
 ### 3. Train and evaluate the seven-depth underwater matrix
 
-For complete depths that can start before the whole archive is finished:
-
-```bash
-DEPTHS="0 30 50" MAXJOBS=3 \
-  PYTHON_BIN="$PYTHON_BIN" bash run_uwflow_complete_depths_first.sh
-```
-
 After all seven depths are complete:
 
 ```bash
@@ -171,6 +160,11 @@ PYTHON_BIN="$PYTHON_BIN" bash run_uwflow_7depth_completion.sh
 
 The pipeline builds caches, trains the remaining models, evaluates active
 IPPO/random/drift policies, and regenerates the final seven-depth outputs.
+The final artifact check is:
+
+```bash
+$PYTHON_BIN verify_uwflow_completion.py
+```
 
 ### 4. Build the manuscript
 
@@ -181,7 +175,7 @@ tectonic -X compile --keep-intermediates --keep-logs main.tex
 
 The generated PDF is `Latex_Yihui_MARL/main.pdf`.
 
-## Main Results Available Now
+## Main Results
 
 Across the twenty matched fleet-size/deployment-radius comparisons, the
 time-averaged distance is lower for the 20 m/s policy in all 20 cases. The
@@ -193,8 +187,12 @@ filter ablation, the four-fleet mean final distance decreases from 346.4 to
 292.6 km after filtering, while path length, mean speed, and maximum speed also
 decrease.
 
-Final underwater conclusions are intentionally deferred until all seven depths
-have been retrained with the corrected implementation.
+In the final seven-depth underwater experiment, active IPPO has a higher mean
+experienced current speed than both random control and passive drift in every
+depth/speed configuration. Relative to passive drift, mean current exposure
+increases by 2.11--5.36%, path length by 3.63--7.27 times, and spatial coverage
+by 3.25--5.70 times. Active 2.0 m/s paths are 1.24--1.31 times longer than
+active 1.5 m/s paths.
 
 ## Parameters Implemented in Code
 
@@ -233,6 +231,7 @@ appendix.
 ├── Latex_Yihui_MARL/          Final manuscript, figures, tables, bibliography
 ├── docs/                      Data and reproducibility documentation
 ├── results/surface/           Processed ten-seed surface result tables
+├── results/underwater/        Final seven-depth ten-seed evaluation outputs
 ├── fleet_segment_env.py       Surface multi-SUV environment
 ├── underwater_fleet_flow_env.py
 ├── train_fleet_segment_actfilter.py

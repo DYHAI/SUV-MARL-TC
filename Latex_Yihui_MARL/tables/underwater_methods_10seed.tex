@@ -1,0 +1,67 @@
+\begin{table*}[p]
+\centering
+\caption{Ten-seed comparison of active control, random control, and passive drift in the 20 h subsurface task. Values are means $\pm$ sample standard deviations across ten trained active-policy seeds. Random control and passive drift share the same 500 evaluation episodes and have no training-seed variability.}
+\label{tab:underwater_methods_10seed}
+\small
+\begin{tabular}{@{}rrlrrrrr@{}}
+\toprule
+Depth (m) & $V_{\max}$ (m/s) & Method & Mean current (m/s) & Coverage (km$^2$) & Path (km) & Mean speed (m/s) & Energy proxy \\
+\midrule
+0 & 2.0 & Active IPPO & 0.544$\pm$0.007 & 4386$\pm$97 & 155.1$\pm$3.8 & 2.28$\pm$0.06 & 1.532$\pm$0.122 \\
+0 & 2.0 & Random & 0.522 & 1474 & 99.3 & 1.46 & 0.664 \\
+0 & 2.0 & Passive drift & 0.521 & 1084 & 33.6 & 0.49 & 0.000 \\
+\midrule
+0 & 1.5 & Active IPPO & 0.532$\pm$0.009 & 3527$\pm$196 & 122.1$\pm$5.4 & 1.80$\pm$0.08 & 1.487$\pm$0.129 \\
+0 & 1.5 & Random & 0.522 & 1323 & 77.8 & 1.15 & 0.664 \\
+0 & 1.5 & Passive drift & 0.521 & 1084 & 33.6 & 0.49 & 0.000 \\
+\midrule
+10 & 2.0 & Active IPPO & 0.475$\pm$0.004 & 4172$\pm$292 & 147.1$\pm$10.4 & 2.17$\pm$0.15 & 1.440$\pm$0.232 \\
+10 & 2.0 & Random & 0.460 & 1349 & 97.5 & 1.44 & 0.663 \\
+10 & 2.0 & Passive drift & 0.460 & 969 & 29.4 & 0.43 & 0.000 \\
+\midrule
+10 & 1.5 & Active IPPO & 0.471$\pm$0.006 & 3417$\pm$163 & 118.3$\pm$4.1 & 1.75$\pm$0.06 & 1.502$\pm$0.202 \\
+10 & 1.5 & Random & 0.460 & 1208 & 75.7 & 1.12 & 0.663 \\
+10 & 1.5 & Passive drift & 0.460 & 969 & 29.4 & 0.43 & 0.000 \\
+\midrule
+20 & 2.0 & Active IPPO & 0.447$\pm$0.009 & 4241$\pm$121 & 148.4$\pm$3.8 & 2.20$\pm$0.06 & 1.525$\pm$0.127 \\
+20 & 2.0 & Random & 0.432 & 1307 & 96.6 & 1.44 & 0.663 \\
+20 & 2.0 & Passive drift & 0.432 & 921 & 27.5 & 0.41 & 0.000 \\
+\midrule
+20 & 1.5 & Active IPPO & 0.446$\pm$0.005 & 3449$\pm$160 & 118.8$\pm$2.0 & 1.77$\pm$0.03 & 1.529$\pm$0.112 \\
+20 & 1.5 & Random & 0.432 & 1159 & 74.8 & 1.11 & 0.663 \\
+20 & 1.5 & Passive drift & 0.432 & 921 & 27.5 & 0.41 & 0.000 \\
+\midrule
+30 & 2.0 & Active IPPO & 0.408$\pm$0.009 & 3995$\pm$261 & 140.6$\pm$8.1 & 2.12$\pm$0.12 & 1.470$\pm$0.244 \\
+30 & 2.0 & Random & 0.398 & 1238 & 94.7 & 1.43 & 0.663 \\
+30 & 2.0 & Passive drift & 0.398 & 850 & 25.1 & 0.38 & 0.000 \\
+\midrule
+30 & 1.5 & Active IPPO & 0.409$\pm$0.006 & 3221$\pm$198 & 112.2$\pm$3.5 & 1.69$\pm$0.05 & 1.478$\pm$0.193 \\
+30 & 1.5 & Random & 0.398 & 1097 & 73.0 & 1.10 & 0.663 \\
+30 & 1.5 & Passive drift & 0.398 & 850 & 25.1 & 0.38 & 0.000 \\
+\midrule
+40 & 2.0 & Active IPPO & 0.366$\pm$0.009 & 4066$\pm$102 & 141.2$\pm$2.1 & 2.11$\pm$0.03 & 1.604$\pm$0.137 \\
+40 & 2.0 & Random & 0.357 & 1156 & 92.8 & 1.39 & 0.663 \\
+40 & 2.0 & Passive drift & 0.356 & 765 & 22.2 & 0.33 & 0.000 \\
+\midrule
+40 & 1.5 & Active IPPO & 0.366$\pm$0.007 & 3147$\pm$194 & 107.6$\pm$4.6 & 1.61$\pm$0.07 & 1.471$\pm$0.219 \\
+40 & 1.5 & Random & 0.356 & 1016 & 71.2 & 1.07 & 0.663 \\
+40 & 1.5 & Passive drift & 0.356 & 765 & 22.2 & 0.33 & 0.000 \\
+\midrule
+50 & 2.0 & Active IPPO & 0.333$\pm$0.004 & 3771$\pm$250 & 133.7$\pm$4.8 & 2.04$\pm$0.07 & 1.499$\pm$0.214 \\
+50 & 2.0 & Random & 0.317 & 1072 & 90.2 & 1.38 & 0.663 \\
+50 & 2.0 & Passive drift & 0.316 & 680 & 19.2 & 0.30 & 0.000 \\
+\midrule
+50 & 1.5 & Active IPPO & 0.325$\pm$0.007 & 2980$\pm$257 & 101.9$\pm$5.9 & 1.56$\pm$0.09 & 1.439$\pm$0.256 \\
+50 & 1.5 & Random & 0.317 & 932 & 69.0 & 1.06 & 0.663 \\
+50 & 1.5 & Passive drift & 0.316 & 680 & 19.2 & 0.30 & 0.000 \\
+\midrule
+60 & 2.0 & Active IPPO & 0.306$\pm$0.006 & 3546$\pm$306 & 124.6$\pm$7.3 & 1.97$\pm$0.11 & 1.440$\pm$0.268 \\
+60 & 2.0 & Random & 0.293 & 1014 & 87.3 & 1.38 & 0.663 \\
+60 & 2.0 & Passive drift & 0.292 & 622 & 17.1 & 0.27 & 0.000 \\
+\midrule
+60 & 1.5 & Active IPPO & 0.301$\pm$0.005 & 2905$\pm$158 & 98.7$\pm$4.9 & 1.56$\pm$0.07 & 1.491$\pm$0.193 \\
+60 & 1.5 & Random & 0.292 & 879 & 66.5 & 1.05 & 0.663 \\
+60 & 1.5 & Passive drift & 0.292 & 622 & 17.1 & 0.27 & 0.000 \\
+\bottomrule
+\end{tabular}
+\end{table*}

@@ -9,12 +9,15 @@ authors:
     given-names: Xiwen
   - family-names: Peng
     given-names: Wenlei
+  - family-names: Qi
+    given-names: Fangzheng
   - family-names: Yang
     given-names: Jingsong
 repository-code: "https://github.com/DYHAI/SUV-MARL-TC"
-date-released: "2026-10-29"
+date-released: "2026-10-31"
 keywords:
   - tropical cyclone
+  - cooperative task
   - multi-agent reinforcement learning
   - autonomous underwater vehicle
   - IPPO

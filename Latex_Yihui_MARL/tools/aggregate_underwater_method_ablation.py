@@ -1,8 +1,6 @@
 """Ten-seed underwater comparison: active policy, random control, passive drift."""
 
 from pathlib import Path
-import subprocess
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -73,47 +71,6 @@ def aggregate(d: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def make_energy_csv(d: pd.DataFrame) -> Path:
-    rows = []
-    for depth in DEPTHS:
-        for speed in SPEEDS:
-            q = d[
-                (d.depth == depth)
-                & (d.vmax == speed)
-                & (d.dur == 20.0)
-            ]
-            active = q[
-                (q.algo == "sb3")
-                & (q.reward == "C")
-                & (q.train_seed >= 0)
-            ]
-            random = q[(q.algo == "random") & (q.reward == "random")]
-            drift = q[(q.algo == "idle") & (q.reward == "idle")]
-            if len(active) != 10 or random.empty or drift.empty:
-                raise ValueError(
-                    f"incomplete underwater data for depth={depth}, vmax={speed}"
-                )
-            for method, part in (
-                ("Active IPPO", active),
-                ("Random", random.iloc[[0]]),
-                ("Passive drift", drift.iloc[[0]]),
-            ):
-                for _, row in part.iterrows():
-                    rows.append(
-                        {
-                            "depth_m": depth,
-                            "vmax_ms": speed,
-                            "method": method,
-                            "energy": row.mean_a2,
-                            "path_km": row.path_km,
-                            "seed": int(row.train_seed),
-                        }
-                    )
-    path = ROOT / "Latex_Yihui_MARL" / "underwater_methods_energy_path.csv"
-    pd.DataFrame(rows).to_csv(path, index=False)
-    return path
-
-
 def make_table(s: pd.DataFrame) -> None:
     lines = [
         r"\begin{table*}[p]",
@@ -161,7 +118,11 @@ def make_table(s: pd.DataFrame) -> None:
 def make_figure(s: pd.DataFrame) -> None:
     plt.rcParams.update({"font.size": 10, "axes.titlesize": 11})
     fig, axes = plt.subplots(
-        2, 2, figsize=(10.0, 6.4), constrained_layout=True
+        2, 2, figsize=(10.0, 6.8)
+    )
+    fig.subplots_adjust(
+        left=0.09, right=0.98, top=0.84, bottom=0.10,
+        hspace=0.34, wspace=0.24,
     )
     metrics = [
         ("path_km", "Motion path length per SUV (km)"),
@@ -200,17 +161,25 @@ def make_figure(s: pd.DataFrame) -> None:
             if r == 0:
                 ax.set_title(ylabel)
             ax.text(
-                0.01, 0.98, rf"$V_{{\max}}$ = {speed:.1f} m/s",
-                transform=ax.transAxes, ha="left", va="top",
+                0.98, 0.96, rf"$V_{{\max}}$ = {speed:.1f} m/s",
+                transform=ax.transAxes, ha="right", va="top",
                 fontsize=10, fontweight="bold",
             )
             ax.grid(axis="y", alpha=0.22)
     handles, labels = axes[0, 0].get_legend_handles_labels()
-    fig.legend(handles, labels, frameon=False, ncol=3, loc="upper center")
+    fig.legend(
+        handles,
+        labels,
+        frameon=False,
+        ncol=3,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.915),
+    )
     fig.suptitle(
-        "Ten-seed subsurface strategy comparison across 0--60 m (20 h)",
+        "Subsurface strategy comparison across 0-60m",
         fontsize=15,
         fontweight="bold",
+        y=0.99,
     )
     fig.savefig(
         FIGDIR / "underwater_methods_7depth.pdf", bbox_inches="tight"
@@ -228,18 +197,8 @@ def main() -> None:
     FIGDIR.mkdir(parents=True, exist_ok=True)
     csv_path = ROOT / "Latex_Yihui_MARL" / "underwater_methods_10seed.csv"
     s.to_csv(csv_path, index=False)
+    make_table(s)
     make_figure(s)
-    energy_csv = make_energy_csv(d)
-    subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "plot_final_underwater_results.py"),
-            str(energy_csv),
-            "--out-dir",
-            str(FIGDIR),
-        ],
-        check=True,
-    )
     print(csv_path)
     print(FIGDIR / "underwater_methods_7depth.pdf")
 

@@ -265,7 +265,8 @@ def make_surface_matrix(row, storm):
     cbar = fig.colorbar(mesh, ax=axes, shrink=0.62, pad=0.018)
     cbar.set_label("10 m wind speed (m s$^{-1}$)")
     fig.suptitle(
-        "Representative surface trajectories for 4/8/12/16 SUVs at five deployment radii (20 m/s)",
+        "Representative surface trajectories for 4/8/12/16 SUVs at five "
+        r"deployment radii ($V_{\max}$=20 m/s)",
         fontsize=15, fontweight="bold",
     )
     out = FIGDIR / "surface_trajectory_matrix_20ms"
@@ -315,8 +316,7 @@ def make_surface_snapshots(row, storm):
     cbar = fig.colorbar(mesh, ax=axes, shrink=0.60, pad=0.02)
     cbar.set_label("10 m wind speed (m s$^{-1}$)")
     fig.suptitle(
-        "Four-SUV surface tracking from a 400 km deployment radius: "
-        f"{display_storm(storm)}, 20 m/s",
+        "Four-SUV surface tracking from a 400 km deployment radius",
         fontsize=14, fontweight="bold",
     )
     out = FIGDIR / "surface_trajectory_4suv_400km_20ms"
@@ -408,6 +408,13 @@ def draw_current_background(ax, d, speed, extent, vmax):
 
 
 def make_underwater_comparison(row, storm):
+    plt.rcParams.update({
+        "font.size": 12,
+        "axes.labelsize": 13,
+        "axes.titlesize": 14,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+    })
     depth_results = {}
     common_env = None
     common_extent = None
@@ -465,7 +472,7 @@ def make_underwater_comparison(row, storm):
         depth_results[depth] = rows
 
     d = common_env.d
-    fig = plt.figure(figsize=(15.0, 4.1 * len(UNDERWATER_DEPTHS)),
+    fig = plt.figure(figsize=(15.5, 4.7 * len(UNDERWATER_DEPTHS)),
                      layout="constrained")
     grid = fig.add_gridspec(
         len(UNDERWATER_DEPTHS), 4,
@@ -516,7 +523,7 @@ def make_underwater_comparison(row, storm):
             ax.set_box_aspect(0.72)
             ax.set_title(
                 f"{label}\nmean |V|={speeds.mean():.2f} m/s, path={path:.1f} km",
-                fontsize=10,
+                fontsize=14,
             )
             ax.set_xlabel("Longitude (°E)")
             ax.set_ylabel("Latitude (°N)")
@@ -524,16 +531,16 @@ def make_underwater_comparison(row, storm):
                 ax.text(
                     -0.22, 0.5, f"{depth} m",
                     transform=ax.transAxes, rotation=90,
-                    ha="center", va="center", fontsize=12, fontweight="bold",
+                    ha="center", va="center", fontsize=16, fontweight="bold",
                 )
         cax = fig.add_subplot(grid[r, 3])
         cbar = fig.colorbar(row_mesh, cax=cax)
         cbar.set_label(f"{depth} m current speed (m s$^{{-1}}$)")
+        cbar.ax.tick_params(labelsize=11)
 
     fig.suptitle(
-        "Representative four-SUV subsurface strategies at 0, 30, and 60 m: "
-        f"{display_storm(storm)}, Vmax=2.0 m/s, 20 h",
-        fontsize=14, fontweight="bold",
+        "Representative four-SUV subsurface strategies at 0, 30, and 50 m",
+        fontsize=18, fontweight="bold",
     )
     out = FIGDIR / "underwater_strategy_trajectories_multidepth"
     fig.savefig(out.with_suffix(".pdf"), bbox_inches="tight")
@@ -561,6 +568,9 @@ def main():
     FIGDIR.mkdir(parents=True, exist_ok=True)
     if os.environ.get("UNDERWATER_ONLY", "0") == "1":
         make_underwater_comparison(underwater_row, underwater_storm)
+        return
+    if os.environ.get("SURFACE_ONLY", "0") == "1":
+        make_surface_snapshots(evolution_row, evolution_storm)
         return
     make_surface_matrix(matrix_row, matrix_storm)
     make_surface_snapshots(evolution_row, evolution_storm)

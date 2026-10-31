@@ -31,7 +31,7 @@ CHUNK_H = int(os.environ.get("CHUNK_H", "120"))
 # （实测 CHOI-WAN_2009：120h → curl 000 失败；48h → 200 / 17.9 MB；24h → 200 / 9.5 MB）。
 # 所以分块级失败时上层 _fetch_span 会自动二分，直到这里设的下限。
 MIN_CHUNK_H = int(os.environ.get("MIN_CHUNK_H", "24"))
-NCSS = "https://ncss.hycom.org/thredds/ncss/grid/"
+NCSS = os.environ.get("NCSS_BASE", "https://ncss.hycom.org/thredds/ncss/grid/")
 
 PRODUCTS = {
     "uv0":  dict(depth=0,  agg="uv3z", varnames=("water_u", "water_v"), espc=("u3z", "v3z"),

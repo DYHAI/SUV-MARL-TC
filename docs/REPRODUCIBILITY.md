@@ -58,19 +58,17 @@ The current environment enforces:
 2. `ground velocity = propulsion + HYCOM_advection`;
 3. a causal five-frame local-current history updated every step.
 
-Pre-fix 0/30/50 m weights are excluded from this public repository and from
-final reproduction.
+Pre-fix weights are excluded from this public repository. After all seven
+depths are available, the final pipeline is:
 
 ```bash
-DEPTHS="0 30 50" MAXJOBS=3 \
-  PYTHON_BIN="$PYTHON_BIN" bash run_uwflow_complete_depths_first.sh
-
 PYTHON_BIN="$PYTHON_BIN" bash run_uwflow_7depth_completion.sh
+$PYTHON_BIN verify_uwflow_completion.py
 ```
 
 ## Evaluation Units
 
-- Each model is first evaluated over the 768 held-out segments.
+- Each model is first evaluated over the held-out validation dataset.
 - Seed-level means are computed for each configuration.
 - Reported uncertainty is the sample standard deviation over ten independent
   training seeds.
