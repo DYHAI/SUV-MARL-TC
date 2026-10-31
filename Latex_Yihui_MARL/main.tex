@@ -242,8 +242,9 @@ IBTrACS tracks.
 center rewards and lowers the final tracking error, measuring how closely the
 surface fleet follows the TC and enters the high-wind region.
 \item We compare active IPPO, random control, and passive drift for subsurface
-observation with four SUVs at each depth, using the highest attainable observed
-current speed as the objective.
+observation with four SUVs at each depth, evaluating mean experienced current
+speed, trajectory length, and spatial coverage as complementary observation
+objectives.
 \end{enumerate}
 
 \section{Problem Formulation }\label{sec:problem}
@@ -272,9 +273,11 @@ The surface maximum speed is varied between 12 and 20 m/s, while the submerged
 maximum propulsion speed is 1.5 or 2.0 m/s. This difference creates an
 asymmetric decision problem: surface propulsion is used to follow the TC and
 reach the high-wind region as closely as possible, quantified primarily by the
-final tracking error. At depth, the objective changes to finding and sampling
-the highest possible current speed, so the four SUVs must weigh active
-propulsion against passive advection by the ambient current.
+final tracking error. At depth, the primary learning objective changes to
+finding and sampling higher-current water, while trajectory length and spatial
+coverage characterize how broadly the fleet explores the dynamically active
+region. The four SUVs must therefore weigh active propulsion against passive
+advection by the ambient current.
 
 \subsection{Problem Definition}
 
@@ -752,11 +755,13 @@ gradient and reduces premature policy collapse during early training. After
 aggregation over SUVs, the team average reward is clipped to $[-5,2]$.
 
 For subsurface observation, four SUVs are assigned to each prescribed depth.
-Their objective is not to follow the surface TC center directly, but to observe
-the highest possible current speed. Low-speed SUVs cannot generally overtake a
-translating TC, and the vertical projection of the surface center is not
-necessarily the location of the strongest subsurface current. For the
-active-control comparison, the current-seeking reward is
+Their primary objective is not to follow the surface TC center directly, but to
+observe the highest possible current speed. Trajectory length and spatial
+coverage are then evaluated as complementary measures of observation extent.
+Low-speed SUVs cannot generally overtake a translating TC, and the vertical
+projection of the surface center is not necessarily the location of the
+strongest subsurface current. For the active-control comparison, the
+current-seeking reward is
 \begin{equation}
 \begin{aligned}
 r_i^{\mathrm{sub}}={}&
@@ -975,14 +980,16 @@ hypothesis tests.
 \label{subsec:underwater_protocol}
 
 The final subsurface matrix assigns four SUVs to each ocean depth and uses
-20 h episodes. Its objective is to observe the highest attainable local
-current speed at depths of 0, 10, 20, 30, 40, 50, and 60 m under maximum
-propulsion speeds of 1.5 and 2.0 m/s. It compares active IPPO, random control,
-and passive drift under otherwise identical conditions. Because the surface
-stage is responsible for approaching the TC and high-wind region, the
-subsurface rollout starts from the surface endpoint and initializes the four
-vehicles within 200 km of the TC center. The 100--800 km forecast-error
-protocol applies only to the surface stage.
+20 h episodes. Its learning objective is to observe the highest attainable
+local current speed at depths of 0, 10, 20, 30, 40, 50, and 60 m under maximum
+propulsion speeds of 1.5 and 2.0 m/s. Performance is evaluated with three
+complementary metrics: mean experienced current speed, motion path length, and
+spatial coverage. The matrix compares active IPPO, random control, and passive
+drift under otherwise identical conditions. Because the surface stage is
+responsible for approaching the TC and high-wind region, the subsurface
+rollout starts from the surface endpoint and initializes the four vehicles
+within 200 km of the TC center. The 100--800 km forecast-error protocol applies
+only to the surface stage.
 
 No inter-vehicle communication is assumed below the surface. Each SUV
 conditions its action only on its own current speed and components, a causal
