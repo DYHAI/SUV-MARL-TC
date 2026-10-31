@@ -1065,6 +1065,18 @@ summarizes the validation dataset over ten independent training seeds.
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]
+  {figures/surface_trajectory_4suv_400km_20ms.pdf}
+\caption{Four-SUV surface-tracking process for CHAMPI (2015) at the 20 m/s
+speed limit. The four panels show the initial deployment and subsequent
+states at approximately 6.5, 13.0, and 19.5 h. The color background is the
+spatially interpolated ERA5 10 m wind-speed field at each time. Small red dots
+mark vehicle positions, and the yellow star marks the TC center.}
+\label{fig:surface_trajectory_evolution}
+\end{figure*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]
   {figures/surface_vmax_distance_comparison.pdf}
 \caption{SUV surface tracking performance across deployment errors. The left panel
 shows the fleet-mean time-averaged distance to the TC center, representing whether
@@ -1108,18 +1120,6 @@ use the same held-out CHAMPI (2015) segment. The surface figures show motion
 from the segment start to its endpoint, while the subsurface rollout starts
 from the segment-end anchor, representing the sequential transition from
 surface delivery to underwater observation.
-
-\begin{figure*}[t]
-\centering
-\includegraphics[width=\textwidth]
-  {figures/surface_trajectory_4suv_400km_20ms.pdf}
-\caption{Four-SUV surface-tracking process for CHAMPI (2015) at the 20 m/s
-speed limit. The four panels show the initial deployment and subsequent
-states at approximately 6.5, 13.0, and 19.5 h. The color background is the
-spatially interpolated ERA5 10 m wind-speed field at each time. Small red dots
-mark vehicle positions, and the yellow star marks the TC center.}
-\label{fig:surface_trajectory_evolution}
-\end{figure*}
 
 Figure~\ref{fig:surface_trajectory_evolution} resolves the temporal evolution
 for the four-SUV, 400 km case. At deployment, the four vehicles are dispersed
