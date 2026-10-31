@@ -116,17 +116,33 @@ def make_table(s: pd.DataFrame) -> None:
 
 
 def make_figure(s: pd.DataFrame) -> None:
-    plt.rcParams.update({"font.size": 10, "axes.titlesize": 11})
+    plt.rcParams.update({"font.size": 12, "axes.titlesize": 12.5})
     fig, axes = plt.subplots(
-        2, 2, figsize=(10.0, 6.8)
+        2, 3, figsize=(12.0, 6.4)
     )
     fig.subplots_adjust(
-        left=0.09, right=0.98, top=0.84, bottom=0.10,
-        hspace=0.34, wspace=0.24,
+        left=0.07, right=0.99, top=0.82, bottom=0.10,
+        hspace=0.36, wspace=0.25,
     )
     metrics = [
-        ("path_km", "Motion path length per SUV (km)"),
-        ("mean_current_speed", "Mean experienced current speed (m/s)"),
+        (
+            "path_km",
+            1.0,
+            "Motion path length",
+            "Path per SUV (km)",
+        ),
+        (
+            "mean_current_speed",
+            1.0,
+            "Experienced current speed",
+            "Mean current speed (m/s)",
+        ),
+        (
+            "coverage_area_km2",
+            1.0e3,
+            "Spatial coverage",
+            r"Coverage area ($10^3$ km$^2$)",
+        ),
     ]
     colors = {
         "Active IPPO": "#2b6fa8",
@@ -136,7 +152,7 @@ def make_figure(s: pd.DataFrame) -> None:
     width = 0.24
     x = np.arange(len(DEPTHS))
     for r, speed in enumerate(SPEEDS):
-        for c, (metric, ylabel) in enumerate(metrics):
+        for c, (metric, scale, title, ylabel) in enumerate(metrics):
             ax = axes[r, c]
             for k, method in enumerate(("Active IPPO", "Random", "Passive drift")):
                 q = (
@@ -146,9 +162,9 @@ def make_figure(s: pd.DataFrame) -> None:
                 )
                 ax.bar(
                     x + (k - 1) * width,
-                    q[metric],
+                    q[metric] / scale,
                     width,
-                    yerr=q[f"{metric}_std"],
+                    yerr=q[f"{metric}_std"] / scale,
                     capsize=3,
                     color=colors[method],
                     edgecolor="black",
@@ -156,14 +172,15 @@ def make_figure(s: pd.DataFrame) -> None:
                     label=method,
                 )
             ax.set_xticks(x, [f"{int(d)} m" for d in DEPTHS])
-            ax.set_xlabel("Observation depth (m)")
-            ax.set_ylabel(ylabel, fontsize=9)
+            ax.tick_params(axis="x", labelsize=10.5)
+            ax.set_xlabel("Observation depth (m)", fontsize=11)
+            ax.set_ylabel(ylabel, fontsize=11)
             if r == 0:
-                ax.set_title(ylabel)
+                ax.set_title(title)
             ax.text(
                 0.98, 0.96, rf"$V_{{\max}}$ = {speed:.1f} m/s",
                 transform=ax.transAxes, ha="right", va="top",
-                fontsize=10, fontweight="bold",
+                fontsize=11, fontweight="bold",
             )
             ax.grid(axis="y", alpha=0.22)
     handles, labels = axes[0, 0].get_legend_handles_labels()
@@ -173,11 +190,12 @@ def make_figure(s: pd.DataFrame) -> None:
         frameon=False,
         ncol=3,
         loc="upper center",
-        bbox_to_anchor=(0.5, 0.915),
+        bbox_to_anchor=(0.5, 0.91),
+        fontsize=12,
     )
     fig.suptitle(
-        "Subsurface strategy comparison across 0-60m",
-        fontsize=15,
+        "Subsurface strategy comparison across 0-60 m",
+        fontsize=16,
         fontweight="bold",
         y=0.99,
     )
