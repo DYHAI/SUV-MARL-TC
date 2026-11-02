@@ -57,6 +57,7 @@
 %调整断字
 \hyphenpenalty=6000
 \tolerance=700
+\setlength{\emergencystretch}{2em}
 
 %表格不要太宽
 \usepackage{graphicx}
@@ -124,9 +125,8 @@ every 10 min. We compare 12 m/s surface and 1.5 m/s submerged limits, close to
 current Blue Whale design speeds, with 20 m/s and 2.0 m/s as potential future
 upgrades. At the surface, the fleet follows the TC toward high-wind regions
 despite uncertain deployment, reducing the final tracking error and improving
-observation benefit. Underwater, across all seven depths, active control
-consistently outperforms random control and passive drift, achieving a higher
-mean experienced current speed, longer trajectories, and broader spatial
+observation benefit. Underwater, active control outperforms random control and
+passive drift in mean experienced current speed, trajectory extent, and spatial
 coverage. The framework provides a learning-based, closed-loop control
 methodology for future coordinated surface--subsurface TC observation with
 SUVs.
@@ -154,17 +154,29 @@ surface--subsurface observation
 
 \section{Introduction}
 Tropical cyclones (TCs) threaten coastal communities, infrastructure, and
-offshore operations, and the proportion of intense and rapidly intensifying
-events has increased in many basins \citep{r1,r2,r3,r4}. Landfalling TCs over
-the western North Pacific and China have also become more destructive
-\citep{r5,r6,r7,r8}. Track prediction has advanced through numerical weather
-prediction, satellite assimilation, ensembles, and data-driven models, whereas
-intensity prediction remains more difficult \citep{r9,r10}. A central reason is
-that intensity depends on air--sea enthalpy and momentum exchange, upper-ocean
-heat content, barrier layers, mesoscale eddies, and TC-induced currents
-\citep{r11,r12}. Yet clouds and rain limit microwave sensing, scatterometers
-saturate at high winds, and spaceborne sensors cannot resolve the subsurface
-ocean \citep{r13,r58,r59}. Near-core wind and upper-ocean states therefore
+offshore operations. Climate assessments indicate that some TC changes are
+detectable despite observational uncertainty \citep{r1} and project an
+increasing proportion of very intense TCs under continued warming \citep{r2},
+while global TC frequency may decline \citep{r3} and rapid-intensification
+events have recently increased in offshore regions \citep{r4}. Landfalling TCs
+over the western North Pacific and China have also become more destructive,
+with increasing nearshore intensification and exposure \citep{r5,r6,r7,r8}.
+Track forecasts have improved substantially, but intensity prediction remains
+more difficult: recent intensity guidance has reduced errors \citep{r9}, yet
+official forecasts in the western North Pacific continue to carry substantial
+uncertainty \citep{r10}. A central reason is that intensity depends on air--sea
+enthalpy and momentum exchange, upper-ocean heat content, barrier layers,
+mesoscale eddies, and TC-induced currents \citep{r11,r12}. Active and passive
+microwave sensors provide complementary but incomplete views of the near-core
+wind field. Active scatterometers infer surface wind from ocean backscatter,
+but their retrieval loses sensitivity at high wind speeds and can be degraded
+by rain-induced attenuation and scattering \citep{r58}. Passive radiometers
+infer wind from ocean emissivity; they can penetrate some cloud cover, but
+cloud liquid water, precipitation emission, and atmospheric attenuation
+contaminate the brightness-temperature signal, with rain-related biases
+remaining particularly important in heavy precipitation and at lower wind
+speeds \citep{r58,r59}. In addition, neither sensor class resolves the
+subsurface ocean \citep{r13}. Near-core wind and upper-ocean states therefore
 remain poorly constrained in many forecast initial conditions.
 
 Existing observing platforms each cover only part of this problem. Satellites
@@ -176,24 +188,26 @@ for long periods but move much more slowly than a translating TC
 \citep{r16}. AUVs can adapt their sampling to changing environmental and
 vehicle states \citep{r17}. Upper-ocean observations can improve initial states and, in
 some cases, intensity forecasts \citep{r18,r19,r20,r21,r22}, but their value is
-highly sensitive to sampling location and background structure
-\citep{r23,r24,r25}. Adaptive TC observation is therefore a sequential decision
-problem involving motion, sampling time, energy, and coordination rather than
-coverage alone.
+highly sensitive to sampling location and background structure. Targeted
+observation studies likewise show that forecast benefit depends on sensitive
+regions, the background state, and the sampling design \citep{r23,r24,r25}.
+Adaptive TC observation is therefore a sequential decision problem involving
+motion, sampling time, energy, and coordination rather than coverage alone.
 
 A submersible unmanned vessel (SUV) combines rapid surface transit with
 subsurface sensing \citep{r28,r29,r30,r31}. The Blue Whale is used as an
 engineering reference: its public specifications indicate a surface speed of
-about 23 kn (11.83 m/s), a submerged speed of about 3 kn (1.54 m/s), and a
-reference depth near 60 m \citep{r28}. Rather than claiming a digital twin, this
-study parameterizes identifiable future Blue Whale-class capabilities. In the
-proposed mission, the surface fleet observes 10 m winds, follows the TC toward
-the high-wind region as closely as possible, and is evaluated by its final
-tracking error. At depth, four SUVs are assigned to each prescribed layer and
-seek the strongest observable current. Figure~\ref{fig:system_architecture}
-illustrates this handoff; four vehicles are shown at the surface as an example,
-and the same parameter-sharing policy is later evaluated with 4, 8, 12, and
-16 SUVs.
+about 23 kn (11.83 m/s), a submerged speed of about 3 kn (1.54 m/s), and an
+observational payload that includes an acoustic Doppler current profiler and a
+CTD sensor, with a public reference depth of approximately 60 m \citep{r28}.
+Rather than claiming a digital twin, this study parameterizes identifiable
+future Blue Whale-class capabilities. In the proposed mission, the surface
+fleet observes 10 m winds, follows the TC toward the high-wind region as closely
+as possible, and is evaluated by its final tracking error. At depth, four SUVs
+are assigned to each prescribed layer and seek the strongest observable
+current. Figure~\ref{fig:system_architecture} illustrates this handoff; four
+vehicles are shown at the surface as an example, and the same parameter-sharing
+policy is later evaluated with 4, 8, 12, and 16 SUVs.
 
 \begin{figure*}[htbp]
 \centering
@@ -223,15 +237,19 @@ cooperative multi-agent tasks \citep{r41,r42,r57}. Multi-AUV adaptive sampling
 and target tracking provide the ocean-robotics foundations
 \citep{r32,r33,r34,r35,r36}.
 
-Three gaps remain. First, prior TC observation studies often represent the
-ocean with analytical or reduced-order flows rather than event-specific fields
+{\sloppy
+Three gaps remain. First, prior AUV-based TC studies have focused primarily on
+center tracking or near-surface observation planning rather than coordinated
+surface--subsurface observation driven by event-specific reanalysis fields
 \citep{r26,r27}. Second, track-forecast errors require rapid, adaptive transit
 from an uncertain deployment point to the high-wind region \citep{r23,r24,r25}.
-Third, the closest multi-AUV active-observation study used only four vehicles
-\citep{r27}. We therefore formulate stochastic policy optimization under partial
-observability \citep{r40,r41,r42}, extend the earlier center-inference ideas
-\citep{r26,r27} to event-specific surface--subsurface observation, and evaluate
-4-, 8-, 12-, and 16-SUV fleets.
+Third, the closest multi-AUV active-observation study did not test fleet-size
+scaling \citep{r27}. We therefore formulate stochastic policy optimization
+under partial observability
+\citep{r40,r41,r42}, extend prior AUV center-tracking and near-surface
+active-observation studies \citep{r26,r27} to event-specific
+surface--subsurface observation, and evaluate 4-, 8-, 12-, and 16-SUV fleets.
+\par}
 
 The main contributions of this study are summarized as follows.
 \begin{enumerate}
@@ -255,10 +273,12 @@ The objective is to coordinate a fleet of submersible unmanned vessels
 (SUVs) to observe a moving tropical cyclone (TC) across the sea surface and
 upper ocean. At the surface, each SUV navigates toward the predicted TC center
 and high-wind region, with the final tracking error used to evaluate how
-closely the fleet follows the TC. After entering a predefined high-wind
-observation window, four SUVs descend to each prescribed depth and seek the
-highest attainable current speed. The framework is designed to satisfy four
-operational requirements:
+closely the fleet follows the TC. In the operational concept, the fleet would
+descend after approaching a predefined high-wind observation window. The
+learning experiments evaluate this mission as two separate episodes: a surface
+approach episode and a subsurface sampling episode in which four SUVs seek the
+highest attainable current speed at each prescribed depth. The framework is
+designed to satisfy four operational requirements:
 
 \begin{enumerate}
 \item rapid correction of initial deployment errors using surface propulsion;
@@ -450,8 +470,8 @@ surface on a regular $0.25^\circ$ grid
 $u_{10}$ and $v_{10}$. HYCOM supplies three-hourly zonal and meridional
 currents at ocean depths of 0, 10, 20, 30, 40, 50, and 60 m below the sea
 surface
-\footnote{HYCOM GLBy0.08 archive:
-\url{https://www.hycom.org/data/glby0p08/expt-93pt0}; HYCOM ESPC-D-V02 archive:
+\footnote{HYCOM GLBy0.08 dataset:
+\url{https://www.hycom.org/data/glby0p08/expt-93pt0}; HYCOM ESPC-D-V02 dataset:
 \url{https://www.hycom.org/data/espcd-v02}.}
 \citep{r38}. The native horizontal grid is
 approximately $0.04^\circ$ in latitude by $0.08^\circ$ in longitude. IBTrACS
@@ -459,13 +479,14 @@ provides TC time, center position, maximum wind, minimum pressure, and related
 metadata at mostly 3 or 6 h intervals
 \footnote{IBTrACS download portal:
 \url{https://www.ncei.noaa.gov/products/international-best-track-archive}.}
-\citep{r39}. The common study domain is
-$98.7^\circ$E--$171.6^\circ$E and $6.8^\circ$N--$56.7^\circ$N. The overall
-event set spans 19 November 2007 to 3 December 2025 UTC. Thus, the surface
-observation variable is the 10 m wind speed and direction, whereas the
-subsurface observation variables are the horizontal current velocity,
-represented by \texttt{water\_u} and \texttt{water\_v}, and the derived current
-speed over the 0--60 m layer.
+\citep{r39}. The dataset-selection domain used to identify candidate systems is
+$98.7^\circ$E--$171.6^\circ$E and $6.8^\circ$N--$56.7^\circ$N. Individual event
+fields are stored on event-specific crops, so a track may extend beyond this
+screening box. The overall event set spans 19 November 2007 to 3 December 2025
+UTC. Thus, the surface observation variable is the 10 m wind speed and
+direction, whereas the subsurface observation variables are the horizontal
+current velocity, represented by \texttt{water\_u} and \texttt{water\_v}, and
+the derived current speed over the 0--60 m layer.
 Table~\ref{tab:data} summarizes the products, variables, native grids, and
 temporal resolutions used to construct the event-specific environments.
 
@@ -520,7 +541,7 @@ interpolation at every decision time. Each SUV queries the interpolated field at
 its current position and at the corresponding simulation time, and the same
 interpolated values are used for its observation and for current-induced
 motion. These values are treated as the best available estimates from the
-archive under the stated interpolation scheme, rather than as resolved
+dataset under the stated interpolation scheme, rather than as resolved
 high-resolution truth or statistically optimal reconstructions of unobserved
 sub-grid variability.
 
@@ -575,7 +596,7 @@ least 300 km of track remains; the final residual is discarded. Because segment
 endpoints are assigned to the nearest 10 min interpolation point, the realized
 segment lengths are 292.1--507.1 km (median 396.4 km).
 
-The 500-TC archive yields 7,248 segments from 495 TCs with sufficient track
+The 500-TC dataset yields 7,248 segments from 495 TCs with sufficient track
 length. The training split contains 450 TCs, of which 445 contribute at least
 one usable segment, yielding 6,480 training segments. The held-out test split
 contains 50 TCs and 768 segments. The training and test sets are separated at
@@ -583,26 +604,26 @@ the TC level, so segments from the same TC never appear in both sets. Segment
 durations range from 2.2 to 103 h, with median and mean durations of 16.5 and
 20.0 h, respectively.
 
-Track segmentation is not merely a data-processing choice; it reflects the
-physical operating limit of the surface platform. The surface endurance of an
-SUV is finite, so one deployment cannot observe the complete life cycle of a
-TC. A 300--500 km along-track segment instead represents a self-contained
-mission in which the fleet can correct forecast-induced displacement, reach a
+Track segmentation also creates mission-scale evaluation windows compatible
+with the finite surface endurance of an SUV. A 300--500 km along-track segment
+allows the fleet to correct forecast-induced displacement, approach a
 physically relevant part of the TC, and collect a sustained observation
-sequence before the surface energy budget is exhausted. After entering the
-near-core region, the vehicles can dive and sample the upper ocean at several
-depths. The Blue Whale-class platform provides the required surface-transit and
-subsurface operating capabilities \citep{r28}. For the present mission concept,
-we assume a reconfigurable payload compatible with current profilers, CTD, and
-biogeochemical sensors, so the complete observing concept supports temperature,
+sequence. The segment duration defines the comparison horizon; battery
+depletion and a hard energy budget are not simulated. The Blue Whale-class
+platform provides the required surface-transit and subsurface operating
+capabilities \citep{r28}. For the present mission concept, we assume a
+reconfigurable payload compatible with the reported current-profiler, CTD, and
+biogeochemical sensors. The public platform description identifies sensors for
+currents, conductivity, temperature, depth, pH, chlorophyll, and turbidity; we
+additionally assume that the payload can accommodate nutrient and oxygen
+sensors. The complete observing concept therefore supports temperature,
 salinity, current velocity, nutrients, oxygen, and other biogeochemical
-variables. These measurements can characterize both the
-physical and biogeochemical responses of the upper ocean to TC forcing. The
-control experiments deliberately use current velocity only as the
-decision-making observation, avoiding model dependence on variables that are
-not consistently available across the complete 500-TC archive; this restriction
-does not imply that the platform is limited to current measurements in a real
-deployment.
+variables. These measurements can characterize both the physical and
+biogeochemical responses of the upper ocean to TC forcing. The control
+experiments deliberately use current velocity only as the decision-making
+observation, avoiding model dependence on variables that are not consistently
+available across the complete 500-TC dataset; this restriction does not imply
+that the platform is limited to current measurements in a real deployment.
 
 \section{Multi-Agent Reinforcement Learning Method}\label{sec:model}
 
@@ -614,15 +635,16 @@ position. The surface actor observes the fleet-acquired 10 m wind patches and
 its own normalized propulsion velocity; the underwater actor observes a causal
 five-frame history of its local current speed and components together with its
 own normalized propulsion velocity. Accumulated path length and the
-propulsion-energy proxy are used for reward computation and evaluation rather
-than supplied as actor observations. Coastline distance, when enabled, enters
-safety filtering and the land-avoidance penalty and is also not a default actor
-input. Two surface maximum-speed scenarios are evaluated. The 12 m/s scenario
-is close to the current Blue Whale's public surface-design speed of 23 kn
-($\approx$11.83 m/s), whereas 20 m/s represents a potential future platform
-configuration with improved propulsion. For the subsurface stage, 1.5 m/s is
-close to the current Blue Whale's public submerged-design speed of 3 kn
-($\approx$1.54 m/s), whereas 2.0 m/s is a prospective future-upgrade assumption.
+dimensionless commanded-action proxy are used for reward computation and
+evaluation rather than supplied as actor observations. Coastline distance enters safety
+filtering in the surface stage and the land-avoidance penalty in both stages,
+but is not a default actor input. Two surface maximum-speed scenarios are
+evaluated. The 12 m/s scenario is close to the current Blue Whale's public
+surface-design speed of 23 kn ($\approx$11.83 m/s), whereas 20 m/s represents a
+potential future platform configuration with improved propulsion. For the
+subsurface stage, 1.5 m/s is close to the current Blue Whale's public
+submerged-design speed of 3 kn ($\approx$1.54 m/s), whereas 2.0 m/s is a
+prospective future-upgrade assumption.
 State propagation follows the mode-dependent speed bound and horizontal motion
 model in Eqs.~\eqref{eq:speed_constraint} and \eqref{eq:platform_motion}, with
 actions mapped to propulsion through Eq.~\eqref{eq:normalized_action}. Surface motion neglects the direct current
@@ -643,7 +665,8 @@ rather than certified platform specifications.
 simulation column is a simple parameterization of the present-day reference
 platform, whereas the third represents a possible future-upgrade configuration
 with higher surface and subsurface speeds for comparison. These scenarios are
-modeling assumptions, not certified vehicle data.}
+modeling assumptions, not certified vehicle data. The 20 h value is a common
+simulation horizon, not a platform-endurance claim.}
 \label{tab:platform}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{@{}p{0.22\textwidth}p{0.22\textwidth}p{0.22\textwidth}p{0.22\textwidth}@{}}
@@ -659,18 +682,21 @@ Surface speed & 23 kn, $\approx$11.83 m/s &
 Submerged speed & 3 kn, $\approx$1.54 m/s &
 1.5 m/s & 2.0 m/s \\
 
-Submerged endurance & $\geq$4 h at 3 kn; $\geq$72 h standby &
-20 h scenario & 20 h scenario \\
+Submerged endurance (public reference) &
+$\geq$4 h at 3 kn; $\geq$72 h standby & -- & -- \\
+
+Underwater evaluation horizon & -- &
+20 h (simulation) & 20 h (simulation) \\
 
 Sampling depth & $\approx$60 m & 0--60 m (7-layer) & 0--60 m (7-layer) \\
 
 Payload & $\geq$800 kg & 800 kg & 800 kg \\
 
-Fleet size & Single platform & 4/8/12/16 & 4/8/12/16 \\
+Surface fleet size & Single platform & 4/8/12/16 & 4/8/12/16 \\
 
 Decision interval & Not specified & 10 min & 10 min \\
 
-Formation & -- & 100 km ring, $360^\circ/N$ &
+Surface formation & -- & 100 km ring, $360^\circ/N$ &
 100 km ring, $360^\circ/N$ \\
 \bottomrule
 \end{tabular}}
@@ -810,15 +836,18 @@ r_i^{\mathrm{coast}}=
 where $D_i$ is the offshore distance and $P_{\mathrm{land}}$ and $W_b$ are
 positive penalty coefficients.
 
-Three complementary mechanisms are used to reduce coastline intrusion:
-offshore-only rejection sampling during deployment, a soft nearshore penalty,
-and an action-level safety filter. The current main experiments use a minimum
-deployment distance of 100 km, a 100 km nearshore buffer, and a 100 km safety
-margin. The deployment step removes invalid initial states, the reward
-discourages trajectories near land, and the safety filter removes the onshore
-action component when an SUV approaches the shoreline. These mechanisms reduce
-land exposure but are not posed as an unconditional hard constraint on every
-vehicle position.
+For the surface stage, three complementary mechanisms reduce coastline
+intrusion: offshore-only rejection sampling during deployment, a soft nearshore
+penalty, and an action-level safety filter. The main surface experiments use a
+minimum deployment distance of 100 km, a 100 km nearshore buffer, and a 100 km
+safety margin. Best-of-rejection deployment favors offshore initial states, the
+reward discourages trajectories near land, and the safety filter removes the
+onshore action component when an SUV approaches the shoreline. For the
+subsurface stage, the nearshore penalty is retained and an episode is truncated
+at landfall, but offshore-only initialization and action-level safety filtering
+are not applied. These mechanisms reduce land exposure in the surface results
+but are not posed as an unconditional hard constraint on every vehicle
+position.
 
 To reduce oscillatory control, the main surface experiments use an exponential
 action filter:
@@ -990,10 +1019,13 @@ propulsion speeds of 1.5 and 2.0 m/s. Performance is evaluated with three
 complementary metrics: mean experienced current speed, motion path length, and
 spatial coverage. The matrix compares active IPPO, random control, and passive
 drift under otherwise identical conditions. Because the surface stage is
-responsible for approaching the TC and high-wind region, the subsurface
-rollout starts from the surface endpoint and initializes the four vehicles
-within 200 km of the TC center. The 100--800 km forecast-error protocol applies
-only to the surface stage.
+responsible for approaching the TC and high-wind region, the subsurface stage
+is evaluated as a separate episode aligned with the end time of the
+corresponding surface segment. At that time, the four vehicles are initialized
+uniformly within 200 km of the TC center; the actual surface endpoint positions
+are not transferred. The subsurface initialization does not use the
+offshore-only rejection procedure, and an episode terminates at landfall. The
+100--800 km forecast-error protocol applies only to the surface stage.
 
 No inter-vehicle communication is assumed below the surface. Each SUV
 conditions its action only on its own current speed and components, a causal
@@ -1029,6 +1061,33 @@ of motion; only the active policy conditions its action on the local current
 history. Passive drift applies zero propulsion and advances solely by ambient
 current advection.
 
+\subsection{Classical Planning Baselines}\label{subsec:classical_planning}
+
+Two non-learned planners provide classical comparisons under the same causal
+information and motion constraints \citep{r44,r46,r48}. The artificial-potential-field planner
+steers each SUV along the local gradient of observed wind speed in the surface
+task or observed current speed in the subsurface task and adds an offshore
+repulsive component within the coastal buffer. The receding-horizon A* planner
+maintains an online local map from measurements already acquired, selects a
+rolling target from a ridge-regularized local value gradient, and plans a
+three-step minimum-cost route over the same wind or current estimate; the
+first action is executed and the planner is refreshed every 15 decision
+intervals. A* edge costs combine travel distance, the observed environmental
+value, and the soft coastal penalty.
+
+Neither planner receives the TC center, the complete reanalysis field, future
+frames, or the learned policy state. Surface planners use the same shared wind
+samples and navigation state available to the fleet. In the subsurface
+comparison, each vehicle maintains a private map because inter-vehicle
+communication is disabled. Both planners use the same 10 min action interval,
+speed envelope, circular action projection, surface safety filter, and
+subsurface landfall termination as the learned controller. They require no
+training and therefore have no training-seed variance. Surface planners are
+evaluated on all 768 held-out segments, with a segment-dependent randomized
+deployment at each radius. Underwater planners are evaluated on the same 500
+paired episodes per depth-speed setting (50 test TCs with ten deployment
+seeds).
+
 For vehicle \(i\) at depth \(z\), the ground-path length after \(K\) decision
 steps and the mean experienced current speed are
 \begin{equation}
@@ -1052,11 +1111,18 @@ C(z)=A_{\mathrm{cell}}
 \end{equation}
 where \(\mathcal{G}(\mathbf{x})\) is the \(0.05^\circ\) grid cell containing
 position \(\mathbf{x}\), \(|\cdot|\) counts unique cells, and
-\(A_{\mathrm{cell}}\) is the cell area in km\(^2\).
+\(A_{\mathrm{cell}}\approx(0.05^\circ\times111\ \mathrm{km})^2\) is the nominal
+grid-cell area used for cross-method comparison.
 The figures report the fleet means
-\(N^{-1}\sum_{i=1}^{N}L_i(z)\) and
-\(N^{-1}\sum_{i=1}^{N}\bar V_i(z)\), together with the propulsion-energy proxy
-\(N^{-1}\sum_{i=1}^{N}\sum_k\|\tilde{\mathbf a}_{i,k}\|_2^2\).
+\(N^{-1}\sum_{i=1}^{N}L_i(z)\), \(N^{-1}\sum_{i=1}^{N}\bar V_i(z)\), and the
+nominal coverage \(C(z)\). The summary table also reports the mean ground speed
+and an uncalibrated commanded-action proxy
+\(E_{\mathrm{cmd}}=N^{-1}\sum_{i=1}^{N}\sum_k\|\mathbf a_{i,k}\|_2^2\),
+where \(\mathbf a_{i,k}\) is the policy output before unit-disk projection.
+This quantity measures control effort in normalized action units; it is not a
+calibrated propulsion-energy measurement. The underwater reward instead uses
+the projected-action penalty \(\lambda_E\|\tilde{\mathbf a}_i\|_2^2\) in
+Eq.~\eqref{eq:sub_reward}.
 
 
 
@@ -1231,15 +1297,14 @@ For a deployment error \(D\), the corresponding correction time is
 t_{\mathrm{corr}}\approx\frac{D}{V_{\mathrm{close}}}.
 \label{eq:correction_time}
 \end{equation}
-This is only a kinematic lower bound because it neglects turning and imperfect
-center estimation, but it exposes the dominant scale. At 100--200 km, both
-speed limits provide enough closure to correct a moderate forecast
-displacement. At 600--800 km, a TC translation speed of 4--7 m/s removes a
-substantial fraction of the 12 m/s speed budget. The required correction time
-can then approach or exceed the 20 h mean segment duration. A 20 m/s vehicle
-retains a larger reserve for reducing initial center error, but its benefit is
-expected mainly at the larger radii; at short radii both cases already have
-sufficient speed.
+This is only a kinematic estimate because it neglects turning and imperfect
+center estimation, but it exposes the dominant scale. Even at 100--200 km, the
+12 m/s case can require roughly 14--50 h to close the displacement for TC
+translation speeds of 4--7 m/s; correction is therefore incomplete in shorter
+episodes. At 600--800 km, the required times become much longer, and a 20 m/s
+vehicle retains a larger reserve for reducing initial center error. Both speed
+limits have more closure capacity at short radii, but neither should be
+interpreted as guaranteeing full convergence within every segment.
 
 The growing 12/20 m/s final-tracking-error gap follows this closure-rate scaling:
 both speeds are adequate at 100--200 km, whereas the available reserve of the
@@ -1266,12 +1331,12 @@ first illustrates the resulting trajectory structure for the three strategies.
 CHAMPI (2015) segment used in the surface trajectory figures. These three
 depths provide shallow, intermediate, and deep examples from the full
 0--60 m evaluation matrix. Rows denote depth and columns denote Active IPPO,
-random control, and passive drift. The
-propulsion limit is 2.0 m/s and the episode duration is 20 h. Background color
-is the spatially interpolated episode-mean HYCOM current speed at the
-corresponding depth; dashed white curves show the TC best track, open circles
-mark the common 200 km initial ring, and small red dots mark final vehicle
-positions.}
+random control, and passive drift. The propulsion limit is 2.0 m/s and the
+episode duration is 20 h. Background color is the spatially interpolated
+episode-mean HYCOM current speed at the corresponding depth; dashed white
+curves show the TC best track, open circles mark the initial vehicle positions,
+the dotted circle marks the 200 km initialization boundary, and small red
+arrows mark final vehicle positions.}
 \label{fig:underwater_strategy_trajectories}
 \end{figure*}
 
@@ -1293,10 +1358,10 @@ ten-seed, seven-depth evaluation.
 \caption{Comparison of active control, random control, and passive
 drift in the 20 h subsurface task at seven depths from 0 to 60 m. Rows show
 maximum propulsion speeds of 2.0 and 1.5 m/s; columns report the fleet-mean
-motion path length, mean experienced current speed, and spatial coverage
-area. Error bars show the sample standard deviation across ten active-policy
-training seeds. Random control and passive drift are paired baselines without
-training-seed variability.}
+motion path length, mean experienced current speed, and nominal spatial
+coverage area. Error bars show the sample standard deviation across ten
+active-policy training seeds. Random control and passive drift are paired
+baselines without training-seed variability.}
 \label{fig:underwater_methods_10seed}
 \end{figure*}
 
@@ -1311,8 +1376,8 @@ speed but travels substantially farther.
 The longer trajectories of active IPPO are an intended observation advantage,
 not merely a motion cost. Its path is 3.6--7.3 times that of passive drift,
 allowing the four SUVs to move through a larger spatial footprint and acquire
-more current profiles and contextual samples. The corresponding coverage
-increases by roughly 3.3--5.7 times. Across the 140 seed-configuration comparisons,
+more current profiles and contextual samples. The corresponding nominal
+coverage increases by roughly 3.3--5.7 times. Across the 140 seed-configuration comparisons,
 the active policy has a higher mean experienced current speed in 133 cases;
 uncorrected paired tests classify 117 as significant improvements and three as
 significant deficits. Therefore, active control is not judged
@@ -1335,19 +1400,35 @@ path ratio with depth therefore reflects both weaker ambient advection and the
 largely depth-independent propulsion envelope, rather than an increasing
 policy advantage.
 
-This behavior is consistent with the speed scales in the near-core region. For the
-paired 20 h episodes initialized within 200 km of the TC center, the
-area-averaged current speed at the evaluated 0, 30, and 50 m depths is
-0.34--0.57 m/s, while the spatial 95th percentiles are 0.92--1.30 m/s and the
-99th percentiles are 1.30--1.85 m/s. Strong local-current maxima reach
-2.19--3.55 m/s across these depths, and the average local maximum within an
-instantaneous 200 km core area is 0.91--1.24 m/s. Thus, the high-current tail
-and local maxima are comparable to, or even exceed, the SUV propulsion limits
-of 1.5 and 2.0 m/s. These scales allow active propulsion to relocate a vehicle
-toward stronger currents, whereas passive drift follows the ambient flow at
-zero propulsion effort. The completed comparisons show that active control
-uses this capability to obtain both a modestly higher mean current speed and a
-substantially larger observation footprint and data volume.
+The current fields in Fig.~\ref{fig:underwater_strategy_trajectories} contain
+pronounced horizontal gradients and localized high-speed bands. The
+fleet-mean experienced current speed in the final experiments ranges from
+0.29 to 0.54 m/s across methods and depths, but this average includes the full
+sampled trajectory rather than only the strongest-current patches. Local
+current speeds can therefore be substantially higher than the fleet mean and
+are of comparable magnitude to the 1.5 and 2.0 m/s propulsion limits. Active
+propulsion can relocate a vehicle toward such patches, whereas passive drift
+follows the ambient flow without steering. The completed comparisons show that
+active control uses this capability to obtain both a modestly higher mean
+current speed and a substantially larger observation footprint and data
+volume.
+
+\subsection{Comparison with Classical Planners}
+\label{subsec:classical_results}
+
+Table~\ref{tab:classical_planners} summarizes the causal classical-planning
+comparison. Across all 40 matched surface configurations,
+parameter-sharing IPPO attains the lowest final tracking error and shortest
+paths in every comparison with both baselines; relative to the potential-field
+and A* planners, the average final error is reduced by 74.8 and 117.3 km,
+respectively. Underwater, the conventional planners obtain higher local
+current exposure in every depth-speed setting, but their average coverage is
+only 54--63\% of that obtained by IPPO. Consequently, the current-weighted coverage,
+\(\overline V C(z)\), is 1.40--1.71 times larger for IPPO in all 14
+depth-speed settings, despite its paths being 7--39\% longer. These results
+indicate that MARL provides the strongest balanced observation strategy rather
+than the largest instantaneous current in every episode.
+\input{tables/classical_planner_comparison.tex}
 
 \section{Conclusion}
 
@@ -1378,15 +1459,16 @@ current rather than the surface-center projection. Active IPPO, random control,
 and passive drift are compared under identical episodes and propulsion limits.
 Across all seven depths, active IPPO raises the mean experienced current
 speed by 2.1--5.4\% and produces trajectories 3.6--7.3 times longer than passive
-drift, together with about 3.3--5.7 times greater spatial coverage. The learned
+drift, together with about 3.3--5.7 times greater nominal spatial coverage. The
+learned
 propulsion therefore serves two purposes: it guides the SUVs toward
 higher-current water and keeps them moving over a wider area, producing more
 profiles and more contextual observations than a drift-only strategy.
 
 The 2.0 m/s policy travels 1.24--1.31 times farther than the 1.5 m/s policy at
-every depth. A larger speed envelope permits more movement within the
-same 20 h mission and therefore creates more opportunities to observe TC-induced
-currents. This identifies a direct path for future platform development:
+every depth. A larger speed envelope permits more movement within the same 20 h
+evaluation horizon and therefore creates more opportunities to observe
+TC-induced currents. This identifies a direct path for future platform development:
 increasing SUV speed could raise the observation benefit for subsurface
 temperature, salinity, current, and biogeochemical fields, provided that energy
 use and control stability remain acceptable. The full seven-depth matrix
@@ -1405,13 +1487,22 @@ six-degree-of-freedom vehicle dynamics remain future work.
 The code and processed results are available at
 \url{https://github.com/DYHAI/SUV-MARL-TC}. Experiments used
 Python 3.11; Stable-Baselines3 2.9.0; Gymnasium 1.2.2; PyTorch 2.11.0+cu128;
-NumPy 2.4.6; pandas 2.3.3; xarray 2026.7.0; SciPy 1.17.1; Matplotlib 3.11.1;
-and Ray 2.57.0 on a 24-core workstation with 64 GB DDR5 memory and an NVIDIA
+NumPy 2.4.6; pandas 2.3.3; xarray 2026.7.0; SciPy 1.17.1; and
+Matplotlib 3.11.1 on a 24-core workstation with 64 GB DDR5 memory and an NVIDIA
 RTX 5060 Ti 16 GB GPU.
 \end{sloppypar}
 
 \section*{Acknowledgements}
-This project is supported by the National Natural Science Foundation of China (42530402 and 42227901),  the China Postdoctoral Science Foundation (2025M783467), the Project of State Key Laboratory of Satellite Ocean Environment Dynamics (SOEDZZ2527) and Innovation Group Project of Southern Marine Science and Engineering Guangdong Laboratory (Zhuhai) (311024004).
+\begin{sloppypar}
+\hyphenpenalty=10000
+This project is supported by the National Natural Science Foundation of China
+(42530402 and 42227901), the National Natural Science Foundation of China
+Youth Science Fund Project (62603673), the China Postdoctoral Science
+Foundation (2025M783467), the Project of State Key Laboratory of Satellite
+Ocean Environment Dynamics (SOEDZZ2527), and the Innovation Group Project of
+Southern Marine Science and Engineering Guangdong Laboratory (Zhuhai)
+(311024004).
+\end{sloppypar}
 
 
 
@@ -1494,19 +1585,20 @@ Clipping range applied to the team-averaged underwater reward during active
 control training. \\
 
 \midrule
-\multicolumn{4}{l}{\textbf{Panel C: shared coastal-safety parameters}} \\
+\multicolumn{4}{l}{\textbf{Panel C: coastal-safety parameters by stage}} \\
 Land penalty & $P_{\mathrm{land}}$ & 20 &
-Penalty applied when an SUV enters a land cell. Shared by the surface and
-underwater environments. \\
+Penalty applied when an SUV enters a land cell in either stage. \\
 Nearshore buffer distance & $D_{\mathrm{buf}}$ & 100 km &
-Width of the soft nearshore safety buffer. \\
+Width of the soft nearshore penalty buffer in both stages. \\
 Nearshore penalty weight & $W_b$ & 8.0 &
-Maximum soft-penalty weight within the 100 km nearshore buffer. \\
+Maximum soft-penalty weight within the 100 km nearshore buffer in either
+stage. \\
 Minimum deployment offshore distance & $D_{\mathrm{deploy}}$ & 100 km &
 Minimum coastline distance required by offshore-only rejection sampling during
-deployment. \\
+surface deployment; it is not applied to subsurface initialization. \\
 Action-filter safety margin & $D_{\mathrm{filter}}$ & 100 km &
-Distance below which the onshore component of the commanded action is removed. \\
+Surface-stage distance below which the onshore component of the commanded
+action is removed. The subsurface comparison does not use this filter. \\
 \bottomrule
 \end{tabular}}
 \par\smallskip
@@ -1521,8 +1613,9 @@ or reward.}
 % ============================================================
 % Table A.2: IPPO hyperparameters
 % ============================================================
-\begin{center}
-\footnotesize
+\noindent\begin{minipage}{\textwidth}
+\centering
+\scriptsize
 \captionof{table}{Parameter-sharing IPPO network and training hyperparameters
 used in the final surface and subsurface comparisons.}
 \label{tab:ippo_hyperparams}
@@ -1596,9 +1689,10 @@ Surface validation center offsets & $R_{\mathrm{test}}$ &
 Fixed surface formation-center offsets with random bearings, evaluated without
 retraining. These values represent increasing track-forecast displacement. \\
 Underwater initialization radius & $R_{0,\mathrm{u}}$ & $\leq$200 km &
-After surface convergence, subsurface vehicles are initialized uniformly
-within 200 km of the TC center. The 0--800 km forecast-error protocol is
-surface-only. \\
+At the end time of each surface segment, the separate subsurface episode
+initializes four vehicles uniformly within 200 km of the TC center. Surface
+endpoint positions are not transferred. The 0--800 km forecast-error protocol
+is surface-only. \\
 Decision interval & $\Delta t$ & 10 min &
 Environmental observation and action interval. \\
 Surface formation radius & $R_{\mathrm{ring}}$ & 100 km &
@@ -1613,7 +1707,8 @@ Seven ocean-current observation depths used in the final subsurface matrix. \\
 Underwater methods & -- & Active IPPO; random; drift &
 Three paired methods evaluated on the same episodes and deployments. \\
 Underwater duration & $H$ & 20 h &
-Fixed mission window for the final subsurface comparison. \\
+Fixed simulation horizon for the final subsurface comparison; this is not an
+endurance specification. \\
 Surface speed limits & $V_{\max}^{\mathrm{s}}$ & 12 or 20 m/s &
 Two surface-speed scenarios. \\
 Submerged speed limits & $V_{\max}^{\mathrm{u}}$ & 1.5 or 2.0 m/s &
@@ -1623,7 +1718,7 @@ Compute device & -- & CPU &
 All reported PPO/IPPO experiments were trained on CPU. \\
 \bottomrule
 \end{tabular}}
-\end{center}
+\end{minipage}
 
 \clearpage
 \twocolumn

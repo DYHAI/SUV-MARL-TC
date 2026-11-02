@@ -79,14 +79,17 @@ def make_table(s: pd.DataFrame) -> None:
         r"passive drift in the 20 h subsurface task. Values are means $\pm$ "
         r"sample standard deviations across ten trained active-policy seeds. "
         r"Random control and passive drift share the same 500 evaluation "
-        r"episodes and have no training-seed variability.}",
+        r"episodes and have no training-seed variability. The command proxy is "
+        r"the squared norm of the unprojected policy action and is not a "
+        r"calibrated propulsion-energy measurement.}",
         r"\label{tab:underwater_methods_10seed}",
         r"\small",
+        r"\resizebox{\textwidth}{!}{%",
         r"\begin{tabular}{@{}rrlrrrrr@{}}",
         r"\toprule",
         r"Depth (m) & $V_{\max}$ (m/s) & Method & "
-        r"Mean current (m/s) & Coverage (km$^2$) & "
-        r"Path (km) & Mean speed (m/s) & Energy proxy \\",
+        r"Mean current (m/s) & Nominal coverage (km$^2$) & "
+        r"Path (km) & Mean ground speed (m/s) & Command proxy \\",
         r"\midrule",
     ]
     for depth in DEPTHS:
@@ -111,7 +114,12 @@ def make_table(s: pd.DataFrame) -> None:
                 )
             if not (depth == DEPTHS[-1] and speed == SPEEDS[-1]):
                 lines.append(r"\midrule")
-    lines += [r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""]
+    lines += [
+        r"\bottomrule",
+        r"\end{tabular}}",
+        r"\end{table*}",
+        "",
+    ]
     (TABLEDIR / "underwater_methods_10seed.tex").write_text("\n".join(lines))
 
 
@@ -140,8 +148,8 @@ def make_figure(s: pd.DataFrame) -> None:
         (
             "coverage_area_km2",
             1.0e3,
-            "Spatial coverage",
-            r"Coverage area ($10^3$ km$^2$)",
+            "Nominal spatial coverage",
+            r"Nominal coverage ($10^3$ km$^2$)",
         ),
     ]
     colors = {

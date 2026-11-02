@@ -1,0 +1,28 @@
+\begin{table*}[t]
+\centering
+\caption{Comparison with classical planners over the same 500-TC
+train/test split. Surface values are averaged over 4/8/12/16-SUV fleets,
+12/20 m/s speed limits, and 100/200/400/600/800 km deployment radii.
+Subsurface values are averaged over all seven depths and both propulsion
+limits. Smaller errors and paths are better; higher current and coverage are
+better.}
+\label{tab:classical_planners}
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\multicolumn{4}{l}{\textbf{Panel A: surface tracking}}\\
+Method & Final error (km) & Time-averaged distance (km) & Path per SUV (km) \\
+\midrule
+Parameter-sharing IPPO & \textbf{341.7} & \textbf{349.1} & \textbf{463.6} \\
+Potential field & 416.5 & 405.9 & 727.6 \\
+Receding-horizon A* & 459.0 & 430.4 & 824.9 \\
+\midrule
+\multicolumn{4}{l}{\textbf{Panel B: subsurface observation}}\\
+Method & Mean current (m/s) & Nominal coverage (km$^2$) & Path (km) \\
+\midrule
+Parameter-sharing IPPO & 0.409 & \textbf{3630} & 126.4 \\
+Potential field & \textbf{0.449} & 1976 & 112.5 \\
+Receding-horizon A* & 0.428 & 2275 & \textbf{94.8} \\
+\bottomrule
+\end{tabular}
+\end{table*}

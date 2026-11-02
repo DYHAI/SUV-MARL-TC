@@ -47,3 +47,18 @@ active-policy seeds, and paired random-control and passive-drift baselines.
 Active IPPO improves mean experienced current speed by 2.11--5.36% and path
 length by 3.63--7.27 times relative to passive drift, with 3.25--5.70 times
 greater spatial coverage.
+
+## Classical planner comparison
+
+Table 4 in the manuscript compares parameter-sharing IPPO with a causal
+potential-field planner and a periodically replanned A* planner on the same
+500-TC train/test split. Surface results cover all 40 fleet/speed/deployment
+configurations and 768 test segments. Subsurface results cover seven depths,
+both propulsion limits, and 500 paired episodes per setting.
+
+Baseline code, summary statistics, paired tests, and reproducibility notes are
+under `../classical_eval/`. Verify the complete matrices with:
+
+```bash
+/home/ding/main/miniconda3/envs/RL/bin/python ../verify_classical_baselines.py
+```

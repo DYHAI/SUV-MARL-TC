@@ -1,11 +1,12 @@
 \begin{table*}[p]
 \centering
-\caption{Ten-seed comparison of active control, random control, and passive drift in the 20 h subsurface task. Values are means $\pm$ sample standard deviations across ten trained active-policy seeds. Random control and passive drift share the same 500 evaluation episodes and have no training-seed variability.}
+\caption{Ten-seed comparison of active control, random control, and passive drift in the 20 h subsurface task. Values are means $\pm$ sample standard deviations across ten trained active-policy seeds. Random control and passive drift share the same 500 evaluation episodes and have no training-seed variability. The command proxy is the squared norm of the unprojected policy action and is not a calibrated propulsion-energy measurement.}
 \label{tab:underwater_methods_10seed}
 \small
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{@{}rrlrrrrr@{}}
 \toprule
-Depth (m) & $V_{\max}$ (m/s) & Method & Mean current (m/s) & Coverage (km$^2$) & Path (km) & Mean speed (m/s) & Energy proxy \\
+Depth (m) & $V_{\max}$ (m/s) & Method & Mean current (m/s) & Nominal coverage (km$^2$) & Path (km) & Mean ground speed (m/s) & Command proxy \\
 \midrule
 0 & 2.0 & Active IPPO & 0.544$\pm$0.007 & 4386$\pm$97 & 155.1$\pm$3.8 & 2.28$\pm$0.06 & 1.532$\pm$0.122 \\
 0 & 2.0 & Random & 0.522 & 1474 & 99.3 & 1.46 & 0.664 \\
@@ -63,5 +64,5 @@ Depth (m) & $V_{\max}$ (m/s) & Method & Mean current (m/s) & Coverage (km$^2$) &
 60 & 1.5 & Random & 0.292 & 879 & 66.5 & 1.05 & 0.663 \\
 60 & 1.5 & Passive drift & 0.292 & 622 & 17.1 & 0.27 & 0.000 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table*}
