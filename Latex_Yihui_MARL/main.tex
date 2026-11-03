@@ -129,13 +129,13 @@ subsurface-current sensing. Blue Whale-class submersible unmanned vessels can
 transit rapidly at the surface to TC cores, then dive to observe temperature,
 salinity, currents, and biogeochemical properties. We therefore use
 simulation-based multi-agent reinforcement learning to enable autonomous
-navigation and information collection. The training and
+navigation and environmental observation. The training and
 evaluation environments combine ERA5 10 m winds and HYCOM currents from 0 to
 60 m with IBTrACS tracks for 500 western North Pacific TCs. A parameter-sharing
 independent proximal policy optimization (IPPO) policy maps shared
 surface-wind observations or local current histories to continuous control
-commands at 10 min intervals. Surface actors assume idealized global
-sharing of observed wind information, whereas underwater actors use no
+commands at 10 min intervals. The surface policy assumes idealized global
+sharing of observed wind information, whereas the underwater policy uses no
 inter-vehicle communication. We compare
 12 m/s surface and 1.5 m/s submerged limits, close to current Blue Whale
 design speeds, with 20 m/s and 2.0 m/s as future upgrades. At the surface, the
