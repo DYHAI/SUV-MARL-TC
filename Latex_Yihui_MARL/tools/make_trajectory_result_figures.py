@@ -48,6 +48,7 @@ SURFACE_MATRIX_CASE = ("CHAMPI_2015_2015286", 1518)
 SURFACE_EVOLUTION_CASE = ("CHAMPI_2015_2015286", 1518)
 UNDERWATER_CASE = ("CHAMPI_2015_2015286", 1518)
 UNDERWATER_DEPTHS = (0, 30, 50)
+UW_COLORS = ("#F28E2B", "#E15759", "#59A14F", "#B07AA1")
 
 
 def display_storm(storm):
@@ -393,7 +394,7 @@ def draw_current_background(ax, d, speed, extent, vmax):
     ocean_f = land_interp(points) > 0.0
     spd_f = np.where(ocean_f, spd_f, np.nan)
     mesh = ax.pcolormesh(
-        lon_f, lat_f, spd_f, cmap="YlOrBr",
+        lon_f, lat_f, spd_f, cmap="PuBu",
         norm=mcolors.Normalize(0, vmax), shading="gouraud",
         rasterized=True, zorder=0,
     )
@@ -502,7 +503,7 @@ def make_underwater_comparison(row, storm):
             for i, tr in enumerate(trajs):
                 ax.plot(tr[:, 0], tr[:, 1], color="white",
                         lw=2.7, alpha=0.55, zorder=4)
-                ax.plot(tr[:, 0], tr[:, 1], color=COLORS[i],
+                ax.plot(tr[:, 0], tr[:, 1], color=UW_COLORS[i],
                         lw=1.5, zorder=5)
                 ax.plot(tr[0, 0], tr[0, 1], "o", ms=4, color="white",
                         mec="#d62728", mew=1.0, zorder=8)

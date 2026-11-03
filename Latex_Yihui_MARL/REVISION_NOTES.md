@@ -536,6 +536,9 @@ outside the page margins.
   blue field, underwater current panels use a yellow-orange-brown field,
   fleet trajectories use a new high-contrast categorical palette, and
   active/random/drift bars use navy, coral, and teal.
+- Changed the representative underwater trajectory figure to a blue current-
+  speed field with warm orange, red, green, and magenta SUV trajectories for
+  stronger separation from the background.
 - Removed the commanded-action/control-effort proxy metric from the manuscript,
   including its equation, evaluation explanation, appendix parameter row, and
   the remaining prose comparison that referred to a lower-effort alternative.
