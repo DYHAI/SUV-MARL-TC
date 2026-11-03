@@ -13,41 +13,8 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile maintained Python files
-        run: |
-          python -m py_compile \
-            fleet_segment_env.py \
-            fleet_sb3.py \
-            surface_wind_env.py \
-            train_fleet_segment_actfilter.py \
-            eval_deploy_xfer.py \
-            underwater_flow_env.py \
-            underwater_fleet_flow_env.py \
-            train_uwflow_sb3.py \
-            eval_uwflow_info.py \
-            run_uwflow_eval.py \
-            summarize_uwflow_500.py \
-            build_uwflow_cache.py \
-            audit_hycom_currents.py \
-            slice_segments_500.py \
-            classical_planning_baselines.py \
-            eval_classical_surface.py \
-            eval_classical_underwater.py \
-            aggregate_classical_baselines.py \
-            analyze_tc_speed_envelope.py \
-            aggregate_surface_vmax_comparison.py \
-            aggregate_underwater_method_ablation.py \
-            aggregate_formation_full_matrix.py \
-            make_formation_comparison_figure.py \
-            make_surface_control_ablation_table.py
+        run: python -m compileall -q code scripts/check_runtime.py
       - name: Check maintained shell scripts
-        run: |
-          bash -n run_surface_distance_recompute.sh
-          bash -n run_uwflow_7depth_completion.sh
-          bash -n run_formation_training.sh
-          bash -n run_formation_full_matrix.sh
-          bash -n run_surface_vmax12_seed10.sh
-          bash -n run_classical_surface_matrix.sh
-          bash -n run_classical_underwater_matrix.sh
-          bash -n run_algorithm_comparison_training.sh
+        run: for script in scripts/*.sh; do bash -n "$script"; done
       - name: Ensure credentials are absent
         run: test ! -e cds_api_keys.json

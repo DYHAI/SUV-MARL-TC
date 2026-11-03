@@ -14,8 +14,11 @@ data/
 *.npz
 
 # Runtime products
-logs*/
 runs/
+results/analysis/
+results/baselines/figures/
+results/formation/formation_representative.csv
+logs*/
 tb_logs/
 eval_out/
 ppo_*/
@@ -28,9 +31,9 @@ ppo_*/
 *.nodump
 *.DONE
 *_tmp/
-Latex_Yihui_MARL/figures/pre_unitdisk_static_history_backup/
-Latex_Yihui_MARL/figures/underwater_methods_10seed.csv
-Latex_Yihui_MARL/figures/underwater_methods_10seed.png
+paper/figures/pre_unitdisk_static_history_backup/
+paper/tables/
+paper/sections/
 
 # Python and Jupyter
 __pycache__/

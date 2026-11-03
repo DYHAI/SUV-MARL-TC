@@ -21,15 +21,15 @@ MODULES = (
 )
 
 FILES = (
-    "fleet_segment_env.py",
-    "underwater_fleet_flow_env.py",
-    "train_fleet_segment_actfilter.py",
-    "train_uwflow_sb3.py",
-    "eval_deploy_xfer.py",
-    "eval_uwflow_info.py",
-    "audit_hycom_currents.py",
-    "Latex_Yihui_MARL/main.tex",
-    "Latex_Yihui_MARL/main.pdf",
+    "code/surface/fleet_segment_env.py",
+    "code/underwater/underwater_fleet_flow_env.py",
+    "code/surface/train_fleet_segment_actfilter.py",
+    "code/underwater/train_uwflow_sb3.py",
+    "code/surface/eval_deploy_xfer.py",
+    "code/underwater/eval_uwflow_info.py",
+    "code/data_preparation/audit_hycom_currents.py",
+    "paper/main.tex",
+    "paper/main.pdf",
 )
 
 
