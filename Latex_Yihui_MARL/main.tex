@@ -411,10 +411,8 @@ experimentally calibrated six-degree-of-freedom vehicle model is left for future
 The SUVs first perform 20 h of surface tracking, using coordinated propulsion
 to follow the TC and approach its high-wind region. At the end of this stage,
 once the fleet is close to the TC core, the vehicles dive and begin subsurface
-sampling.
-
-Because the present simulation does not model the dive dynamics, the surface
-and subsurface stages are represented as two time-aligned episodes. The
+sampling. Because the present simulation does not model the dive dynamics, the
+surface and subsurface stages are represented as two time-aligned episodes. The
 operational protocol specifies the 20 h surface stage and subsequent descent
 near the core, whereas the simulation joins the two episodes at the segment
 boundary.
@@ -432,8 +430,8 @@ The local observation of SUV $i$ is
 \end{equation}
 where $\mathbf{s}_i(t)$ is the stage-specific measurement block,
 $\mathbf{v}_i(t)$ is the normalized commanded propulsion velocity
-$\mathbf{v}_i=\mathbf{p}_i/V_{\max}^{m_i(t)}$ (not the total ground velocity),
-and $\mathbf{h}_i(t)$ is an optional causal history block.
+$\mathbf{v}_i=\mathbf{p}_i/V_{\max}^{m_i(t)}$, and $\mathbf{h}_i(t)$ is an
+optional causal history block.
 In the final surface experiments,
 $\mathbf{s}_i(t)\in\mathbb{R}^{3N}$ contains the normalized speed and two wind
 components at 10 m above the sea surface sampled by all $N$ SUVs; the surface
