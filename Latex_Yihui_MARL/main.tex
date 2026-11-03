@@ -1300,6 +1300,7 @@ shortening trajectories and reducing mean and peak speed.
 \IfFileExists{tables/surface_control_ablations.tex}{%
 \input{tables/surface_control_ablations.tex}
 }{}
+\input{tables/classical_planner_comparison.tex}
 
 \subsection{Subsurface Strategy Comparison}
 
@@ -1337,20 +1338,6 @@ background fields also show that the spatial current structure changes with
 depth, which is why a single-depth example is insufficient. These episodes
 remain illustrative; all comparative inference is deferred to the final
 ten-seed, seven-depth evaluation.
-
-\begin{figure*}[t]
-\centering
-\includegraphics[width=\textwidth]
-  {figures/underwater_methods_7depth.pdf}
-\caption{Comparison of active control, random control, and passive
-drift in the 20 h subsurface task at seven depths from 0 to 60 m. Rows show
-maximum propulsion speeds of 2.0 and 1.5 m/s; columns report the fleet-mean
-motion path length, mean experienced current speed, and nominal spatial
-coverage area. Error bars show the sample standard deviation across ten
-active-policy training seeds. Random control and passive drift are paired
-baselines without training-seed variability.}
-\label{fig:underwater_methods_10seed}
-\end{figure*}
 
 Figure~\ref{fig:underwater_methods_10seed} reports the final ten-seed results
 at all seven depths from 0 to 60 m. At every depth and both propulsion limits,
@@ -1438,7 +1425,6 @@ metric-specific ordering is consistent at every depth: potential field gives
 the highest mean experienced current, IPPO gives the largest nominal coverage,
 and A* gives the shortest path. The aggregate rankings are therefore not driven
 by a single radius or depth.
-\input{tables/classical_planner_comparison.tex}
 
 \section{Conclusion}
 
@@ -1736,6 +1722,25 @@ All reported IPPO experiments were trained on CPU. \\
 \bottomrule
 \end{tabular}}
 \end{minipage}
+
+\clearpage
+\section{Supplementary Underwater Strategy Comparison}
+\setcounter{figure}{0}
+\renewcommand{\thefigure}{B.\arabic{figure}}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=\textwidth]
+  {figures/underwater_methods_7depth.pdf}
+\caption{Comparison of active control, random control, and passive drift in
+the 20 h subsurface task at seven depths from 0 to 60 m. Rows show maximum
+propulsion speeds of 2.0 and 1.5 m/s; columns report the fleet-mean motion
+path length, mean experienced current speed, and nominal spatial coverage
+area. Error bars show the sample standard deviation across ten active-policy
+training seeds. Random control and passive drift are paired baselines without
+training-seed variability.}
+\label{fig:underwater_methods_10seed}
+\end{figure}
 
 \clearpage
 \twocolumn

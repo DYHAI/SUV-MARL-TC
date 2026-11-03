@@ -539,6 +539,10 @@ outside the page margins.
 - Changed the representative underwater trajectory figure to a blue current-
   speed field with warm orange, red, green, and magenta SUV trajectories for
   stronger separation from the background.
+- Placed the traditional-planner table immediately after the action-filtering
+  table in LaTeX source and verified that they render consecutively. Moved the
+  seven-depth underwater strategy comparison from the Results section to
+  Appendix B and renumbered it as Figure B.1.
 - Removed the commanded-action/control-effort proxy metric from the manuscript,
   including its equation, evaluation explanation, appendix parameter row, and
   the remaining prose comparison that referred to a lower-effort alternative.
