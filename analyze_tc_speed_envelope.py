@@ -66,7 +66,7 @@ def main() -> None:
             [
                 r"\begin{table*}[t]",
                 r"\centering",
-                r"\caption{IBTrACS TC translation speeds for the 500-TC archive.",
+                r"\caption{IBTrACS TC translation speeds for the 500-TC dataset.",
                 r"The percentages denote the fraction of main-track samples not exceeding",
                 r"each platform speed. These values describe the speed envelope only;",
                 r"tracking also depends on bearing error and remaining segment duration.}",

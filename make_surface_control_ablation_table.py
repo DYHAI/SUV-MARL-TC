@@ -48,7 +48,7 @@ def main() -> None:
         r"\centering",
         r"\caption{Execution-layer low-pass filtering for 4/8/12/16 surface "
         r"SUVs on 768 held-out segments from 50 unseen TCs in the 500-TC "
-        r"archive. Each trained actor is evaluated with the filter off and on "
+        r"dataset. Each trained actor is evaluated with the filter off and on "
         r"($\beta=0.8$) on the same validation episodes.}",
         r"\label{tab:surface_control_ablations}",
         r"\scriptsize",
