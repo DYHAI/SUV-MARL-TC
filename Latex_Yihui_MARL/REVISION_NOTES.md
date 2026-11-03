@@ -525,6 +525,12 @@ outside the page margins.
   separating the remaining content into three focused parts: platform dynamics
   and actor inputs, current/future speed configurations, and the IBTrACS speed
   envelope.
+- Condensed the combined Surface and Subsurface Evaluation section by removing
+  repeated physical motivation and deployment-design justification. The
+  section now focuses on generalization, the two surface metrics, the
+  four-fleet/five-radius matrix, ten-seed statistics, subsurface
+  initialization and communication, the three strategies, and the underwater
+  observation metrics.
 - Removed the commanded-action/control-effort proxy metric from the manuscript,
   including its equation, evaluation explanation, appendix parameter row, and
   the remaining prose comparison that referred to a lower-effort alternative.
