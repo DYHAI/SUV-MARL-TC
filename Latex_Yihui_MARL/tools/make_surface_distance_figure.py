@@ -83,10 +83,10 @@ def main() -> None:
         ("final_distance", "final_distance_std", "Final tracking error (km)"),
     )
     colors = {
-        4: "#0072B2",
-        8: "#009E73",
-        12: "#D55E00",
-        16: "#CC79A7",
+        4: "#0077BB",
+        8: "#EE7733",
+        12: "#009988",
+        16: "#CC3311",
     }
     styles = {12: "--", 20: "-"}
     for col, (metric, std_col, ylabel) in enumerate(metrics):

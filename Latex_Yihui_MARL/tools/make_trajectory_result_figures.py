@@ -19,7 +19,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib import colors as mcolors
-from matplotlib.colors import LinearSegmentedColormap
 from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage import gaussian_filter
 from stable_baselines3 import PPO
@@ -62,18 +61,12 @@ RADII = (100, 200, 400, 600, 800)
 BETA = 0.8
 
 COLORS = (
-    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
-    "#9467bd", "#8c564b", "#e377c2", "#17becf",
-    "#bcbd22", "#7f7f7f", "#aec7e8", "#ffbb78",
-    "#98df8a", "#ff9896", "#c5b0d5", "#c49c94",
+    "#4E79A7", "#F28E2B", "#59A14F", "#E15759",
+    "#B07AA1", "#76B7B2", "#EDC948", "#9C755F",
+    "#5790A8", "#F5B041", "#7FB174", "#E88989",
+    "#C69BC6", "#9ACAC7", "#F2D96A", "#B69B83",
 )
-WIND_CMAP = LinearSegmentedColormap.from_list(
-    "smooth_wind",
-    ["#f7fbff", "#d7eff8", "#87cee8", "#39a8d0",
-     "#66c679", "#f2df66", "#f5a142", "#e56738", "#b91f45", "#6a0d6b"],
-    N=256,
-)
-WIND_CMAP.set_under("#ffffff")
+WIND_CMAP = plt.get_cmap("YlGnBu")
 def surface_model(n_auv: int) -> PPO:
     path = MODELDIR / (
         f"ppo_fleet_seg{n_auv}_ring_s005_d800_t10min_n500_dscan_"
@@ -152,7 +145,7 @@ def crop_extent(d, lon_values, lat_values, margin=2.5):
 
 def add_auv(ax, lon, lat):
     ax.scatter(
-        [lon], [lat], s=22, color="#d62728",
+        [lon], [lat], s=22, color="#E63946",
         edgecolor="white", linewidth=0.55, zorder=20,
     )
 
@@ -239,7 +232,9 @@ def make_surface_matrix(row, storm):
             )
             for i, tr in enumerate(trajectories):
                 color = COLORS[i]
-                ax.plot(tr[:, 0], tr[:, 1], color=color, lw=1.15, alpha=0.9, zorder=5)
+                ax.plot(tr[:, 0], tr[:, 1], color="white", lw=2.25,
+                        alpha=0.55, zorder=4)
+                ax.plot(tr[:, 0], tr[:, 1], color=color, lw=1.15, alpha=0.95, zorder=5)
                 ax.plot(tr[0, 0], tr[0, 1], "o", ms=3.0, color="white",
                         mec="#d62728", mew=0.8, zorder=8)
                 add_auv(ax, tr[-1, 0], tr[-1, 1])
@@ -305,7 +300,10 @@ def make_surface_snapshots(row, storm):
         )
         for i, tr in enumerate(trajectories):
             kk = min(k + 1, len(tr))
-            ax.plot(tr[:kk, 0], tr[:kk, 1], color=COLORS[i], lw=1.35, zorder=5)
+            ax.plot(tr[:kk, 0], tr[:kk, 1], color="white",
+                    lw=2.4, alpha=0.55, zorder=4)
+            ax.plot(tr[:kk, 0], tr[:kk, 1], color=COLORS[i],
+                    lw=1.35, zorder=5)
             add_auv(ax, tr[kk - 1, 0], tr[kk - 1, 1])
         ax.plot(eyes[k, 0], eyes[k, 1], "*", color="#FFD400", ms=15,
                 mec="black", mew=0.7, zorder=15)
@@ -395,7 +393,7 @@ def draw_current_background(ax, d, speed, extent, vmax):
     ocean_f = land_interp(points) > 0.0
     spd_f = np.where(ocean_f, spd_f, np.nan)
     mesh = ax.pcolormesh(
-        lon_f, lat_f, spd_f, cmap="viridis",
+        lon_f, lat_f, spd_f, cmap="YlOrBr",
         norm=mcolors.Normalize(0, vmax), shading="gouraud",
         rasterized=True, zorder=0,
     )
@@ -502,7 +500,10 @@ def make_underwater_comparison(row, storm):
             ax.plot(ring_lon, ring_lat, color="white", lw=0.8,
                     ls=":", alpha=0.75, zorder=2)
             for i, tr in enumerate(trajs):
-                ax.plot(tr[:, 0], tr[:, 1], color=COLORS[i], lw=1.5, zorder=5)
+                ax.plot(tr[:, 0], tr[:, 1], color="white",
+                        lw=2.7, alpha=0.55, zorder=4)
+                ax.plot(tr[:, 0], tr[:, 1], color=COLORS[i],
+                        lw=1.5, zorder=5)
                 ax.plot(tr[0, 0], tr[0, 1], "o", ms=4, color="white",
                         mec="#d62728", mew=1.0, zorder=8)
                 add_auv(ax, tr[-1, 0], tr[-1, 1])

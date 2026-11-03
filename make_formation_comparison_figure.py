@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib import colors as mcolors
-from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.lines import Line2D
 from scipy.interpolate import RegularGridInterpolator
 from stable_baselines3 import PPO
@@ -34,13 +33,7 @@ MODELS = {
     "Line": ROOT / "ppo_formation_ablation" / "surface_line_n8_v12_s0.zip",
     "Grid": ROOT / "ppo_formation_ablation" / "surface_grid_n8_v12_s0.zip",
 }
-WIND_CMAP = LinearSegmentedColormap.from_list(
-    "formation_wind",
-    ["#f7fbff", "#d7eff8", "#87cee8", "#39a8d0", "#66c679",
-     "#f2df66", "#f5a142", "#e56738", "#b91f45", "#6a0d6b"],
-    N=256,
-)
-WIND_CMAP.set_under("#ffffff")
+WIND_CMAP = plt.get_cmap("YlGnBu")
 
 
 def simulate(formation: str, model_path: Path):
@@ -153,7 +146,10 @@ def main() -> None:
         }
     )
     fig, axes = plt.subplots(3, 1, figsize=(9.0, 8.6), constrained_layout=True)
-    colors = plt.cm.tab10(np.linspace(0, 1, 8))
+    colors = (
+        "#4E79A7", "#F28E2B", "#59A14F", "#E15759",
+        "#B07AA1", "#76B7B2", "#EDC948", "#9C755F",
+    )
     metric_rows = []
     results = {
         formation: simulate(formation, MODELS[formation])
@@ -176,6 +172,10 @@ def main() -> None:
         for i in range(traj.shape[1]):
             ax.plot(
                 traj[:, i, 0], traj[:, i, 1],
+                color="white", lw=2.4, alpha=0.55, zorder=4,
+            )
+            ax.plot(
+                traj[:, i, 0], traj[:, i, 1],
                 color=colors[i], lw=1.35, alpha=0.85,
             )
             ax.scatter(
@@ -186,7 +186,7 @@ def main() -> None:
                 traj[-1, i, 0], traj[-1, i, 1],
                 color=colors[i], marker="^", s=36,
             )
-        ax.scatter([0], [0], marker="*", s=130, color="#d62728", zorder=5)
+        ax.scatter([0], [0], marker="*", s=130, color="#E63946", zorder=5)
         ax.axhline(0, color="0.8", lw=0.6)
         ax.axvline(0, color="0.8", lw=0.6)
         ax.set_xlim(xlim)

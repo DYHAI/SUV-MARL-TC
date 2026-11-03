@@ -531,6 +531,11 @@ outside the page margins.
   four-fleet/five-radius matrix, ten-seed statistics, subsurface
   initialization and communication, the three strategies, and the underwater
   observation metrics.
+- Retained the illustrative architecture in Figure 1 and refreshed the color
+  schemes for all later figures. Surface wind panels now use a yellow-green-
+  blue field, underwater current panels use a yellow-orange-brown field,
+  fleet trajectories use a new high-contrast categorical palette, and
+  active/random/drift bars use navy, coral, and teal.
 - Removed the commanded-action/control-effort proxy metric from the manuscript,
   including its equation, evaluation explanation, appendix parameter row, and
   the remaining prose comparison that referred to a lower-effort alternative.

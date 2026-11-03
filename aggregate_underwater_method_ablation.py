@@ -122,9 +122,9 @@ def make_figure(s: pd.DataFrame) -> None:
         ("mean_speed_ms", "Mean ground speed (m/s)"),
     ]
     colors = {
-        "Active IPPO": "#2b6fa8",
-        "Random": "#d9822b",
-        "Passive drift": "#3b9b6d",
+        "Active IPPO": "#264653",
+        "Random": "#E76F51",
+        "Passive drift": "#2A9D8F",
     }
     width = 0.24
     x = np.arange(len(DEPTHS))
