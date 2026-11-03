@@ -131,8 +131,7 @@ salinity, currents, and biogeochemical properties. We therefore use
 simulation-based multi-agent reinforcement learning to enable autonomous
 navigation and environmental observation. The training and
 evaluation environments combine ERA5 10 m winds and HYCOM currents from 0 to
-60 m with IBTrACS tracks for 500 TCs from the western North Pacific and
-adjacent marginal seas. A parameter-sharing
+60 m with IBTrACS tracks for 500 western North Pacific TCs. A parameter-sharing
 independent proximal policy optimization (IPPO) policy maps shared
 surface-wind observations or local current histories to continuous control
 commands at 10 min intervals. The surface policy assumes idealized global
@@ -569,19 +568,14 @@ provides TC time, center position, maximum wind, minimum pressure, and related
 metadata at mostly 3 or 6 h intervals
 \footnote{IBTrACS download portal:
 \url{https://www.ncei.noaa.gov/products/international-best-track-archive}.}
-\citep{r39}. The event-selection domain is
-$98.7^\circ$E--$171.6^\circ$E and $6.8^\circ$N--$56.7^\circ$N, covering the
-western North Pacific and adjacent East Asian marginal seas, including the
-South China Sea and Philippine Sea. Every selected event has at least one
-western North Pacific record; 75 also contain eastern North Pacific track
-points and 12 contain northern Indian Ocean points because the criterion
-selects any tropical system entering the rectangle. Event-specific crops
-retain the complete track, so tracks and 309 of the 7,248 segments can extend
-beyond the screening rectangle. The overall event set spans 19 November 2007
-to 3 December 2025 UTC. The surface observation variable is the 10 m wind
-speed and direction, whereas the subsurface variables are horizontal current
-velocity, represented by \texttt{water\_u} and \texttt{water\_v}, and the
-derived current speed over the 0--60 m layer.
+\citep{r39}. The dataset-selection domain used to identify candidate systems is
+$98.7^\circ$E--$171.6^\circ$E and $6.8^\circ$N--$56.7^\circ$N. Individual event
+fields are stored on event-specific crops, so a track may extend beyond this
+screening box. The overall event set spans 19 November 2007 to 3 December 2025
+UTC. Thus, the surface observation variable is the 10 m wind speed and
+direction, whereas the subsurface observation variables are the horizontal
+current velocity, represented by \texttt{water\_u} and \texttt{water\_v}, and
+the derived current speed over the 0--60 m layer.
 Table~\ref{tab:data} summarizes the products, variables, native grids, and
 temporal resolutions used to construct the event-specific environments.
 
@@ -1635,9 +1629,8 @@ also exposing the propulsion-cost trade-off that must be managed operationally.
 The present evidence is simulation-based and uses a mission-level horizontal
 point-mass model. Field validation, operational forecast impact, and calibrated
 six-degree-of-freedom vehicle dynamics remain future work. The results show
-generalization to unseen TCs within the simulated western North Pacific and
-adjacent-marginal-sea environment, but they do not constitute a guarantee of
-sim-to-real performance.
+generalization to unseen TCs within the simulated western North Pacific
+environment, but they do not constitute a guarantee of sim-to-real performance.
 
 \section*{Code and package availability}
 \begin{sloppypar}

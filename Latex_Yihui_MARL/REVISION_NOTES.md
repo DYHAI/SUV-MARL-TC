@@ -550,12 +550,6 @@ outside the page margins.
   `main.tex`. The manuscript no longer uses `tables/` or `sections/` inputs.
   The cited bibliography is now `main.bib`, referenced by
   `\bibliography{main}`.
-- Corrected the geographic description of the 500-event dataset. The selection
-  rectangle covers the western North Pacific and adjacent East Asian marginal
-  seas. All events contain at least one WP record, while 75 also include
-  eastern North Pacific points and 12 include northern Indian Ocean points;
-  309 of 7,248 segment starts fall outside the screening rectangle because
-  event tracks are not clipped to that rectangle.
 - Removed the commanded-action/control-effort proxy metric from the manuscript,
   including its equation, evaluation explanation, appendix parameter row, and
   the remaining prose comparison that referred to a lower-effort alternative.
