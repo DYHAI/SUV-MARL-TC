@@ -543,6 +543,9 @@ outside the page margins.
   table in LaTeX source and verified that they render consecutively. Moved the
   seven-depth underwater strategy comparison from the Results section to
   Appendix B and renumbered it as Figure B.1.
+- Converted Appendix B's underwater comparison from a floating `figure[p]`
+  environment to a non-floating centered figure with `\captionof`, ensuring
+  the Appendix B heading, plot, and Figure B.1 caption share the same page.
 - Removed the commanded-action/control-effort proxy metric from the manuscript,
   including its equation, evaluation explanation, appendix parameter row, and
   the remaining prose comparison that referred to a lower-effort alternative.
