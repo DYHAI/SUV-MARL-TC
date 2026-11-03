@@ -18,37 +18,18 @@
 评估区定义：以 episode 时间窗内台风眼轨迹均值位置为圆心、半径 R_EVAL=300km 的海洋格点
 （不含陆地）。所有策略在同一 episode（同种子 → 同段、同布防）上对比。
 
-用法:
-  python eval_uwflow_info.py <n_seed> <depth_m> <start_km> <dur_h> <model.pt> [model2.pt ...]
+Usage:
+  python eval_uwflow_info.py <n_seed> <depth_m> <start_km> <dur_h> <model.zip> [...]
 """
 import os
 import sys
 import json
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn as nn
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from underwater_fleet_flow_env import UnderwaterFleetFlowEnv, D2KM  # noqa: E402
 from underwater_flow_env import STEP_MIN  # noqa: E402
-
-
-class Actor(nn.Module):
-    """与 train_underwater_fleet_flow_shared.Actor 完全一致（本地复制，避免 import
-    训练脚本时它按自己的 sys.argv 解析参数而报错）。"""
-
-    def __init__(self, obs_dim, act_dim=2, hidden=256):
-        super().__init__()
-        self.net = nn.Sequential(nn.Linear(obs_dim, hidden), nn.Tanh(),
-                                 nn.Linear(hidden, hidden), nn.Tanh(),
-                                 nn.Linear(hidden, act_dim))
-        self.log_std = nn.Parameter(torch.zeros(act_dim))
-
-    def dist(self, x):
-        mean = self.net(x)
-        std = self.log_std.exp().clamp(min=1e-4, max=1.0)
-        return mean, std
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 SPLIT = os.environ.get("SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_64.json"))
@@ -70,47 +51,23 @@ def make_env(depth, start, dur, storms, seg, n_patch=1, frame_stack=True,
     vmax = float(os.environ.get("VMAX", 1.5)) if vmax is None else float(vmax)
     reward = os.environ.get("REWARD", "G") if reward is None else reward
     grid = float(os.environ.get("GRID_DEG", 0.25)) if grid is None else float(grid)
-    depths_env = os.environ.get("DEPTHS", "").strip()
-    if depths_env:      # P19 × P3：4 台 AUV 分别观测不同深度
-        from underwater_fleet_depth_env import UnderwaterFleetFlowEnv as _Env
-        extra = {"depths": [float(x) for x in depths_env.split(",")]}
-    else:
-        _Env = UnderwaterFleetFlowEnv
-        extra = {}
-    return _Env(
+    return UnderwaterFleetFlowEnv(
         storms=storms, segments_df=seg, vmax=vmax, reward_mode=reward,
         N=n_patch, use_frame_stack=frame_stack, frame_k=5,
         start_radius=float(start), crop_margin=(3.0 if start <= 200 else 6.0),
-        depth_m=depth, grid_deg=grid, duration_h=float(dur), native_res=native, **extra)
-
-
-def load_actor(name, obs_dim):
-    w = torch.load(os.path.join(OUT, name), weights_only=True)
-    if isinstance(w, dict) and "actor" in w:
-        w = w["actor"]
-    a = Actor(obs_dim)
-    a.load_state_dict(w)
-    a.eval()
-    return a
+        depth_m=depth, grid_deg=grid, duration_h=float(dur), native_res=native)
 
 
 def load_policy(name, obs_dim):
-    """统一入口：支持手写 IPPO 的 .pt 和 SB3 PPO 的 .zip，统一产出 policy(obs, env)->(n,2)。"""
-    if name.endswith(".zip"):
-        from stable_baselines3 import PPO
-        model = PPO.load(os.path.join(OUT, name), device="cpu")
+    """Load one final Stable-Baselines3 IPPO checkpoint."""
+    if not name.endswith(".zip"):
+        raise ValueError("final underwater policies must be Stable-Baselines3 .zip files")
+    from stable_baselines3 import PPO
+    model = PPO.load(os.path.join(OUT, name), device="cpu")
 
-        def pol(o, e, model=model):
-            a, _ = model.predict(np.asarray(o, dtype=np.float32).reshape(-1), deterministic=True)
-            return np.clip(np.asarray(a, dtype=np.float32).reshape(e.n_auv, 2), -1, 1)
-        return pol
-    actor = load_actor(name, obs_dim)
-
-    def pol(o, e, actor=actor):
-        ot = torch.tensor(o, dtype=torch.float32)
-        with torch.no_grad():
-            mean, _ = actor.dist(ot)
-        return np.clip(mean.numpy(), -1, 1)
+    def pol(o, e, model=model):
+        a, _ = model.predict(np.asarray(o, dtype=np.float32).reshape(-1), deterministic=True)
+        return np.clip(np.asarray(a, dtype=np.float32).reshape(e.n_auv, 2), -1, 1)
     return pol
 
 
@@ -297,7 +254,7 @@ def main():
     ]
     for name in models:
         pol = load_policy(name, obs_dim)
-        label = os.path.basename(name).replace(".pt", "").replace(".zip", "")
+        label = os.path.basename(name).removesuffix(".zip")
         policies.append((label, pol))
 
     rows = []

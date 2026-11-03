@@ -1,13 +1,4 @@
-"""9-AUV 集群在 300-500km 段上追眼（海面）。
-
-与 fleet_env.py 的区别：
-- 每回合 = 一条 300-500km 轨迹段（data/segments_64.csv）。
-- 每个 AUV 观测自己的 1x1 局部风场 cell = 该位置 spacing_deg x spacing_deg 尺度单元上的平均风(spd,u,v)，
-  通过共享知道集群 9 个 cell 的风场。spacing_deg=0.25（~28km 单元）或 0.025（~2.8km 单元，细网格平均）。
-- 编队半径约束 R_FORM=100 km（不是 200）。
-- 初始在段首 200km 内随机布防，52 训练 / 12 测试。
-观测(每AUV) = 9*(spd,u,v)/50 = 27 + 自身速度2 = 29 维。
-"""
+"""Segmented surface fleet environment used by the final IPPO experiments."""
 import os, sys
 import numpy as np
 import gymnasium as gym

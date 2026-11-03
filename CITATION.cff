@@ -14,7 +14,7 @@ authors:
   - family-names: Yang
     given-names: Jingsong
 repository-code: "https://github.com/DYHAI/SUV-MARL-TC"
-date-released: "2026-10-31"
+date-released: "2026-11-03"
 keywords:
   - tropical cyclone
   - cooperative task

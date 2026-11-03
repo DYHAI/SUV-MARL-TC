@@ -2,7 +2,7 @@
   data/union_region/<tag>/hycom_uv_{0,50}m.nc      (water_u, water_v, 3-hourly)
   data/union_region/<tag>/hycom_temp_{0,50}m.nc    (water_temp,    3-hourly)
 
-与 download_hycom_200.py 的区别只有一个：**源按时间接力**（200 批只有 expt_93.0 / ESPC 两个源）。
+下载器按时间接力 HYCOM 数据源。
 每个 48h 分块会按 hycom_candidates() 给出的候选源**逐个试**，拿到非空就继续 ——
 所以对 2016/2017 那几个实验的交接边界不敏感（边界是月级探测定出来的）。
 

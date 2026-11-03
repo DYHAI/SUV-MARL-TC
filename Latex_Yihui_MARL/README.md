@@ -58,9 +58,12 @@ potential-field planner and a periodically replanned A* planner on the same
 configurations and 768 test segments. Subsurface results cover seven depths,
 both propulsion limits, and 500 paired episodes per setting.
 
-Baseline code, summary statistics, paired tests, and reproducibility notes are
-under `../classical_eval/`. Verify the complete matrices with:
+Baseline code is in the repository root, and the corresponding summary and
+paired-test files are under `../classical_eval/`:
 
 ```bash
-/home/ding/main/miniconda3/envs/RL/bin/python ../verify_classical_baselines.py
+../classical_eval/surface_all_methods_summary.csv
+../classical_eval/underwater_all_methods_summary.csv
+../classical_eval/surface_pairwise_tests.csv
+../classical_eval/underwater_pairwise_tests.csv
 ```
