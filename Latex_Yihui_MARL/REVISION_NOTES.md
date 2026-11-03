@@ -546,6 +546,10 @@ outside the page margins.
 - Converted Appendix B's underwater comparison from a floating `figure[p]`
   environment to a non-floating centered figure with `\captionof`, ensuring
   the Appendix B heading, plot, and Figure B.1 caption share the same page.
+- Inlined all active table files and the surface-results fragment directly into
+  `main.tex`. The manuscript no longer uses `tables/` or `sections/` inputs.
+  The cited bibliography is now `main.bib`, referenced by
+  `\bibliography{main}`.
 - Removed the commanded-action/control-effort proxy metric from the manuscript,
   including its equation, evaluation explanation, appendix parameter row, and
   the remaining prose comparison that referred to a lower-effort alternative.

@@ -735,7 +735,28 @@ Across 30,498 IBTrACS track samples, the median, 95th-percentile, and
 only 3.6\% and 7.8\%; the subsurface task is therefore local adaptive sampling
 within the 200 km initialization region, not overtaking and following the TC
 center.
-\input{tables/tc_speed_envelope.tex}
+\begin{table*}[t]
+\centering
+\caption{IBTrACS TC translation speeds for the 500-TC dataset.
+The percentages denote the fraction of main-track samples not exceeding
+each platform speed. These values describe the speed envelope only;
+tracking also depends on bearing error and remaining segment duration.}
+\label{tab:tc_speed_envelope}
+\small
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrrrrr@{}}
+\toprule
+Quantity & P50 & P90 & P95 & P99 & Samples & TCs \\
+\midrule
+TC translation speed (m s$^{-1}$) & 5.14 & 9.77 & 13.38 & 20.06 & 30,498 & 500 \\
+\midrule
+Envelope & \multicolumn{2}{c}{Samples within speed} & \multicolumn{2}{c}{Samples above speed} & \multicolumn{2}{c}{Interpretation} \\
+1.5 m/s submerged & \multicolumn{2}{c}{3.6\%} & \multicolumn{2}{c}{96.4\%} & \multicolumn{2}{l}{local sampling, not TC chasing} \\
+2.0 m/s submerged & \multicolumn{2}{c}{7.8\%} & \multicolumn{2}{c}{92.2\%} & \multicolumn{2}{l}{local sampling, not TC chasing} \\
+12 m/s surface & \multicolumn{2}{c}{93.8\%} & \multicolumn{2}{c}{6.2\%} & \multicolumn{2}{l}{current-platform scenario} \\
+20 m/s surface & \multicolumn{2}{c}{98.9\%} & \multicolumn{2}{c}{1.1\%} & \multicolumn{2}{l}{future-upgrade scenario} \\
+\bottomrule
+\end{tabular*}
+\end{table*}
 
 \subsection{Surface and Subsurface Reward Design}
 
@@ -1139,7 +1160,51 @@ showing the sample standard deviation.}
 \label{fig:surface_vmax_comparison}
 \end{figure*}
 
-\input{sections/surface_vmax_results.tex}
+Using the final tracking error as the operational observation benefit, the right
+panel of Fig.~\ref{fig:surface_vmax_comparison} reports the primary
+speed-limit comparison. Averaged over the four fleet sizes and ten training
+seeds, the 20 m/s policy obtains final tracking errors of 197.1, 209.2, 260.9,
+362.1, and 524.0 km at deployment radii of 100, 200, 400, 600, and 800 km,
+respectively. The corresponding 12 m/s values are 221.0, 238.9, 317.5, 450.9,
+and 635.1 km. Thus, 20 m/s yields a lower final tracking error in all 20
+matched fleet-size/radius comparisons, corresponding to a higher operational
+observation benefit. Its fleet-averaged advantage increases from 23.8 km at
+100 km to 111.1 km at 800 km.
+
+The absolute distances still increase with deployment radius for both speed
+limits, which is expected because a finite propulsion speed cannot eliminate a
+larger initial displacement within every segment duration. The objective is
+therefore to minimize the final tracking error at each error level rather than to
+make it independent of deployment error. The final-tracking-error advantage of
+20 m/s is larger than the corresponding time-averaged advantage: 23.8 versus
+10.1 km at 100 km and 111.1 versus 84.2 km at 800 km. This indicates that the
+higher-speed policy continues correcting residual separation late in the
+episode rather than merely remaining closer during the initial transit.
+
+This benefit involves a clear propulsion trade-off. Relative to 20 m/s, the
+12 m/s policy reduces path length per SUV by 78.7, 95.5, 147.4, 196.6, and
+233.3 km at the five radii and lowers mean ground speed by 1.74--4.18 m/s.
+Accordingly, 20 m/s provides the higher final observation benefit, whereas
+12 m/s is preferable when shorter trajectories and lower speed are prioritized.
+
+Time-averaged distance provides a secondary process-level diagnostic of
+whether proximity is maintained throughout an episode. Across the twenty
+matched fleet-size/radius comparisons, the 20 m/s policy has the smaller mean
+time-averaged distance in all 20 cases. The median paired difference
+$(d_{12}-d_{20})$ is +51.8 km. Uncorrected two-sided paired tests indicate
+lower distance at 20 m/s in 19 cases and at 12 m/s in none of the cases at
+$p<0.05$. Because these comparisons were not adjusted for multiplicity, they
+provide exploratory rather than confirmatory evidence.
+
+The relative time-averaged distance penalty of the 12 m/s policy is
++6.3\% at 100 km, +10.6\% at 200 km, +18.2\% at 400 km, +17.7\% at 600 km,
+and +14.0\% at 800 km. The non-monotonic relative pattern, together with the
+monotonic increase in absolute final-tracking-error benefit, is consistent with the
+finite time available to remove forecast-induced displacement. Overall, the
+results show that the policy learned from wind observations alone provides
+increasing operational value for large initial displacement errors when a
+20 m/s speed envelope is available, while the 12 m/s envelope offers a
+lower-speed, shorter-path alternative.
 
 Taken together, Figs.~\ref{fig:surface_vmax_comparison}--\ref{fig:surface_trajectory_matrix}
 and Table~\ref{tab:surface_control_ablations} connect the operational benefit
@@ -1270,7 +1335,32 @@ instantaneous TC center.}
 \label{fig:formation_comparison}
 \end{figure*}
 
-\input{tables/formation_comparison.tex}
+\begin{table*}[t]
+\centering
+\caption{Surface initial-formation comparison for eight SUVs. Each policy was trained with formation-center offsets sampled inside an 800 km radius and evaluated without retraining at fixed offsets of 100, 200, 400, 600, and 800 km on the same 768 held-out TC segments. Error is the final SUV-to-best-track-center distance and path is the per-vehicle trajectory length. Bold entries are the best value in each speed/radius row; error and path are assessed separately. All distances are in km.}
+\label{tab:formation_comparison}
+\small
+\setlength{\tabcolsep}{2.7pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}ccccccccc@{}}
+\toprule
+Speed & Train radius & Eval radius & \multicolumn{2}{c}{Ring} & \multicolumn{2}{c}{Line} & \multicolumn{2}{c}{Grid} \\
+\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+(m/s) & (km) & (km) & Error & Path & Error & Path & Error & Path \\
+\midrule
+12 & 800 & 100 & 225.8 & 398.1 & \textbf{222.9} & \textbf{325.9} & 236.7 & 367.0 \\
+12 & 800 & 200 & \textbf{250.6} & 428.4 & 253.9 & \textbf{335.7} & 257.0 & 398.3 \\
+12 & 800 & 400 & \textbf{335.9} & 475.0 & 368.1 & \textbf{321.8} & 345.5 & 420.6 \\
+12 & 800 & 600 & \textbf{480.7} & 499.0 & 523.9 & \textbf{301.6} & 487.8 & 423.5 \\
+12 & 800 & 800 & \textbf{648.1} & 505.6 & 733.2 & \textbf{273.6} & 691.7 & 410.7 \\
+\midrule
+20 & 800 & 100 & 197.2 & 599.6 & \textbf{164.5} & \textbf{538.5} & 203.0 & 615.0 \\
+20 & 800 & 200 & 209.8 & 653.7 & \textbf{179.6} & \textbf{583.7} & 213.8 & 656.2 \\
+20 & 800 & 400 & 262.7 & 765.2 & \textbf{250.9} & \textbf{651.8} & 258.1 & 743.4 \\
+20 & 800 & 600 & 354.4 & 840.2 & 381.4 & \textbf{677.5} & \textbf{353.3} & 792.9 \\
+20 & 800 & 800 & \textbf{501.9} & 888.0 & 566.1 & \textbf{693.2} & 518.7 & 830.8 \\
+\bottomrule
+\end{tabular*}
+\end{table*}
 
 \subsection{Execution-Layer Action Filtering}
 
@@ -1297,10 +1387,66 @@ although the effect is not monotonic in fleet size. These results show that the
 execution filter improves final tracking on average while substantially
 shortening trajectories and reducing mean and peak speed.
 
-\IfFileExists{tables/surface_control_ablations.tex}{%
-\input{tables/surface_control_ablations.tex}
-}{}
-\input{tables/classical_planner_comparison.tex}
+\begin{table*}[htbp]
+\centering
+\caption{Execution-layer low-pass filtering for 4/8/12/16 surface SUVs on
+768 held-out segments from 50 unseen TCs in the 500-TC dataset. Each trained
+actor is evaluated with the filter off and on ($\beta=0.8$) on the same
+validation episodes.}
+\label{tab:surface_control_ablations}
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\renewcommand{\arraystretch}{0.9}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+Fleet & Filter & Final tracking error (km) & Path per SUV (km) & Mean speed (m/s) & Maximum speed (m/s) \\
+\midrule
+4 & Off & 288.2 & 1331.5 & 19.73 & 20.00 \\
+4 & On & \textbf{258.2} & \textbf{768.1} & \textbf{12.72} & \textbf{18.20} \\
+8 & Off & \textbf{305.2} & 1318.0 & 19.57 & 19.97 \\
+8 & On & 308.6 & \textbf{770.9} & \textbf{12.58} & \textbf{17.68} \\
+12 & Off & 478.5 & 1309.3 & 19.34 & 20.00 \\
+12 & On & \textbf{330.0} & \textbf{690.8} & \textbf{11.11} & \textbf{16.13} \\
+16 & Off & 313.6 & 1295.0 & 19.23 & 19.92 \\
+16 & On & \textbf{273.4} & \textbf{721.4} & \textbf{11.94} & \textbf{16.98} \\
+\bottomrule
+\end{tabular}}
+\par\smallskip
+\parbox{\textwidth}{\footnotesize Final tracking error is the fleet average of the individual SUV-to-best-track-center distances at the final time step. Off/on changes only the execution-layer filter on the same trained actor.}
+\end{table*}
+\begin{table*}[t]
+\centering
+\caption{Comparison with four traditional planning baselines on the held-out
+TC segments from the same 500-TC train/test split. Surface values are means
+over the 4/8/12/16-SUV fleets, both speed limits, and all five deployment
+radii. Subsurface values are means over all seven depths and both propulsion
+limits. Smaller errors and paths are better; higher current and coverage are
+better. No single method is best in all subsurface columns.}
+\label{tab:classical_planners}
+\small
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrr@{}}
+\toprule
+\multicolumn{4}{l}{\textbf{Panel A: surface tracking}}\\
+Method & Final error (km) & Time-averaged distance (km) & Path per SUV (km)\\
+\midrule
+Parameter-sharing IPPO & \textbf{341.7} & \textbf{349.1} & \textbf{463.6} \\
+Potential field & 416.5 & 405.9 & 727.6 \\
+Receding-horizon A* & 459.0 & 430.4 & 824.9 \\
+Lawnmower coverage & 554.8 & 478.4 & 508.4 \\
+Information greedy & 467.0 & 429.6 & 525.2 \\
+\midrule
+\multicolumn{4}{l}{\textbf{Panel B: subsurface observation}}\\
+Method & Mean current (m/s) & Nominal coverage (km$^2$) & Path (km)\\
+\midrule
+Parameter-sharing IPPO & 0.409 & \textbf{3630} & 126.4 \\
+Potential field & \textbf{0.449} & 1976 & 112.5 \\
+Receding-horizon A* & 0.428 & 2275 & \textbf{94.8} \\
+Lawnmower coverage & 0.409 & 2902 & 111.1 \\
+Information greedy & 0.432 & 1520 & 102.4 \\
+\bottomrule
+\end{tabular*}
+\end{table*}
 
 \subsection{Subsurface Strategy Comparison}
 
@@ -1523,7 +1669,66 @@ Southern Marine Science and Engineering Guangdong Laboratory (Zhuhai)
 Table~\ref{tab:planner_stratified} reports the traditional-planning comparison
 with the two surface distance metrics separated by deployment radius and the
 three subsurface observation metrics separated by depth.
-\input{tables/planner_stratified.tex}
+\begin{center}
+\captionof{table}{Distance and observation metrics for the traditional planner comparison on the held-out TC segments. Panel A reports the two surface distance metrics by deployment radius, averaged over the four fleet sizes and both speed limits. Panel B reports mean experienced current speed, nominal coverage, and path per SUV at each depth, averaged over the two propulsion limits.}
+\label{tab:planner_stratified}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.04}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llrrrrr@{}}
+\toprule
+\multicolumn{7}{l}{\textbf{Panel A: surface distance metrics}}\\
+Radius & Metric & IPPO & PF & A* & Lawn & Greedy\\
+\midrule
+100 km & Final error (km) & \textbf{209.0} & 290.9 & 325.9 & 366.0 & 296.0 \\
+ & Time-averaged distance (km) & \textbf{165.0} & 230.0 & 250.6 & 232.9 & 212.4 \\
+\addlinespace[1.5pt]
+200 km & Final error (km) & \textbf{224.1} & 294.9 & 329.9 & 394.5 & 311.0 \\
+ & Time-averaged distance (km) & \textbf{191.5} & 248.2 & 267.1 & 285.9 & 244.3 \\
+\addlinespace[1.5pt]
+400 km & Final error (km) & \textbf{289.2} & 354.1 & 395.2 & 504.5 & 406.2 \\
+ & Time-averaged distance (km) & \textbf{294.9} & 343.1 & 367.7 & 441.7 & 374.3 \\
+\addlinespace[1.5pt]
+600 km & Final error (km) & \textbf{406.5} & 477.5 & 531.5 & 661.2 & 560.4 \\
+ & Time-averaged distance (km) & \textbf{451.4} & 506.7 & 538.8 & 621.7 & 559.0 \\
+\addlinespace[1.5pt]
+800 km & Final error (km) & \textbf{579.5} & 665.1 & 712.6 & 847.6 & 761.5 \\
+ & Time-averaged distance (km) & \textbf{642.4} & 701.5 & 727.8 & 809.7 & 757.8 \\
+\addlinespace[1.5pt]
+\midrule
+\multicolumn{7}{l}{\textbf{Panel B: subsurface metrics by depth}}\\
+Depth & Metric & IPPO & PF & A* & Lawn & Greedy\\
+\midrule
+0 m & Mean experienced current (m/s) & 0.538 & \textbf{0.575} & 0.551 & 0.538 & 0.553 \\
+ & Nominal coverage (km$^2$) & \textbf{3957} & 2189 & 2421 & 3047 & 1556 \\
+ & Path per SUV (km) & 138.6 & 119.8 & \textbf{101.3} & 116.0 & 104.8 \\
+\addlinespace[1.5pt]
+10 m & Mean experienced current (m/s) & 0.473 & \textbf{0.513} & 0.490 & 0.474 & 0.495 \\
+ & Nominal coverage (km$^2$) & \textbf{3794} & 2137 & 2387 & 3004 & 1590 \\
+ & Path per SUV (km) & 132.7 & 118.1 & \textbf{99.9} & 114.8 & 105.5 \\
+\addlinespace[1.5pt]
+20 m & Mean experienced current (m/s) & 0.446 & \textbf{0.484} & 0.463 & 0.446 & 0.467 \\
+ & Nominal coverage (km$^2$) & \textbf{3845} & 2094 & 2351 & 2979 & 1595 \\
+ & Path per SUV (km) & 133.6 & 116.5 & \textbf{98.1} & 113.9 & 104.9 \\
+\addlinespace[1.5pt]
+30 m & Mean experienced current (m/s) & 0.408 & \textbf{0.451} & 0.430 & 0.411 & 0.435 \\
+ & Nominal coverage (km$^2$) & \textbf{3608} & 2017 & 2288 & 2918 & 1558 \\
+ & Path per SUV (km) & 126.4 & 113.3 & \textbf{95.0} & 111.8 & 103.1 \\
+\addlinespace[1.5pt]
+40 m & Mean experienced current (m/s) & 0.366 & \textbf{0.409} & 0.387 & 0.369 & 0.394 \\
+ & Nominal coverage (km$^2$) & \textbf{3606} & 1923 & 2241 & 2864 & 1517 \\
+ & Path per SUV (km) & 124.4 & 110.3 & \textbf{92.7} & 109.9 & 101.5 \\
+\addlinespace[1.5pt]
+50 m & Mean experienced current (m/s) & 0.329 & \textbf{0.369} & 0.351 & 0.328 & 0.354 \\
+ & Nominal coverage (km$^2$) & \textbf{3375} & 1786 & 2157 & 2805 & 1445 \\
+ & Path per SUV (km) & 117.8 & 107.0 & \textbf{89.9} & 107.7 & 99.7 \\
+\addlinespace[1.5pt]
+60 m & Mean experienced current (m/s) & 0.304 & \textbf{0.340} & 0.325 & 0.301 & 0.326 \\
+ & Nominal coverage (km$^2$) & \textbf{3225} & 1683 & 2083 & 2693 & 1381 \\
+ & Path per SUV (km) & 111.6 & 103.0 & \textbf{86.8} & 103.7 & 97.3 \\
+\bottomrule
+\end{tabular*}
+\end{center}
 
 Table~\ref{tab:reward_parameters} summarizes the reward, action-filter, and
 safety parameters used in the surface and underwater experiments.
@@ -1744,7 +1949,7 @@ training-seed variability.}
 \clearpage
 \twocolumn
 \bibliographystyle{elsarticle-num}
-\bibliography{MARL_Ding}
+\bibliography{main}
 
 
 

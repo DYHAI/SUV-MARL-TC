@@ -6,11 +6,13 @@ This directory is the working copy for the final manuscript.
 
 - `main.tex`: manuscript source.
 - `main.pdf`: rendered manuscript.
-- `MARL_Ding.bib`: bibliography file used by `main.tex`.
+- `main.bib`: bibliography file used by `main.tex`.
 - `figures/`: all figures, including regenerated PDF/PNG pairs.
-- `tables/`: generated full-width result tables.
-- `sections/`: generated numeric results text.
 - `tools/`: scripts that regenerate the result tables and figures.
+
+All active tables and result paragraphs are embedded directly in `main.tex`;
+the submission package does not require the `tables/` or `sections/`
+directories.
 
 ## Compile
 
