@@ -88,7 +88,6 @@ def main() -> None:
         12: "#D55E00",
         16: "#CC79A7",
     }
-    markers = {4: "o", 8: "s", 12: "^", 16: "D"}
     styles = {12: "--", 20: "-"}
     for col, (metric, std_col, ylabel) in enumerate(metrics):
         ax = axes[col]
@@ -102,7 +101,7 @@ def main() -> None:
                     q[metric],
                     yerr=q[std_col],
                     color=colors[fleet],
-                    marker=markers[fleet],
+                    marker="none",
                     linestyle=styles[version],
                     capsize=3,
                     lw=1.5,
@@ -115,7 +114,7 @@ def main() -> None:
         ax.grid(alpha=0.25)
     from matplotlib.lines import Line2D
     handles = [
-        Line2D([0], [0], color=colors[n], marker=markers[n], linestyle="-")
+        Line2D([0], [0], color=colors[n], linestyle="-")
         for n in FLEETS
     ]
     handles += [

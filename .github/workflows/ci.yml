@@ -28,11 +28,18 @@ jobs:
             run_uwflow_eval.py \
             summarize_uwflow_500.py \
             build_uwflow_cache.py \
-            audit_hycom_currents.py
+            audit_hycom_currents.py \
+            analyze_tc_speed_envelope.py \
+            aggregate_formation_full_matrix.py \
+            make_formation_comparison_figure.py \
+            make_supplementary_tables.py \
+            verify_supplementary_experiments.py
       - name: Check maintained shell scripts
         run: |
           bash -n run_surface_distance_recompute.sh
           bash -n run_uwflow_7depth_completion.sh
           bash -n run_uwflow_complete_depths_first.sh
+          bash -n run_formation_training.sh
+          bash -n run_formation_full_matrix.sh
       - name: Ensure credentials are absent
         run: test ! -e cds_api_keys.json

@@ -9,7 +9,7 @@ mkdir -p "$OUT" "$LOGS"
 
 FLEETS=(4 8 12 16)
 VMAXES=(12 20)
-PLANNERS=(potential astar)
+read -ra PLANNERS <<< "${PLANNERS:-potential astar coverage greedy}"
 MAX_JOBS=${MAX_JOBS:-6}
 
 for planner in "${PLANNERS[@]}"; do

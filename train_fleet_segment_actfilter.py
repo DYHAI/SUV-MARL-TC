@@ -28,7 +28,9 @@ from fleet_sb3 import SharedPerAgentPolicy
 BASE = os.path.dirname(os.path.abspath(__file__))
 SPLIT = os.environ.get("SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_64.json"))
 SEGCSV = os.environ.get("SEGMENTS_CSV", os.path.join(BASE, "data", "segments_64.csv"))
-OUT = os.path.join(BASE, "ppo_fleet")
+OUT = os.path.abspath(
+    os.environ.get("FLEET_MODEL_DIR", os.path.join(BASE, "ppo_fleet"))
+)
 
 TOTAL = int(sys.argv[1]) if len(sys.argv) > 1 else 2_000_000
 OUT_NAME = sys.argv[2] if len(sys.argv) > 2 else "ppo_fleet_actfilter.zip"
@@ -36,7 +38,9 @@ BETA = float(sys.argv[3]) if len(sys.argv) > 3 else 0.5
 N_AUV = int(sys.argv[4]) if len(sys.argv) > 4 else 4
 DEPLOY = float(sys.argv[5]) if len(sys.argv) > 5 else 200.0
 
-SPACING, PATCH_N, SMOOTH, RING_RADIUS, FORMATION, HIDDEN = 0.25, 1, 0.05, 100.0, "ring", 256
+SPACING, PATCH_N, SMOOTH, HIDDEN = 0.25, 1, 0.05, 256
+RING_RADIUS = float(os.environ.get("FORMATION_RADIUS_KM", "100"))
+FORMATION = os.environ.get("FORMATION", "ring")
 NENV = int(os.environ.get("NENV", "4"))
 # 观测通道开关（2026-10-09 起支持）：SST_MODE=none/sst/anom/both，USE_MSLP=0/1
 # 用途：主线最优配置 = 风(u/v/spd) + SST距平 + MSLP（见 README §11/§18）

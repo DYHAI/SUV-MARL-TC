@@ -12,14 +12,14 @@ ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "classical_eval"
 DEPTHS = (0, 10, 20, 30, 40, 50, 60)
 SPEEDS = (1.5, 2.0)
-PLANNERS = ("potential", "astar")
+PLANNERS = ("potential", "astar", "coverage", "greedy")
 
 
 def main() -> int:
     failures = []
     surface = sorted(OUT.glob("surface_*_test_n*_v*_s1.csv"))
-    if len(surface) != 16:
-        failures.append(f"surface raw files: {len(surface)}/16")
+    if len(surface) != 32:
+        failures.append(f"surface raw files: {len(surface)}/32")
     surface_rows = 0
     for path in surface:
         data = pd.read_csv(path)
@@ -28,8 +28,8 @@ def main() -> int:
             failures.append(f"{path.name}: rows={len(data)}")
 
     underwater = sorted(OUT.glob("underwater_*_test_d*_v*_s10.csv"))
-    if len(underwater) != 28:
-        failures.append(f"underwater raw files: {len(underwater)}/28")
+    if len(underwater) != 56:
+        failures.append(f"underwater raw files: {len(underwater)}/56")
     underwater_rows = 0
     for path in underwater:
         data = pd.read_csv(path)
@@ -54,12 +54,12 @@ def main() -> int:
     surface_summary = pd.read_csv(OUT / "surface_all_methods_summary.csv")
     underwater_summary = pd.read_csv(OUT / "underwater_all_methods_summary.csv")
     underwater_tests = pd.read_csv(OUT / "underwater_pairwise_tests.csv")
-    if len(surface_summary) != 120:
-        failures.append(f"surface summary rows: {len(surface_summary)}/120")
-    if len(underwater_summary) != 42:
-        failures.append(f"underwater summary rows: {len(underwater_summary)}/42")
-    if len(underwater_tests) != 140:
-        failures.append(f"underwater tests: {len(underwater_tests)}/140")
+    if len(surface_summary) != 200:
+        failures.append(f"surface summary rows: {len(surface_summary)}/200")
+    if len(underwater_summary) != 70:
+        failures.append(f"underwater summary rows: {len(underwater_summary)}/70")
+    if len(underwater_tests) != 280:
+        failures.append(f"underwater tests: {len(underwater_tests)}/280")
 
     manuscript_table = (
         ROOT / "Latex_Yihui_MARL" / "tables" /
@@ -68,11 +68,11 @@ def main() -> int:
     if not manuscript_table.is_file() or manuscript_table.stat().st_size == 0:
         failures.append("manuscript comparison table missing")
 
-    print(f"surface raw files: {len(surface)}/16 ({surface_rows} rows)")
-    print(f"underwater raw files: {len(underwater)}/28 ({underwater_rows} rows)")
-    print(f"surface summary rows: {len(surface_summary)}/120")
-    print(f"underwater summary rows: {len(underwater_summary)}/42")
-    print(f"underwater paired tests: {len(underwater_tests)}/140")
+    print(f"surface raw files: {len(surface)}/32 ({surface_rows} rows)")
+    print(f"underwater raw files: {len(underwater)}/56 ({underwater_rows} rows)")
+    print(f"surface summary rows: {len(surface_summary)}/200")
+    print(f"underwater summary rows: {len(underwater_summary)}/70")
+    print(f"underwater paired tests: {len(underwater_tests)}/280")
     if failures:
         print("\nINCOMPLETE")
         for failure in failures:

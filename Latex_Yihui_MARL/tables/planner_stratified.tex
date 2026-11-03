@@ -1,0 +1,60 @@
+\begin{center}
+\captionof{table}{Distance and observation metrics for the traditional planner comparison on the held-out TC segments. Panel A reports the two surface distance metrics by deployment radius, averaged over the four fleet sizes and both speed limits. Panel B reports mean experienced current speed, nominal coverage, and path per SUV at each depth, averaged over the two propulsion limits.}
+\label{tab:planner_stratified}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.04}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llrrrrr@{}}
+\toprule
+\multicolumn{7}{l}{\textbf{Panel A: surface distance metrics}}\\
+Radius & Metric & IPPO & PF & A* & Lawn & Greedy\\
+\midrule
+100 km & Final error (km) & \textbf{209.0} & 290.9 & 325.9 & 366.0 & 296.0 \\
+ & Time-averaged distance (km) & \textbf{165.0} & 230.0 & 250.6 & 232.9 & 212.4 \\
+\addlinespace[1.5pt]
+200 km & Final error (km) & \textbf{224.1} & 294.9 & 329.9 & 394.5 & 311.0 \\
+ & Time-averaged distance (km) & \textbf{191.5} & 248.2 & 267.1 & 285.9 & 244.3 \\
+\addlinespace[1.5pt]
+400 km & Final error (km) & \textbf{289.2} & 354.1 & 395.2 & 504.5 & 406.2 \\
+ & Time-averaged distance (km) & \textbf{294.9} & 343.1 & 367.7 & 441.7 & 374.3 \\
+\addlinespace[1.5pt]
+600 km & Final error (km) & \textbf{406.5} & 477.5 & 531.5 & 661.2 & 560.4 \\
+ & Time-averaged distance (km) & \textbf{451.4} & 506.7 & 538.8 & 621.7 & 559.0 \\
+\addlinespace[1.5pt]
+800 km & Final error (km) & \textbf{579.5} & 665.1 & 712.6 & 847.6 & 761.5 \\
+ & Time-averaged distance (km) & \textbf{642.4} & 701.5 & 727.8 & 809.7 & 757.8 \\
+\addlinespace[1.5pt]
+\midrule
+\multicolumn{7}{l}{\textbf{Panel B: subsurface metrics by depth}}\\
+Depth & Metric & IPPO & PF & A* & Lawn & Greedy\\
+\midrule
+0 m & Mean experienced current (m/s) & 0.538 & \textbf{0.575} & 0.551 & 0.538 & 0.553 \\
+ & Nominal coverage (km$^2$) & \textbf{3957} & 2189 & 2421 & 3047 & 1556 \\
+ & Path per SUV (km) & 138.6 & 119.8 & \textbf{101.3} & 116.0 & 104.8 \\
+\addlinespace[1.5pt]
+10 m & Mean experienced current (m/s) & 0.473 & \textbf{0.513} & 0.490 & 0.474 & 0.495 \\
+ & Nominal coverage (km$^2$) & \textbf{3794} & 2137 & 2387 & 3004 & 1590 \\
+ & Path per SUV (km) & 132.7 & 118.1 & \textbf{99.9} & 114.8 & 105.5 \\
+\addlinespace[1.5pt]
+20 m & Mean experienced current (m/s) & 0.446 & \textbf{0.484} & 0.463 & 0.446 & 0.467 \\
+ & Nominal coverage (km$^2$) & \textbf{3845} & 2094 & 2351 & 2979 & 1595 \\
+ & Path per SUV (km) & 133.6 & 116.5 & \textbf{98.1} & 113.9 & 104.9 \\
+\addlinespace[1.5pt]
+30 m & Mean experienced current (m/s) & 0.408 & \textbf{0.451} & 0.430 & 0.411 & 0.435 \\
+ & Nominal coverage (km$^2$) & \textbf{3608} & 2017 & 2288 & 2918 & 1558 \\
+ & Path per SUV (km) & 126.4 & 113.3 & \textbf{95.0} & 111.8 & 103.1 \\
+\addlinespace[1.5pt]
+40 m & Mean experienced current (m/s) & 0.366 & \textbf{0.409} & 0.387 & 0.369 & 0.394 \\
+ & Nominal coverage (km$^2$) & \textbf{3606} & 1923 & 2241 & 2864 & 1517 \\
+ & Path per SUV (km) & 124.4 & 110.3 & \textbf{92.7} & 109.9 & 101.5 \\
+\addlinespace[1.5pt]
+50 m & Mean experienced current (m/s) & 0.329 & \textbf{0.369} & 0.351 & 0.328 & 0.354 \\
+ & Nominal coverage (km$^2$) & \textbf{3375} & 1786 & 2157 & 2805 & 1445 \\
+ & Path per SUV (km) & 117.8 & 107.0 & \textbf{89.9} & 107.7 & 99.7 \\
+\addlinespace[1.5pt]
+60 m & Mean experienced current (m/s) & 0.304 & \textbf{0.340} & 0.325 & 0.301 & 0.326 \\
+ & Nominal coverage (km$^2$) & \textbf{3225} & 1683 & 2083 & 2693 & 1381 \\
+ & Path per SUV (km) & 111.6 & 103.0 & \textbf{86.8} & 103.7 & 97.3 \\
+\bottomrule
+\end{tabular*}
+\end{center}

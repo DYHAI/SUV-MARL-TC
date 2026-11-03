@@ -50,11 +50,15 @@ greater spatial coverage.
 
 ## Classical planner comparison
 
-Table 4 in the manuscript compares parameter-sharing IPPO with a causal
-potential-field planner and a periodically replanned A* planner on the same
-500-TC train/test split. Surface results cover all 40 fleet/speed/deployment
-configurations and 768 test segments. Subsurface results cover seven depths,
-both propulsion limits, and 500 paired episodes per setting.
+The manuscript compares parameter-sharing IPPO with four causal traditional
+planners: artificial potential field, receding-horizon A*, lawnmower coverage,
+and information-greedy control. Surface results cover all 40 fleet/speed/
+deployment configurations and 768 test segments. Subsurface results cover seven
+depths, both propulsion limits, and 500 paired episodes per setting.
+
+The formation study covers ring, line, and grid formations at 12 and 20 m/s,
+with training offsets sampled inside 800 km and fixed evaluation radii of 100,
+200, 400, 600, and 800 km.
 
 Baseline code, summary statistics, paired tests, and reproducibility notes are
 under `../classical_eval/`. Verify the complete matrices with:

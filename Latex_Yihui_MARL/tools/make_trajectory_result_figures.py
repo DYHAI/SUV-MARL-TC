@@ -399,11 +399,6 @@ def draw_current_background(ax, d, speed, extent, vmax):
         norm=mcolors.Normalize(0, vmax), shading="gouraud",
         rasterized=True, zorder=0,
     )
-    ax.contour(
-        lon_f, lat_f, spd_f,
-        levels=np.linspace(0.1 * vmax, 0.9 * vmax, 5),
-        colors="white", linewidths=0.45, alpha=0.5, zorder=1,
-    )
     return mesh
 
 

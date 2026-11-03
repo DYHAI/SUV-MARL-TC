@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate and plot the two causal classical-planning baselines."""
+"""Aggregate and plot the causal traditional-planning baselines."""
 
 from __future__ import annotations
 
@@ -25,18 +25,22 @@ RADII = (100, 200, 400, 600, 800)
 METHODS = {
     "PotentialFieldPlanner": "Potential field",
     "RecedingHorizonAStarPlanner": "Receding-horizon A*",
+    "BoustrophedonCoveragePlanner": "Lawnmower coverage",
+    "InformationGreedyPlanner": "Information greedy",
 }
 STYLE = {
     "IPPO": dict(color="#245c8a", marker="o"),
     "Potential field": dict(color="#d47b20", marker="s"),
     "Receding-horizon A*": dict(color="#3d9664", marker="^"),
+    "Lawnmower coverage": dict(color="#7b52ab", marker="D"),
+    "Information greedy": dict(color="#b23a48", marker="P"),
 }
 
 
 def aggregate_surface() -> pd.DataFrame:
     paths = sorted(OUT.glob("surface_*_test_n*_v*_s1.csv"))
-    if len(paths) != 16:
-        raise SystemExit(f"expected 16 surface planner files, found {len(paths)}")
+    if len(paths) != 32:
+        raise SystemExit(f"expected 32 surface planner files, found {len(paths)}")
     frames = []
     for path in paths:
         frame = pd.read_csv(path)
@@ -98,8 +102,8 @@ def aggregate_surface() -> pd.DataFrame:
 
 def aggregate_underwater() -> tuple[pd.DataFrame, pd.DataFrame]:
     paths = sorted(OUT.glob("underwater_*_test_d*_v*_s10.csv"))
-    if len(paths) != 28:
-        raise SystemExit(f"expected 28 underwater planner files, found {len(paths)}")
+    if len(paths) != 56:
+        raise SystemExit(f"expected 56 underwater planner files, found {len(paths)}")
     frames = []
     for path in paths:
         frame = pd.read_csv(path)
@@ -254,7 +258,10 @@ def plot_surface(summary: pd.DataFrame) -> None:
     for row, speed in enumerate(SPEEDS_SURFACE):
         for col, fleet in enumerate(FLEETS):
             ax = axes[row, col]
-            for method in ("IPPO", "Potential field", "Receding-horizon A*"):
+            for method in (
+                "IPPO", "Potential field", "Receding-horizon A*",
+                "Lawnmower coverage", "Information greedy",
+            ):
                 q = summary[
                     (summary.method == method)
                     & (summary.n_auv == fleet)
@@ -273,7 +280,7 @@ def plot_surface(summary: pd.DataFrame) -> None:
             if row == len(SPEEDS_SURFACE) - 1:
                 ax.set_xlabel("Deployment radius (km)")
     axes[0, 0].legend(frameon=False, loc="upper left", fontsize=8)
-    fig.suptitle("Surface tracking: MARL versus classical planners", fontweight="bold")
+    fig.suptitle("Surface tracking: MARL versus traditional planners", fontweight="bold")
     fig.savefig(FIG / "classical_surface_comparison.pdf", bbox_inches="tight")
     fig.savefig(FIG / "classical_surface_comparison.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -281,7 +288,10 @@ def plot_surface(summary: pd.DataFrame) -> None:
 
 def surface_pairwise_tests(summary: pd.DataFrame) -> None:
     rows = []
-    for baseline in ("Potential field", "Receding-horizon A*"):
+    for baseline in (
+        "Potential field", "Receding-horizon A*",
+        "Lawnmower coverage", "Information greedy",
+    ):
         for metric in (
             "final_distance_km",
             "distance_avg_km",
@@ -334,7 +344,10 @@ def plot_underwater(summary: pd.DataFrame) -> None:
     for row, speed in enumerate(SPEEDS_UW):
         for col, (metric, label) in enumerate(metrics):
             ax = axes[row, col]
-            for method in ("IPPO", "Potential field", "Receding-horizon A*"):
+            for method in (
+                "IPPO", "Potential field", "Receding-horizon A*",
+                "Lawnmower coverage", "Information greedy",
+            ):
                 q = summary[
                     (summary.method == method)
                     & np.isclose(summary.vmax_ms, speed)
@@ -358,10 +371,92 @@ def plot_underwater(summary: pd.DataFrame) -> None:
                 transform=ax.transAxes, va="top", fontweight="bold",
             )
     axes[0, 0].legend(frameon=False, loc="lower right", fontsize=8)
-    fig.suptitle("Subsurface observation: MARL versus classical planners", fontweight="bold")
+    fig.suptitle("Subsurface observation: MARL versus traditional planners", fontweight="bold")
     fig.savefig(FIG / "classical_underwater_comparison.pdf", bbox_inches="tight")
     fig.savefig(FIG / "classical_underwater_comparison.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
+
+
+def write_summary_table(surface: pd.DataFrame, underwater: pd.DataFrame) -> None:
+    method_order = (
+        "IPPO",
+        "Potential field",
+        "Receding-horizon A*",
+        "Lawnmower coverage",
+        "Information greedy",
+    )
+    s = (
+        surface.groupby("method", as_index=False)
+        .agg(
+            final_error=("final_distance_km", "mean"),
+            mean_distance=("distance_avg_km", "mean"),
+            path=("path_km", "mean"),
+        )
+        .set_index("method")
+        .loc[list(method_order)]
+        .reset_index()
+    )
+    u = (
+        underwater.groupby("method", as_index=False)
+        .agg(
+            current=("mean_current_ms", "mean"),
+            coverage=("coverage_area_km2", "mean"),
+            path=("path_km", "mean"),
+            weighted_coverage=("current_weighted_coverage", "mean"),
+        )
+        .set_index("method")
+        .loc[list(method_order)]
+        .reset_index()
+    )
+    labels = {
+        "IPPO": "Parameter-sharing IPPO",
+        "Potential field": "Potential field",
+        "Receding-horizon A*": "Receding-horizon A*",
+        "Lawnmower coverage": "Lawnmower coverage",
+        "Information greedy": "Information greedy",
+    }
+    lines = [
+        r"\begin{table*}[t]",
+        r"\centering",
+        r"\caption{Comparison with four traditional planning baselines on the "
+        r"held-out TC segments from the same 500-TC train/test split. Surface "
+        r"values are means over the 4/8/12/16-SUV fleets, both speed limits, "
+        r"and all five deployment radii. Subsurface values are means over all "
+        r"seven depths and both propulsion limits. Smaller errors and paths "
+        r"are better; higher current and coverage are better.}",
+        r"\label{tab:classical_planners}",
+        r"\small",
+        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrr@{}}",
+        r"\toprule",
+        r"\multicolumn{4}{l}{\textbf{Panel A: surface tracking}}\\",
+        r"Method & Final error (km) & Time-averaged distance (km) & Path per SUV (km)\\",
+        r"\midrule",
+    ]
+    for _, row in s.iterrows():
+        values = (row.final_error, row.mean_distance, row.path)
+        best = [abs(row[k] - s[k].min()) < 1e-9 for k in ("final_error", "mean_distance", "path")]
+        cells = [f"\\textbf{{{v:.1f}}}" if mark else f"{v:.1f}" for v, mark in zip(values, best)]
+        lines.append(f"{labels[row.method]} & " + " & ".join(cells) + r" \\")
+    lines += [
+        r"\midrule",
+        r"\multicolumn{4}{l}{\textbf{Panel B: subsurface observation}}\\",
+        r"Method & Mean current (m/s) & Nominal coverage (km$^2$) & Path (km)\\",
+        r"\midrule",
+    ]
+    for _, row in u.iterrows():
+        values = (row.current, row.coverage, row.path)
+        best = [abs(row[k] - u[k].max()) < 1e-9 for k in ("current", "coverage")]
+        best.append(abs(row.path - u.path.min()) < 1e-9)
+        cells = [
+            f"\\textbf{{{row.current:.3f}}}" if best[0] else f"{row.current:.3f}",
+            f"\\textbf{{{row.coverage:.0f}}}" if best[1] else f"{row.coverage:.0f}",
+        ]
+        cells.append(f"\\textbf{{{values[2]:.1f}}}" if best[2] else f"{values[2]:.1f}")
+        lines.append(f"{labels[row.method]} & " + " & ".join(cells) + r" \\")
+    lines += [r"\bottomrule", r"\end{tabular*}", r"\end{table*}", ""]
+    (DOC / "tables" / "classical_planner_comparison.tex").write_text(
+        "\n".join(lines), encoding="utf-8"
+    )
 
 
 def main() -> None:
@@ -372,6 +467,7 @@ def main() -> None:
     FIG.mkdir(parents=True, exist_ok=True)
     plot_surface(surface)
     plot_underwater(underwater)
+    write_summary_table(surface, underwater)
     print(OUT / "surface_all_methods_summary.csv")
     print(OUT / "underwater_all_methods_summary.csv")
     print(FIG / "classical_surface_comparison.pdf")

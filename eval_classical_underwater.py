@@ -89,7 +89,7 @@ def run_episode(planner, env, row, seed):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("planner", choices=("potential", "astar"))
+    parser.add_argument("planner", choices=("potential", "astar", "coverage", "greedy"))
     parser.add_argument("--depth", type=float, required=True)
     parser.add_argument("--vmax", type=float, required=True)
     parser.add_argument("--split-key", choices=("train", "test", "all"), default="test")

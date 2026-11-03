@@ -118,6 +118,10 @@
     described as guaranteeing convergence.
 16. Kept the ten-seed underwater numerical table out of the manuscript at the
     author's request; Figure 6 remains the paper-facing three-metric display.
+17. Forced pending result floats to clear before the Conclusion so that Figures
+    5--6 and Table 4 no longer interrupt the concluding section.
+18. Retained the original Conclusion text and placed it in a balanced
+    two-column block below a full-width heading at the author's request.
 
 ## Numerical checks against processed results
 
@@ -138,7 +142,7 @@
 - All 14 final underwater evaluation files contain 6,000 rows:
   50 TCs x 10 deployment seeds x 12 policies.
 - `verify_uwflow_completion.py`: passed.
-- Final manuscript: 21 pages, 59 references, no undefined citations and no
+- Final manuscript: 22 pages, 59 references, no undefined citations and no
   BibTeX warnings.
 
 ## Remaining limitations that are disclosed rather than “fixed”

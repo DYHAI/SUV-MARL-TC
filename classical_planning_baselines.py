@@ -343,9 +343,147 @@ class RecedingHorizonAStarPlanner:
         )
 
 
+class BoustrophedonCoveragePlanner:
+    """Fixed-lawnmower coverage without access to environmental values.
+
+    The fleet follows parallel east-west legs with 25% turn phases between
+    vehicles.  This is a standard geometry-only coverage baseline and therefore
+    provides a lower-information contrast to the value-driven planners.
+    """
+
+    def __init__(
+        self,
+        kind: str,
+        *,
+        lane_width_km: float = 40.0,
+        leg_length_km: float = 80.0,
+        coast_margin_km: float = 100.0,
+    ) -> None:
+        if kind not in ("surface", "subsurface"):
+            raise ValueError(kind)
+        self.kind = kind
+        self.lane_width_km = float(lane_width_km)
+        self.leg_length_km = float(leg_length_km)
+        self.coast_margin_km = float(coast_margin_km)
+        self._step = 0
+
+    def reset(self, env) -> None:
+        self._step = 0
+
+    def act(self, obs: np.ndarray, env) -> np.ndarray:
+        step_km = float(env.vmax) * STEP_MIN * 60.0 / 1000.0
+        leg_steps = max(1, int(round(self.leg_length_km / max(step_km, 1e-9))))
+        turn_steps = max(1, int(round(0.25 * self.lane_width_km / max(step_km, 1e-9))))
+        period = 2 * leg_steps + 2 * turn_steps
+        action = np.zeros((env.n_auv, 2), dtype=np.float64)
+        for i in range(env.n_auv):
+            phase = (self._step + int(round(i * period / env.n_auv))) % period
+            if phase < leg_steps:
+                action[i] = (1.0, 0.0)
+            elif phase < leg_steps + turn_steps:
+                action[i] = (0.0, 1.0)
+            elif phase < 2 * leg_steps + turn_steps:
+                action[i] = (-1.0, 0.0)
+            else:
+                action[i] = (0.0, 1.0)
+        self._step += 1
+        action = _unit(action)
+        coast = _coast_interpolator(env)
+        land = np.asarray(coast(np.stack([env.lats, env.lons], axis=1)), dtype=np.float64)
+        if (land < self.coast_margin_km).any():
+            offshore = coast_gradient(np.asarray(env.lons), np.asarray(env.lats), coast)
+            scale = 2.0 * np.clip(
+                1.0 - land / max(self.coast_margin_km, 1.0), 0.0, 1.0
+            )
+            action = _unit(action + scale[:, None] * offshore)
+        if self.kind == "surface":
+            return safety_filter(
+                action,
+                np.asarray(env.lons),
+                np.asarray(env.lats),
+                coast,
+                self.coast_margin_km,
+            )
+        return action
+
+
+class InformationGreedyPlanner(RecedingHorizonAStarPlanner):
+    """One-step lookahead over a causal local value map.
+
+    The planner evaluates eight unit actions using only observations already
+    acquired.  It is the standard greedy alternative to multi-step A* planning.
+    """
+
+    def __init__(
+        self,
+        kind: str,
+        *,
+        coast_margin_km: float = 100.0,
+    ) -> None:
+        super().__init__(
+            kind,
+            replan_steps=1,
+            horizon_steps=1,
+            coast_margin_km=coast_margin_km,
+        )
+
+    def act(self, obs: np.ndarray, env) -> np.ndarray:
+        if not self._plans:
+            self.reset(env)
+        if self.kind == "surface":
+            self._remember_surface(obs, env)
+        else:
+            self._remember_subsurface(obs, env)
+        step_km = float(env.vmax) * STEP_MIN * 60.0 / 1000.0
+        actions = np.zeros((env.n_auv, 2), dtype=np.float64)
+        directions = np.array(
+            [
+                [1.0, 0.0], [-1.0, 0.0], [0.0, 1.0], [0.0, -1.0],
+                [0.70710678, 0.70710678], [-0.70710678, 0.70710678],
+                [0.70710678, -0.70710678], [-0.70710678, -0.70710678],
+            ],
+            dtype=np.float64,
+        )
+        coast = _coast_interpolator(env)
+        for i in range(env.n_auv):
+            samples = self._samples(i)
+            lat0 = float(env.lats[i])
+            lon0 = float(env.lons[i])
+            cand_lat = lat0 + directions[:, 1] * step_km / D2KM
+            cand_lon = lon0 + directions[:, 0] * step_km / (
+                D2KM * np.cos(np.deg2rad(np.clip(lat0, -89.0, 89.0)))
+            )
+            values = self._predict(samples, cand_lon, cand_lat)
+            clearance = np.asarray(
+                coast(np.stack([cand_lat, cand_lon], axis=1)), dtype=np.float64
+            )
+            values = values + 2.0 * np.clip(
+                clearance / max(self.coast_margin_km, 1.0), 0.0, 1.0
+            )
+            values[clearance <= 0.0] = -np.inf
+            if not np.isfinite(values).any():
+                actions[i] = (0.0, 0.0)
+            else:
+                actions[i] = directions[int(np.argmax(values))]
+        actions = _unit(actions)
+        if self.kind == "surface":
+            return safety_filter(
+                actions,
+                np.asarray(env.lons),
+                np.asarray(env.lats),
+                coast,
+                self.coast_margin_km,
+            )
+        return actions
+
+
 def make_planner(name: str, kind: str):
     if name == "potential":
         return PotentialFieldPlanner(kind)
     if name == "astar":
         return RecedingHorizonAStarPlanner(kind)
+    if name == "coverage":
+        return BoustrophedonCoveragePlanner(kind)
+    if name == "greedy":
+        return InformationGreedyPlanner(kind)
     raise ValueError(name)

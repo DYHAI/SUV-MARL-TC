@@ -46,16 +46,15 @@ def main() -> None:
     lines = [
         r"\begin{table*}[htbp]",
         r"\centering",
-        r"\caption{Effect of execution-layer low-pass filtering for 4/8/12/16 "
+        r"\caption{Execution-layer low-pass filtering for 4/8/12/16 surface "
         r"SUVs on 768 held-out segments from 50 unseen TCs in the 500-TC "
-        r"archive. The same trained policy is evaluated with the filter off "
-        r"and on ($\beta=0.8$).}",
+        r"archive. Each trained actor is evaluated with the filter off and on "
+        r"($\beta=0.8$) on the same validation episodes.}",
         r"\label{tab:surface_control_ablations}",
         r"\scriptsize",
         r"\setlength{\tabcolsep}{2.5pt}",
         r"\renewcommand{\arraystretch}{0.9}",
-        r"\resizebox{0.94\textwidth}{!}{%",
-        r"\begin{tabular}{@{}llrrrr@{}}",
+        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llrrrr@{}}",
         r"\toprule",
         r"Fleet & Filter & Final tracking error (km) & Path per SUV (km) & "
         r"Mean speed (m/s) & Maximum speed (m/s) \\",
@@ -88,9 +87,9 @@ def main() -> None:
             lines.append(f"{fleet} & {label} & " + " & ".join(cells) + r" \\")
     lines += [
         r"\bottomrule",
-        r"\end{tabular}}",
+        r"\end{tabular*}",
         r"\par\smallskip",
-        r"\parbox{0.94\textwidth}{\footnotesize Final tracking error is the "
+        r"\parbox{\textwidth}{\footnotesize Final tracking error is the "
         r"fleet average of the individual SUV-to-best-track-center distances "
         r"at the final time step. Off/on changes only the "
         r"execution-layer filter on the same trained actor.}",

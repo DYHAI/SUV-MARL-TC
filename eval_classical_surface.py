@@ -125,7 +125,7 @@ def run_episode(planner, env, row, idx, deployment_seed, radius_km):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("planner", choices=("potential", "astar"))
+    parser.add_argument("planner", choices=("potential", "astar", "coverage", "greedy"))
     parser.add_argument("--n-auv", type=int, required=True)
     parser.add_argument("--vmax", type=float, required=True)
     parser.add_argument("--radii", type=float, nargs="+", default=[100, 200, 400, 600, 800])

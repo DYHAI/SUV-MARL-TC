@@ -43,7 +43,9 @@ D_FIXED = float(sys.argv[3]) if len(sys.argv) > 3 else 200.0
 SEEDS = int(sys.argv[4]) if len(sys.argv) > 4 else 3
 R_TRAIN = float(os.environ.get("XFER_R_TRAIN", "200"))
 
-SPACING, PATCH_N, FORMATION, RING_RADIUS, BETA = 0.25, 1, "ring", 100.0, 0.8
+SPACING, PATCH_N, BETA = 0.25, 1, 0.8
+RING_RADIUS = float(os.environ.get("FORMATION_RADIUS_KM", "100"))
+FORMATION = os.environ.get("FORMATION", "ring")
 
 
 def deploy_fixed(d, t0, n_auv, D, seed):

@@ -63,6 +63,8 @@ def deploy_formation(clon, clat, n_auv, formation="scatter", spread_radius=100.0
     """在 (clon, clat) 周围布防 n_auv 个 AUV。
     formation="scatter": 在 spread_radius km 半径内随机散开（原两级布防第二步）；
     formation="ring": 在 ring_radius km 圆上均匀分布(4 AUV 即 90° 间隔)，整体随机旋转。
+    formation="line": 随机朝向的等间距直线队形；
+    formation="grid": 近似方形的等间距网格队形。
     返回 (lons, lats)。"""
     lons = np.zeros(n_auv); lats = np.zeros(n_auv)
     if formation == "ring":
@@ -71,6 +73,28 @@ def deploy_formation(clon, clat, n_auv, formation="scatter", spread_radius=100.0
             ang = theta + i * (2 * np.pi / n_auv)
             lons[i] = clon + ring_radius * np.cos(ang) / (D2KM * np.cos(np.deg2rad(clat)))
             lats[i] = clat + ring_radius * np.sin(ang) / D2KM
+    elif formation == "line":
+        theta = np.random.uniform(0, 2 * np.pi)
+        offsets = np.linspace(-ring_radius, ring_radius, n_auv)
+        for i, offset in enumerate(offsets):
+            dx = offset * np.cos(theta)
+            dy = offset * np.sin(theta)
+            lons[i] = clon + dx / (D2KM * np.cos(np.deg2rad(clat)))
+            lats[i] = clat + dy / D2KM
+    elif formation == "grid":
+        theta = np.random.uniform(0, 2 * np.pi)
+        cols = int(np.ceil(np.sqrt(n_auv)))
+        rows = int(np.ceil(n_auv / cols))
+        xs = np.linspace(-ring_radius, ring_radius, cols)
+        ys = np.linspace(-ring_radius, ring_radius, rows)
+        ca, sa = np.cos(theta), np.sin(theta)
+        for i in range(n_auv):
+            gx = xs[i % cols]
+            gy = ys[i // cols]
+            dx = ca * gx - sa * gy
+            dy = sa * gx + ca * gy
+            lons[i] = clon + dx / (D2KM * np.cos(np.deg2rad(clat)))
+            lats[i] = clat + dy / D2KM
     else:
         for i in range(n_auv):
             ang = np.random.uniform(0, 2 * np.pi)
@@ -536,15 +560,19 @@ class FleetSegmentEnv(gym.Env):
         dy = (self.lats - eye_lat) * D2KM
         dist = np.hypot(dx, dy)
         rewards = -np.minimum(dist, 300.0) / 100.0
-        rewards += (dist < 100.0).astype(np.float32)
-        rewards -= W_FORM * np.maximum(0.0, dist - R_FORM) / 100.0
-        if self.smooth_penalty > 0:
+        if os.environ.get("SURFACE_REWARD_NEAR", "1") == "1":
+            rewards += (dist < 100.0).astype(np.float32)
+        if os.environ.get("SURFACE_REWARD_FORMATION", "1") == "1":
+            rewards -= W_FORM * np.maximum(0.0, dist - R_FORM) / 100.0
+        if self.smooth_penalty > 0 and os.environ.get("SURFACE_REWARD_SMOOTH", "1") == "1":
             rewards -= self.smooth_penalty * np.sum(a_change * a_change, axis=1)
         land_dist = self.dist_interp(np.stack([self.lats, self.lons], axis=1))
         on_land = land_dist <= 0.0
         # 陆罚单独拆出来（数值与原来完全一致），供 info 透出 / 上层决定是否在裁剪之后叠加
         land_pen = np.where(on_land, -LAND_PENALTY,
                             -W_BUFFER * np.maximum(0.0, 1.0 - land_dist / R_BUFFER)).astype(np.float32)
+        if os.environ.get("SURFACE_REWARD_COAST", "1") != "1":
+            land_pen = np.zeros_like(land_pen)
         rewards = rewards + land_pen
         terminated = False
         truncated = (self.t >= self.t1) or (self.t >= self.d["T"] - 1) or \

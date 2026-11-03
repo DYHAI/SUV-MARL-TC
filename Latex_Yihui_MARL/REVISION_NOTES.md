@@ -364,3 +364,172 @@ weights and results are not manuscript evidence.
   script compares speed sets independent of the requested plotting order.
 - `verify_uwflow_completion.py` passes with 7 x 500 archives/caches, 140/140
   models, 14/14 evaluations, and all final figures/tables present.
+
+### Reviewer-response experiment integration (2026-11-02)
+
+- Added an IBTrACS translation-speed envelope analysis and figure. The 500 TCs
+  contain 30,498 main-track samples with median 5.14 m/s and 95th percentile
+  13.38 m/s. Surface limits cover 93.8% (12 m/s) and 98.9% (20 m/s), whereas
+  submerged limits are explicitly local-sampling rather than TC-chasing speeds.
+- Added a mission-level surface-to-subsurface handoff definition. The current
+  simulation uses a scheduled segment-end handoff and does not claim a tested
+  ballast or descent controller.
+- Added explicit communication bounds: ideal all-to-all surface wind sharing and
+  zero inter-vehicle communication underwater, without running a communication
+  sensitivity sweep.
+- Expanded the traditional comparison to four causal planners: potential field,
+  receding-horizon A*, lawnmower coverage, and information-greedy control.
+  The complete matrices contain 32/32 surface files and 56/56 underwater files.
+- Added full post-training robustness/OOD diagnostics for wind/current scaling,
+  sensor noise, one-cycle delay, action dead zone, speed calibration, temporal
+  strata, intensity strata, and north/south regions.
+- Added ring/line/grid formation training and evaluation. Ring retains the best
+  768-segment final tracking error; line shortens paths but reduces the spatial
+  footprint; grid preserves spacing without improving terminal error.
+- Added three-seed underwater reward ablation (A/B/C) and same-policy coastline
+  safety on/off evaluation.
+- Added a representative two-seed IPPO/SAC/TD3 comparison with two million
+  environment steps per run and documented training time/process-memory use.
+- Added a unified control-interface table, Algorithm 1, zero-order-hold and
+  interpolation details, and explicit sim-to-real limitations.
+- Completed the final surface TD3 seed and rebuilt all algorithm-comparison
+  summaries. Surface IPPO achieved 317.3 km mean final error versus 494.7 km
+  (SAC) and 548.5 km (TD3); underwater IPPO achieved 0.411 m/s current and
+  3195 km2 coverage, the best combined result in the representative two-seed
+  comparison.
+- Reflowed the ablation table ahead of its discussion so that Table 10 and the
+  safety/reward text share a page. This removes the otherwise blank page before
+  the conclusion and reduces the final manuscript from 29 to 28 pages.
+- Final verification passes for seven-depth data/models/evaluations, the
+  traditional-planner matrices, all supplementary experiments, and the
+  compressed/high-resolution/no-figure PDFs.
+
+### Format and equation audit (2026-11-02)
+
+- Converted the horizontal-motion equations to a consistent unit system:
+  positions and evaluated distances are in km, velocities in m/s, and the
+  explicit factor \(1/1000\) converts propulsion and advection to km/s.
+- Added the \(3.6\) conversion to the direct-pursuit correction-time estimate
+  so that km and m/s produce hours.
+- Matched the observation equation to the implementation: surface input is
+  \([s_i,v_i]\), underwater input is \([h_i,v_i]\), and the underwater
+  five-frame history is ordered oldest-to-newest and left-padded at reset.
+- Completed the Dec-POMDP tuple with local observation spaces and a joint
+  observation function, and clarified the local-reward vector and team-average
+  scalar reward.
+- Corrected reward timing and notation: surface distance and coastal cost use
+  the post-transition state, action-change cost uses executed commands, and
+  zero-vector alignment is defined explicitly.
+- Corrected the evaluation equations for final/time-averaged distance,
+  underwater path/current/coverage indexing, and the \(1/(NK)\) normalization
+  of the command-effort proxy.
+- Corrected deployment wording from area-uniform disk sampling to the actual
+  implementation: uniform radial magnitude and uniform bearing.
+- Replaced hard-coded reward distances with \(D_{\max}\),
+  \(D_{\mathrm{scale}}\), and \(d_{\mathrm{near}}\), and added
+  \(D_{\mathrm{scale}}\) to the parameter table.
+- Let the CAS title wrap automatically through `\texorpdfstring`, removed the
+  duplicated printed ``and'' in the author list, and populated PDF author,
+  subject, and keyword metadata.
+- Changed Tables A.1 and A.2 to non-floating appendix tables, preventing them
+  from appearing before the appendix heading; removed the orphaned appendix
+  note page and kept Tables A.3/A.4 readable without overlap.
+
+At that historical checkpoint, the layout contained 29 PDF pages including
+the unnumbered Highlights page (28 numbered manuscript pages). There were no
+undefined references or citations, no duplicate labels, and no text blocks
+outside the page margins.
+
+### Final layout and complete formation-matrix extension (2026-11-02)
+
+- Restored the Conclusion to the document's native two-column flow and removed
+  the `\onecolumn`/nested-`multicols` combination that produced a nearly empty
+  first Conclusion page.
+- Switched back to one-column mode only at the start of the appendix, so
+  Appendix A, Table A.1, Table A.2, and Table A.3 are no longer split across the
+  manuscript's two columns.
+- Removed the supplementary-protocol Table A.1 at the author's request.
+  Appendix numbering now begins with the stratified traditional-planner table
+  (A.1), followed by the reward/safety parameters (A.2) and IPPO
+  hyperparameters (A.3).
+- Removed the former Results subsection 5.4 and its unused closure-time
+  equations; later Results subsections renumber automatically.
+- Replaced the explicit `/1000` velocity conversion in the motion equations
+  with km/s velocity variables, while retaining device limits in m/s.
+- Enlarged Figure 5 from three cramped horizontal panels to three
+  full-width vertical panels, with larger fonts, trajectory lines, markers,
+  and axis labels.
+- Audited all included table captions. Captions now state the actual held-out
+  data, task dimensions, aggregation scope, and metric direction; obsolete
+  protocol wording and the outdated 12 m/s-only formation description were
+  removed.
+- Extended the formation experiment to 12 and 20 m/s for ring, line, and grid,
+  all trained with formation-center offsets sampled inside 800 km and evaluated
+  at 100/200/400/600/800 km on the same 768 held-out segments.
+- Completed all 30 formation conditions. Table 5 now bolds the lowest final
+  error and shortest path in each speed/radius row. Across all conditions, the
+  ring has the lowest mean final error (346.7 km), the line has the shortest
+  mean path (470.3 km), and the grid preserves a broad footprint but is not a
+  universally superior formation.
+- Folded the former representative IPPO/SAC/TD3 subsection into the final
+  paragraph of the parameter-sharing IPPO subsection and removed the rendered
+  algorithm-comparison table. The manuscript now goes directly from the
+  condensed controller-selection evidence to the surface evaluation protocol.
+- Rewrote the traditional-planning introduction as four short, equally
+  weighted descriptions of potential field, receding-horizon A*, lawnmower
+  coverage, and information-greedy control. The comparison is retained as a
+  secondary evaluation rather than an expanded method contribution.
+- Rebuilt Appendix Table A.1 around the metrics requested by the author.
+  Panel A now removes fleet-size stratification and compares two surface
+  distance metrics across deployment radii. Panel B removes propulsion-limit
+  stratification and compares current speed, nominal coverage, and path at
+  each of the seven depths.
+- Final terminology and reproducibility pass: the motion model now uses
+  km/min velocities with \(\Delta t=10\) min, the stage-transition subsection
+  is titled "Surface--Subsurface Task Switch", the controller comparison is
+  described as a reinforcement-learning algorithm comparison using IPPO, and
+  the code-availability statement lists the principal Python packages and
+  exact versions.
+- Harmonized all traditional-planner claims. Surface IPPO is best on the two
+  tracking-distance metrics. Underwater, potential field has the highest mean
+  experienced current, A* has the shortest path, and IPPO has the largest
+  nominal and current-weighted coverage. The abstract, contribution list,
+  results, table caption, and conclusion now state this metric-dependent
+  ranking consistently.
+- Compressed Section 3.2 by merging repeated interpolation, offline-forcing,
+  and 10 min-rationale paragraphs. The revised section retains the data clock,
+  zero-order-hold equation, track-segmentation equation and parameters,
+  TC-level split, segment counts and durations, and the platform/control-input
+  scope.
+- Merged the former Surface Evaluation and Underwater Evaluation subsections
+  into one "Surface and Subsurface Evaluation" section. The shared evaluation
+  protocol now introduces surface metrics and generalization, followed
+  directly by subsurface metrics, initialization, communication assumptions,
+  and paired baselines. The traditional-planner section renumbers to 4.7.
+- Moved the unique content of the former method-section Dec-POMDP subsection
+  into Section 2.3, now titled "Surface--Subsurface Task Switch and
+  Dec-POMDP." The closed-loop observation--decision--action equation is
+  presented immediately after the Dec-POMDP definition, and the duplicate
+  method-section subsection was removed.
+- Moved the generic underwater path/current/coverage definitions out of the
+  Traditional Planning Baselines subsection and into the combined Surface and
+  Subsurface Evaluation subsection. The traditional-method subsection now
+  contains only the four baseline descriptions and their shared comparison
+  protocol.
+- Audited every numerical claim in the Results section against the processed
+  summaries. Surface speed-limit, formation, underwater strategy, and
+  traditional-planner conclusions agree with the underlying data. Corrected
+  the filtered-path upper bound from 769.8 to 770.9 km to match the 8-SUV row
+  in Table 5.
+- Condensed Section 4.1 by removing duplicated observation details and
+  separating the remaining content into three focused parts: platform dynamics
+  and actor inputs, current/future speed configurations, and the IBTrACS speed
+  envelope.
+- Removed the commanded-action/control-effort proxy metric from the manuscript,
+  including its equation, evaluation explanation, appendix parameter row, and
+  the remaining prose comparison that referred to a lower-effort alternative.
+- The final compiled `main.pdf` contains 26 pages including the unnumbered
+  Highlights page (25 numbered manuscript pages). `verify_uwflow_completion.py`,
+  `verify_classical_baselines.py`, and `verify_supplementary_experiments.py`
+  all pass, and the final LaTeX log contains no undefined references or
+  citations.
