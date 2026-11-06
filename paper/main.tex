@@ -208,11 +208,16 @@ Adaptive TC observation is therefore a sequential decision problem involving
 motion, sampling time, energy, and coordination rather than coverage alone.
 
 A submersible unmanned vessel (SUV) combines rapid surface transit with
-subsurface sensing \citep{r28,r29,r30,r31}. The Blue Whale is used as an
-engineering reference: its public specifications indicate a surface speed of
-about 23 kn (11.83 m/s), a submerged speed of about 3 kn (1.54 m/s), and an
-observational payload that includes an acoustic Doppler current profiler and a
-CTD sensor, with a public reference depth of approximately 60 m \citep{r28}.
+subsurface sensing \citep{r28,r29,r30,r31}. The operational concept assumes
+that the SUVs are deployed from the Shanghai Jiao Tong University Far-Seas
+Floating Island ({\em Yuanhai Fudongdao}), a self-propelled very-large floating
+research platform designed for rapid relocation, long-duration station keeping,
+and deployment of heavy marine equipment \citep{r60,r61,r62}. The Blue Whale is
+used as an engineering reference: its public specifications indicate a surface
+speed of about 23 kn (11.83 m/s), a submerged speed of about 3 kn (1.54 m/s),
+and an observational payload that includes an acoustic Doppler current profiler
+and a CTD sensor, with a public reference depth of approximately 60 m
+\citep{r28}.
 This study uses the current Blue Whale's surface--subsurface motion capabilities
 as the reference parameterization and evaluates a possible future-upgrade
 configuration as a comparison case. The vehicles are simplified as point
@@ -1440,10 +1445,10 @@ Information greedy & 467.0 & 429.6 & 525.2 \\
 Method & Mean current (m/s) & Nominal coverage (km$^2$) & Path (km)\\
 \midrule
 Parameter-sharing IPPO & 0.409 & \textbf{3630} & 126.4 \\
-Potential field & \textbf{0.449} & 1976 & 112.5 \\
-Receding-horizon A* & 0.428 & 2275 & \textbf{94.8} \\
-Lawnmower coverage & 0.409 & 2902 & 111.1 \\
-Information greedy & 0.432 & 1520 & 102.4 \\
+Potential field & \textbf{0.445} & 2002 & 113.2 \\
+Receding-horizon A* & 0.427 & 2300 & \textbf{95.7} \\
+Lawnmower coverage & 0.409 & 2901 & 110.6 \\
+Information greedy & 0.430 & 1545 & 103.7 \\
 \bottomrule
 \end{tabular*}
 \end{table*}
@@ -1551,16 +1556,16 @@ the local-gradient and rolling-map planners.
 
 Underwater, the four baselines are not dominated on every metric. The
 potential-field planner attains the highest mean experienced current
-(0.449 m/s), followed by information-greedy control (0.432 m/s) and A*
-(0.428 m/s); IPPO and lawnmower coverage are close to each other at
-approximately 0.409 m/s. A* instead has the shortest mean path (94.8 km),
+(0.445 m/s), followed by information-greedy control (0.430 m/s) and A*
+(0.427 m/s); IPPO and lawnmower coverage are close to each other at
+approximately 0.409 m/s. A* instead has the shortest mean path (95.7 km),
 whereas IPPO produces the largest nominal coverage (3630 km\(^2\), compared
-with 1976, 2275, 2902, and 1520 km\(^2\) for potential field, A*, lawnmower,
+with 2002, 2300, 2901, and 1545 km\(^2\) for potential field, A*, lawnmower,
 and information-greedy control, respectively). The episode-level
 current-weighted coverage \(\mathcal C_{\mathrm w}(z)\) is nevertheless larger
 for IPPO than for every baseline in all 14 depth--speed settings after paired
-testing, by factors of 1.52--1.71 for potential field, 1.40--1.59 for A*,
-1.24--1.34 for lawnmower coverage, and 2.07--2.54 for information-greedy
+testing, by factors of 1.53--1.72 for potential field, 1.40--1.61 for A*,
+1.23--1.35 for lawnmower coverage, and 2.07--2.54 for information-greedy
 control. IPPO therefore provides the broadest current-weighted observation,
 but not the strongest value in every individual underwater metric.
 
@@ -1699,33 +1704,33 @@ Radius & Metric & IPPO & PF & A* & Lawn & Greedy\\
 \multicolumn{7}{l}{\textbf{Panel B: subsurface metrics by depth}}\\
 Depth & Metric & IPPO & PF & A* & Lawn & Greedy\\
 \midrule
-0 m & Mean experienced current (m/s) & 0.538 & \textbf{0.575} & 0.551 & 0.538 & 0.553 \\
- & Nominal coverage (km$^2$) & \textbf{3957} & 2189 & 2421 & 3047 & 1556 \\
- & Path per SUV (km) & 138.6 & 119.8 & \textbf{101.3} & 116.0 & 104.8 \\
+0 m & Mean experienced current (m/s) & 0.538 & \textbf{0.572} & 0.548 & 0.537 & 0.553 \\
+ & Nominal coverage (km$^2$) & \textbf{3957} & 2235 & 2442 & 3054 & 1581 \\
+ & Path per SUV (km) & 138.6 & 121.0 & \textbf{102.0} & 115.8 & 106.3 \\
 \addlinespace[1.5pt]
-10 m & Mean experienced current (m/s) & 0.473 & \textbf{0.513} & 0.490 & 0.474 & 0.495 \\
- & Nominal coverage (km$^2$) & \textbf{3794} & 2137 & 2387 & 3004 & 1590 \\
- & Path per SUV (km) & 132.7 & 118.1 & \textbf{99.9} & 114.8 & 105.5 \\
+10 m & Mean experienced current (m/s) & 0.473 & \textbf{0.510} & 0.488 & 0.473 & 0.493 \\
+ & Nominal coverage (km$^2$) & \textbf{3794} & 2177 & 2404 & 3006 & 1622 \\
+ & Path per SUV (km) & 132.7 & 118.9 & \textbf{100.5} & 114.4 & 107.0 \\
 \addlinespace[1.5pt]
-20 m & Mean experienced current (m/s) & 0.446 & \textbf{0.484} & 0.463 & 0.446 & 0.467 \\
- & Nominal coverage (km$^2$) & \textbf{3845} & 2094 & 2351 & 2979 & 1595 \\
- & Path per SUV (km) & 133.6 & 116.5 & \textbf{98.1} & 113.9 & 104.9 \\
+20 m & Mean experienced current (m/s) & 0.446 & \textbf{0.481} & 0.461 & 0.444 & 0.464 \\
+ & Nominal coverage (km$^2$) & \textbf{3845} & 2116 & 2375 & 2977 & 1625 \\
+ & Path per SUV (km) & 133.6 & 117.4 & \textbf{99.1} & 113.6 & 106.6 \\
 \addlinespace[1.5pt]
-30 m & Mean experienced current (m/s) & 0.408 & \textbf{0.451} & 0.430 & 0.411 & 0.435 \\
- & Nominal coverage (km$^2$) & \textbf{3608} & 2017 & 2288 & 2918 & 1558 \\
- & Path per SUV (km) & 126.4 & 113.3 & \textbf{95.0} & 111.8 & 103.1 \\
+30 m & Mean experienced current (m/s) & 0.408 & \textbf{0.446} & 0.429 & 0.410 & 0.430 \\
+ & Nominal coverage (km$^2$) & \textbf{3608} & 2049 & 2316 & 2923 & 1579 \\
+ & Path per SUV (km) & 126.4 & 114.1 & \textbf{96.0} & 111.6 & 104.4 \\
 \addlinespace[1.5pt]
-40 m & Mean experienced current (m/s) & 0.366 & \textbf{0.409} & 0.387 & 0.369 & 0.394 \\
- & Nominal coverage (km$^2$) & \textbf{3606} & 1923 & 2241 & 2864 & 1517 \\
- & Path per SUV (km) & 124.4 & 110.3 & \textbf{92.7} & 109.9 & 101.5 \\
+40 m & Mean experienced current (m/s) & 0.366 & \textbf{0.404} & 0.386 & 0.368 & 0.391 \\
+ & Nominal coverage (km$^2$) & \textbf{3606} & 1941 & 2263 & 2864 & 1531 \\
+ & Path per SUV (km) & 124.4 & 110.6 & \textbf{93.7} & 109.4 & 102.5 \\
 \addlinespace[1.5pt]
-50 m & Mean experienced current (m/s) & 0.329 & \textbf{0.369} & 0.351 & 0.328 & 0.354 \\
- & Nominal coverage (km$^2$) & \textbf{3375} & 1786 & 2157 & 2805 & 1445 \\
- & Path per SUV (km) & 117.8 & 107.0 & \textbf{89.9} & 107.7 & 99.7 \\
+50 m & Mean experienced current (m/s) & 0.329 & \textbf{0.363} & 0.349 & 0.327 & 0.352 \\
+ & Nominal coverage (km$^2$) & \textbf{3375} & 1800 & 2185 & 2788 & 1464 \\
+ & Path per SUV (km) & 117.8 & 107.1 & \textbf{90.9} & 106.5 & 100.8 \\
 \addlinespace[1.5pt]
-60 m & Mean experienced current (m/s) & 0.304 & \textbf{0.340} & 0.325 & 0.301 & 0.326 \\
- & Nominal coverage (km$^2$) & \textbf{3225} & 1683 & 2083 & 2693 & 1381 \\
- & Path per SUV (km) & 111.6 & 103.0 & \textbf{86.8} & 103.7 & 97.3 \\
+60 m & Mean experienced current (m/s) & 0.304 & \textbf{0.337} & 0.325 & 0.301 & 0.325 \\
+ & Nominal coverage (km$^2$) & \textbf{3225} & 1696 & 2116 & 2694 & 1411 \\
+ & Path per SUV (km) & 111.6 & 103.4 & \textbf{87.8} & 103.1 & 98.5 \\
 \bottomrule
 \end{tabular*}
 \end{center}

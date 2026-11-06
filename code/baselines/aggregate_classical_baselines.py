@@ -39,6 +39,40 @@ STYLE = {
 }
 
 
+def learned_episode_metrics(depth_m: float, vmax_ms: float) -> pd.DataFrame:
+    """Load IPPO evaluations and aggregate training seeds per deployment episode."""
+    eval_path = (
+        RUNS_ROOT
+        / "underwater"
+        / "eval"
+        / f"eval_info_info_d{depth_m:g}_start200_20h_v{vmax_ms:g}_500.csv"
+    )
+    learned = pd.read_csv(eval_path)
+    learned = learned[learned.policy.str.startswith("ppo_")].copy()
+    learned = learned.rename(
+        columns={
+            "mean_V": "mean_current_ms",
+            "cov_area_km2": "coverage_area_km2",
+            "mean_a2": "command_proxy",
+        }
+    )
+    learned["current_weighted_coverage"] = (
+        learned["mean_current_ms"] * learned["coverage_area_km2"]
+    )
+    metrics = (
+        "mean_current_ms",
+        "coverage_area_km2",
+        "path_km",
+        "command_proxy",
+        "current_weighted_coverage",
+    )
+    return (
+        learned.groupby(["storm", "seed"], as_index=False)[list(metrics)]
+        .mean()
+        .rename(columns={"seed": "deployment_index"})
+    )
+
+
 def aggregate_surface() -> pd.DataFrame:
     paths = sorted(OUT.glob("surface_*_test_n*_v*_s1.csv"))
     if len(paths) != 32:
@@ -150,10 +184,18 @@ def aggregate_underwater() -> tuple[pd.DataFrame, pd.DataFrame]:
     )
     marl["method"] = "IPPO"
     marl["n_episode"] = 500
-    marl["current_weighted_coverage"] = (
-        marl["mean_current_ms"] * marl["coverage_area_km2"]
-    )
+    marl["current_weighted_coverage"] = np.nan
     marl["current_weighted_coverage_std"] = np.nan
+    for idx, row in marl.iterrows():
+        learned = learned_episode_metrics(
+            float(row["depth_m"]), float(row["vmax_ms"])
+        )
+        marl.at[idx, "current_weighted_coverage"] = learned[
+            "current_weighted_coverage"
+        ].mean()
+        marl.at[idx, "current_weighted_coverage_std"] = learned[
+            "current_weighted_coverage"
+        ].std(ddof=1)
     marl = marl[
         [
             "method", "depth_m", "vmax_ms", "mean_current_ms",
@@ -180,29 +222,7 @@ def underwater_paired_tests(raw: pd.DataFrame) -> None:
     for (method, depth, speed), base in raw.groupby(
         ["method", "depth_m", "vmax_ms"]
     ):
-        eval_path = (
-            RUNS_ROOT
-            / "underwater"
-            / "eval"
-            / f"eval_info_info_d{depth:g}_start200_20h_v{speed:g}_500.csv"
-        )
-        learned = pd.read_csv(eval_path)
-        learned = learned[learned.policy.str.startswith("ppo_")].copy()
-        learned = learned.rename(
-            columns={
-                "mean_V": "mean_current_ms",
-                "cov_area_km2": "coverage_area_km2",
-                "mean_a2": "command_proxy",
-            }
-        )
-        learned["current_weighted_coverage"] = (
-            learned["mean_current_ms"] * learned["coverage_area_km2"]
-        )
-        learned = (
-            learned.groupby(["storm", "seed"], as_index=False)[list(metrics)]
-            .mean()
-            .rename(columns={"seed": "deployment_index"})
-        )
+        learned = learned_episode_metrics(float(depth), float(speed))
         left = base[
             ["storm", "deployment_index", *metrics]
         ].copy()

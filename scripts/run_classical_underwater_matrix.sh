@@ -12,6 +12,7 @@ DEPTHS=(0 10 20 30 40 50 60)
 VMAXES=(1.5 2.0)
 read -ra PLANNERS <<< "${PLANNERS:-potential astar coverage greedy}"
 MAX_JOBS=${MAX_JOBS:-4}
+GRID_DEG=${GRID_DEG:-0.25}
 
 for planner in "${PLANNERS[@]}"; do
   for depth in "${DEPTHS[@]}"; do
@@ -28,6 +29,7 @@ for planner in "${PLANNERS[@]}"; do
       (
         "$RL" -m code.baselines.eval_classical_underwater "$planner" \
           --depth "$depth" --vmax "$vmax" --split-key test \
+          --grid-deg "$GRID_DEG" \
           --seeds 10 --batch-storms 10 --out "$out"
       ) >"$log" 2>&1 &
       echo "started $planner depth=$depth Vmax=$vmax pid=$!"

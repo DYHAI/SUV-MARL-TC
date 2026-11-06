@@ -97,6 +97,7 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, default=10)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--batch-storms", type=int, default=50)
+    parser.add_argument("--grid-deg", type=float, default=0.25)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
 
@@ -126,7 +127,7 @@ def main() -> None:
             start_radius=200.0,
             crop_margin=3.0,
             depth_m=args.depth,
-            grid_deg=0.05,
+            grid_deg=args.grid_deg,
             duration_h=20.0,
         )
         for _, row in sub.iterrows():
