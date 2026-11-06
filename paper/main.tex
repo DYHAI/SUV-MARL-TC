@@ -209,15 +209,15 @@ motion, sampling time, and coordination rather than coverage alone.
 
 A submersible unmanned vessel (SUV) combines rapid surface transit with
 subsurface sensing \citep{r28,r29,r30,r31}. The operational concept assumes
-that the SUVs are deployed from the Shanghai Jiao Tong University Far-Seas
-Floating Island ({\em Yuanhai Fudongdao}), a self-propelled very-large floating
-research platform designed for rapid relocation, long-duration station keeping,
-and deployment of heavy marine equipment \citep{r60,r61,r62}. The Blue Whale is
-used as an engineering reference: its public specifications indicate a surface
-speed of about 23 kn (11.83 m/s), a submerged speed of about 3 kn (1.54 m/s),
-and an observational payload that includes an acoustic Doppler current profiler
-and a CTD sensor, with a public reference depth of approximately 60 m
-\citep{r28}.
+that the SUVs are deployed from a mother ship or from an offshore floating
+platform such as the Shanghai Jiao Tong University Far-Seas Floating Island
+({\em Yuanhai Fudongdao}). Such platforms can provide rapid relocation,
+long-duration station keeping, and deployment of heavy marine equipment
+\citep{r60,r61,r62}. The Blue Whale is used as an engineering reference: its
+public specifications indicate a surface speed of about 23 kn (11.83 m/s), a
+submerged speed of about 3 kn (1.54 m/s), and an observational payload that
+includes an acoustic Doppler current profiler and a CTD sensor, with a public
+reference depth of approximately 60 m \citep{r28}.
 This study uses the current Blue Whale's surface--subsurface motion capabilities
 as the reference parameterization and evaluates a possible future-upgrade
 configuration as a comparison case. The vehicles are simplified as point
@@ -1018,6 +1018,37 @@ where \(K_e\) indexes the post-transition decision intervals. Distance is
 averaged over SUVs, episode time, and validation segments, then over training
 seeds.
 
+For the execution-filter comparison, let \(L_{i,e}\) be the path length of
+SUV \(i\) in validation segment \(e\), computed from consecutive recorded
+positions, and let \(T_e\) be the corresponding episode duration. The reported
+fleet-mean ground speed is
+\begin{equation}
+\bar v^{(s)}
+=
+\frac{
+1000\,M_s^{-1}\sum_{e=1}^{M_s}
+N^{-1}\sum_{i=1}^{N}L_{i,e}
+}{
+M_s^{-1}\sum_{e=1}^{M_s}T_e
+},
+\label{eq:mean_ground_speed}
+\end{equation}
+where \(L_{i,e}\) is expressed in km, \(T_e\) in seconds, and the factor 1000
+converts km to m. The reported maximum speed is the mean over validation
+segments of each segment's maximum fleet ground speed:
+\begin{equation}
+V_{\mathrm{peak}}^{(s)}
+=
+\frac{1}{M_s}\sum_{e=1}^{M_s}
+\max_{k=0,\ldots,K_e-1}
+\max_{i=1,\ldots,N}
+\frac{1000\left\|
+\mathbf{x}_{i,e,k+1}-\mathbf{x}_{i,e,k}
+\right\|_2}{\Delta t},
+\label{eq:max_ground_speed}
+\end{equation}
+with positions in km and \(\Delta t=10\) min.
+
 Surface evaluation covers 4/8/12/16 SUVs on a 100 km ring with equal angular
 spacing. Training samples formation-center offsets within an 800 km radius;
 the frozen policies are evaluated at 100, 200, 400, 600, and 800 km. These are
@@ -1306,6 +1337,35 @@ the grid (356.6 km) and the line (364.4 km). The row-wise result is
 condition-dependent: at 12 m/s, the line is best at 100 km and the ring is best
 at 200--800 km; at 20 m/s, the line is best at 100--400 km, the grid at
 600 km, and the ring at 800 km.
+
+Formation geometry is summarized at each post-transition state
+\(\mathbf{x}_{i,e,k}\). With centroid
+\(\bar{\mathbf{x}}_{e,k}=N^{-1}\sum_i\mathbf{x}_{i,e,k}\), the episode means
+are
+\begin{equation}
+R_{\mathrm{form},e}
+=
+\frac{1}{K_e}\sum_{k=1}^{K_e}
+\frac{1}{N}\sum_{i=1}^{N}
+\left\|
+\mathbf{x}_{i,e,k}-\bar{\mathbf{x}}_{e,k}
+\right\|_2,
+\label{eq:formation_radius}
+\end{equation}
+\begin{equation}
+S_{\mathrm{pair},e}
+=
+\frac{1}{K_e}\sum_{k=1}^{K_e}
+\frac{2}{N(N-1)}
+\sum_{1\leq i<j\leq N}
+\left\|
+\mathbf{x}_{i,e,k}-\mathbf{x}_{j,e,k}
+\right\|_2.
+\label{eq:pairwise_spacing}
+\end{equation}
+Reported formation radii and pairwise spacings are means of
+\(R_{\mathrm{form},e}\) and \(S_{\mathrm{pair},e}\) over the 768 validation
+segments at each speed--radius condition.
 
 The line formation produces the shortest per-vehicle path in all ten
 conditions (470.3 km on average versus 605.3 km for the ring), but it contracts
