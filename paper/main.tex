@@ -414,14 +414,19 @@ experimentally calibrated six-degree-of-freedom vehicle model is left for future
 \subsection{Surface--Subsurface Two-Stage Task}
 \label{subsec:handoff}
 
-The SUVs first perform 20 h of surface tracking, using coordinated propulsion
-to follow the TC and approach its high-wind region. At the end of this stage,
-once the fleet is close to the TC core, the vehicles dive and begin subsurface
-sampling. Because the present simulation does not model the dive dynamics, the
-surface and subsurface stages are represented as two time-aligned episodes. The
-operational protocol specifies the 20 h surface stage and subsequent descent
-near the core, whereas the simulation joins the two episodes at the segment
-boundary.
+The SUVs first perform surface tracking, using coordinated propulsion to
+follow the TC and approach its high-wind region. For the operational protocol,
+we assume that descent begins after the surface fleet enters the terminal
+region defined by a final tracking error of at most 200 km. The simulation
+uses this 200 km value as the upper bound on the tracking error at the
+surface-to-subsurface transition and initializes the subsurface vehicles
+within the corresponding 200 km disk around the TC center at the end time of
+the surface segment. Because the present simulation does not model descent
+dynamics, the surface and subsurface stages are represented as two
+time-aligned but state-independent episodes. The descent duration is
+simplified: after the surface stage, each vehicle is assumed to arrive
+immediately at one prescribed depth. Each depth is a separate configuration
+with four SUVs, and a single episode does not visit multiple depths.
 
 The local observation of SUV $i$ is
 \begin{equation}
@@ -1059,12 +1064,15 @@ averaged over validation segments within each seed, then summarized over ten
 seeds. Paired 12-versus-20 m/s tests are two-sided and uncorrected across the
 twenty fleet-size/radius comparisons, so their $p$-values are exploratory.
 
-For the subsurface evaluation, four SUVs at each depth are tested over 20 h at
-0, 10, 20, 30, 40, 50, and 60 m under 1.5 and 2.0 m/s speed limits. The
-subsurface episode starts from a position sampled within 200 km of the TC
-center at the corresponding surface-segment end time; the surface endpoint
-itself is not transferred. There is no inter-vehicle communication, so each
-SUV uses only its own five-frame current history and propulsion state.
+For the subsurface evaluation, each depth from 0, 10, 20, 30, 40, 50, and
+60 m is tested as a separate 20 h configuration with four SUVs and 1.5 or
+2.0 m/s speed limits. The 200 km terminal surface tracking error marks the
+assumed start of descent and is used as the upper bound of the subsurface
+initialization radius at the corresponding surface-segment end time. The
+descent time is neglected: each SUV is initialized directly at its assigned
+depth. The surface endpoint positions themselves are not transferred. There
+is no inter-vehicle communication, so each SUV uses only its own five-frame
+current history and propulsion state.
 Active IPPO, random control, and passive drift share the same episodes,
 deployment seeds, motion model, and speed bound.
 
