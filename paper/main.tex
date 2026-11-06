@@ -958,11 +958,12 @@ onto the unit disk, and apply the safety filter
 To compare reinforcement-learning algorithm choices, IPPO, SAC, and TD3 were
 trained with two seeds and the same \(2\times10^6\) environment steps on
 representative surface and subsurface cases. IPPO achieved the lowest surface
-final error (317.3 km versus 494.7 and 548.5 km) and the strongest combined
-underwater current-exposure and coverage result, while requiring less training
-time and no replay buffer. We therefore use IPPO for the main, formation, and
-planner comparisons; the two-seed result is treated as bounded evidence rather
-than a universal algorithm ranking.
+final error (317.3 km versus 494.7 and 548.5 km) and the largest episode-level
+current-weighted coverage \(\mathcal C_w\), defined in
+Eq.~\eqref{eq:current_weighted_coverage}, while requiring less training time
+and no replay buffer. We therefore use IPPO for the main, formation, and planner
+comparisons; the two-seed result is treated as bounded evidence rather than a
+universal algorithm ranking.
 
 The complete reward coefficients, safety parameters, network dimensions, and
 PPO hyperparameters are summarized in Appendix~\ref{app:parameters}.
@@ -1487,31 +1488,35 @@ Fleet & Filter & Final tracking error (km) & Path per SUV (km) & Mean speed (m/s
 TC segments from the same 500-TC train/test split. Surface values are means
 over the 4/8/12/16-SUV fleets, both speed limits, and all five deployment
 radii. Subsurface values are means over all seven depths and both propulsion
-limits. Smaller errors and paths are better; higher current and coverage are
-better. No single method is best in all subsurface columns.}
+limits. Smaller errors and paths are better; higher current, coverage, and
+current-weighted coverage are better. No single method is best in all
+subsurface columns.}
 \label{tab:classical_planners}
 \small
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrr@{}}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lrrrr@{}}
 \toprule
 \multicolumn{4}{l}{\textbf{Panel A: surface tracking}}\\
-Method & Final error (km) & Time-averaged distance (km) & Path per SUV (km)\\
+Method & Final error (km) & Time-averaged distance (km) & Path per SUV (km) &
+Current-weighted coverage ($10^3$ m\,s$^{-1}$\,km$^2$)\\
 \midrule
-Parameter-sharing IPPO & \textbf{341.7} & \textbf{349.1} & \textbf{463.6} \\
-Potential field & 416.5 & 405.9 & 727.6 \\
-Receding-horizon A* & 459.0 & 430.4 & 824.9 \\
-Lawnmower coverage & 554.8 & 478.4 & 508.4 \\
-Information greedy & 467.0 & 429.6 & 525.2 \\
+Parameter-sharing IPPO & \textbf{341.7} & \textbf{349.1} & \textbf{463.6} & -- \\
+Potential field & 416.5 & 405.9 & 727.6 & -- \\
+Receding-horizon A* & 459.0 & 430.4 & 824.9 & -- \\
+Lawnmower coverage & 554.8 & 478.4 & 508.4 & -- \\
+Information greedy & 467.0 & 429.6 & 525.2 & -- \\
 \midrule
-\multicolumn{4}{l}{\textbf{Panel B: subsurface observation}}\\
-Method & Mean current (m/s) & Nominal coverage (km$^2$) & Path (km)\\
+\multicolumn{5}{l}{\textbf{Panel B: subsurface observation}}\\
+Method & Mean current (m/s) & Nominal coverage (km$^2$) & Path (km) &
+Current-weighted coverage ($10^3$ m\,s$^{-1}$\,km$^2$)\\
 \midrule
-Parameter-sharing IPPO & 0.409 & \textbf{3630} & 126.4 \\
-Potential field & \textbf{0.445} & 2002 & 113.2 \\
-Receding-horizon A* & 0.427 & 2300 & \textbf{95.7} \\
-Lawnmower coverage & 0.409 & 2901 & 110.6 \\
-Information greedy & 0.430 & 1545 & 103.7 \\
+Parameter-sharing IPPO & 0.409 & \textbf{3630} & 126.4 & \textbf{1.657} \\
+Potential field & \textbf{0.445} & 2002 & 113.2 & 1.026 \\
+Receding-horizon A* & 0.427 & 2300 & \textbf{95.7} & 1.092 \\
+Lawnmower coverage & 0.409 & 2901 & 110.6 & 1.283 \\
+Information greedy & 0.430 & 1545 & 103.7 & 0.740 \\
 \bottomrule
-\end{tabular*}
+\end{tabular}}
 \end{table*}
 
 \subsection{Subsurface Strategy Comparison}
