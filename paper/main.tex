@@ -667,14 +667,16 @@ increments in degrees, and 111 km is the mean meridional arc length per degree.
 Target segment lengths are sampled uniformly from 300--500 km, with a fixed
 250 km stride, 50--250 km overlap, and an average overlap of about 150 km.
 Residual track shorter than 300 km is discarded. After assignment to 10 min
-track samples, realized lengths are 292.1--507.1 km (median 396.4 km).
+track samples, realized lengths range from 292.1 to 507.1 km, with a median of
+396.4 km.
 
 The 500-TC dataset yields 7,248 segments from 495 TCs. The 450-TC training split
 contributes 6,480 segments from 445 usable TCs, whereas the 50 held-out TCs
 contribute 768 segments. The split is made at the TC level, so no TC appears in
-both sets. Segment durations are 2.2--103 h (median 16.5 h, mean 20.0 h). These
-segments provide mission-scale evaluation windows; battery depletion is not
-simulated. The platform can carry current, CTD, pH,
+both sets. Segment durations range from 2.2 to 103 h. The median duration was
+16.5 h and the mean was 20.0 h. These segments provide mission-scale
+evaluation windows; battery depletion is not simulated. The platform can carry
+current, CTD, pH,
 chlorophyll, and turbidity sensors \citep{r28}, while the control experiments
 use current velocity as the decision-making observation.
 
@@ -723,13 +725,14 @@ Surface speed & 23 kn, $\approx$11.83 m/s &
 Submerged speed & 3 kn, $\approx$1.54 m/s &
 1.5 m/s & 2.0 m/s \\
 
-Submerged endurance (public reference) &
+Public-reference submerged endurance &
 $\geq$4 h at 3 kn; $\geq$72 h standby & -- & -- \\
 
 Underwater evaluation horizon & -- &
-20 h (simulation) & 20 h (simulation) \\
+20 h simulation & 20 h simulation \\
 
-Sampling depth & $\approx$60 m & 0--60 m (7-layer) & 0--60 m (7-layer) \\
+Sampling depth & $\approx$60 m & 0--60 m, seven layers &
+0--60 m, seven layers \\
 
 Payload & $\geq$800 kg & 800 kg & 800 kg \\
 
@@ -967,8 +970,9 @@ onto the unit disk, and apply the safety filter
 To compare reinforcement-learning algorithm choices, IPPO, SAC, and TD3 were
 trained with two seeds and the same \(2\times10^6\) environment steps on
 representative surface and subsurface cases. IPPO achieved the lowest surface
-final error (317.3 km versus 494.7 and 548.5 km) and the largest episode-level
-current-weighted coverage \(\mathcal C_w\), defined in
+final error of 317.3 km. SAC and TD3 achieved 494.7 and 548.5 km, respectively.
+IPPO also obtained the largest episode-level current-weighted coverage
+\(\mathcal C_w\), defined in
 Eq.~\eqref{eq:current_weighted_coverage}, while requiring less training time
 and no replay buffer. We therefore use IPPO for the main, formation, and planner
 comparisons; the two-seed result is treated as bounded evidence rather than a
@@ -1166,9 +1170,9 @@ vehicle maintains a private map because communication is disabled. All four
 use the same 10 min interval, speed envelope, circular projection, surface
 safety filter, and subsurface landfall termination. They require no training
 and therefore have no training-seed variance. Surface planners are evaluated
-on all 768 held-out segments, whereas underwater planners use the same 500
-paired episodes per depth-speed setting (50 test TCs with ten deployment
-seeds).
+on all 768 held-out segments. Underwater planners use the same 500 paired
+episodes per depth-speed setting. These episodes comprise 50 test TCs with ten
+deployment seeds each.
 
 \section{Simulation and Results}
 
@@ -1205,8 +1209,8 @@ the fleet remains close to the moving TC throughout an episode. The right
 panel shows the final tracking error to the TC center at the end of the episode;
 smaller values indicate higher operational observation benefit. Colors denote
 fleet sizes and line styles denote the 20 and 12 m/s speed limits. Each point
-summarizes ten independent training runs (ten random seeds), with error bars
-showing the sample standard deviation.}
+summarizes ten independent training runs using ten random seeds. Error bars
+show the sample standard deviation.}
 \label{fig:surface_vmax_comparison}
 \end{figure*}
 
@@ -1346,8 +1350,8 @@ spatial observations across eight SUVs. Each was trained with the same
 2-million-step protocol, deployment distribution, and safety layer at both
 12 and 20 m/s, then evaluated without retraining at 100--800 km
 (Table~\ref{tab:formation_comparison}). Averaged over the ten speed--radius
-conditions, the ring gives the lowest mean final error (346.7 km), followed by
-the grid (356.6 km) and the line (364.4 km). The row-wise result is
+conditions, the ring gives the lowest mean final error of 346.7 km, followed by
+the grid at 356.6 km and the line at 364.4 km. The row-wise result is
 condition-dependent: at 12 m/s, the line is best at 100 km and the ring is best
 at 200--800 km; at 20 m/s, the line is best at 100--400 km, the grid at
 600 km, and the ring at 800 km.
@@ -1382,11 +1386,11 @@ Reported formation radii and pairwise spacings are means of
 segments at each speed--radius condition.
 
 The line formation produces the shortest per-vehicle path in all ten
-conditions (470.3 km on average versus 605.3 km for the ring), but it contracts
+conditions, averaging 470.3 km versus 605.3 km for the ring, but it contracts
 the mean formation radius to 57.1 km and the pairwise spacing to 85.2 km. The
 ring retains a 99.9 km radius and 143.6 km spacing, giving a broader observation
-footprint. The grid preserves a comparable footprint (103.6 km radius and
-156.8 km spacing) but improves the row-wise final error only for the 20 m/s,
+footprint. The grid preserves a comparable footprint with a 103.6 km radius and
+156.8 km spacing, but improves the row-wise final error only for the 20 m/s,
 600 km case and has longer paths than the line in every condition. We therefore
 retain the ring for the main broad-coverage configuration, while treating the
 line as a transit-efficient alternative and the grid as a spacing-preserving
@@ -1454,7 +1458,7 @@ The final tracking error changes from 288.2 to 258.2 km for four SUVs, from
 305.2 to 308.6 km for eight SUVs, from 478.5 to 330.0 km for 12 SUVs, and from
 313.6 to 273.4 km for 16 SUVs. Averaged over the four fleet sizes, it decreases
 from 346.4 to 292.6 km, a reduction of 53.8 km
-(15.5\%). Thus, filtering not only avoids degrading final tracking but improves
+or 15.5\%. Thus, filtering not only avoids degrading final tracking but improves
 it on average: three fleet sizes improve, whereas the eight-SUV case increases
 only slightly, by 3.4 km.
 
@@ -1633,13 +1637,14 @@ inward motion while adapting more effectively to local wind structure than
 the local-gradient and rolling-map planners.
 
 Underwater, the four baselines are not dominated on every metric. The
-potential-field planner attains the highest mean experienced current
-(0.445 m/s), followed by information-greedy control (0.430 m/s) and A*
-(0.427 m/s); IPPO and lawnmower coverage are close to each other at
-approximately 0.409 m/s. A* instead has the shortest mean path (95.7 km),
-whereas IPPO produces the largest nominal coverage (3630 km\(^2\), compared
-with 2002, 2300, 2901, and 1545 km\(^2\) for potential field, A*, lawnmower,
-and information-greedy control, respectively). The episode-level
+potential-field planner attains the highest mean experienced current at
+0.445 m/s, followed by information-greedy control at 0.430 m/s and A* at
+0.427 m/s. IPPO and lawnmower coverage are close to each other at
+approximately 0.409 m/s. A* instead has the shortest mean path at 95.7 km,
+whereas IPPO produces the largest nominal coverage of 3630 km\(^2\). The
+corresponding nominal coverages are 2002 km\(^2\) for potential field,
+2300 km\(^2\) for A*, 2901 km\(^2\) for lawnmower coverage, and 1545 km\(^2\)
+for information-greedy control. The episode-level
 current-weighted coverage \(\mathcal C_{\mathrm w}(z)\) is nevertheless larger
 for IPPO than for every baseline in all 14 depth--speed settings after paired
 testing, by factors of 1.53--1.72 for potential field, 1.40--1.61 for A*,
