@@ -205,7 +205,7 @@ that forecast benefit depends on sensitive regions, the background state, and
 the sampling design \citep{r23,r24,r25}. These limitations leave near-core wind
 and upper-ocean states poorly constrained in many forecast initial conditions.
 Adaptive TC observation is therefore a sequential decision problem involving
-motion, sampling time, energy, and coordination rather than coverage alone.
+motion, sampling time, and coordination rather than coverage alone.
 
 A submersible unmanned vessel (SUV) combines rapid surface transit with
 subsurface sensing \citep{r28,r29,r30,r31}. The operational concept assumes
@@ -663,8 +663,8 @@ The 500-TC dataset yields 7,248 segments from 495 TCs. The 450-TC training split
 contributes 6,480 segments from 445 usable TCs, whereas the 50 held-out TCs
 contribute 768 segments. The split is made at the TC level, so no TC appears in
 both sets. Segment durations are 2.2--103 h (median 16.5 h, mean 20.0 h). These
-segments provide mission-scale evaluation windows; battery depletion and a hard
-energy budget are not simulated. The platform can carry current, CTD, pH,
+segments provide mission-scale evaluation windows; battery depletion is not
+simulated. The platform can carry current, CTD, pH,
 chlorophyll, and turbidity sensors \citep{r28}, while the control experiments
 use current velocity as the decision-making observation.
 
@@ -1457,7 +1457,7 @@ Information greedy & 0.430 & 1545 & 103.7 \\
 
 For each depth, four SUVs seek higher current speed; the central comparison is
 therefore the fleet-mean current speed experienced along each trajectory,
-together with its path and propulsion cost.
+together with its trajectory length and spatial coverage.
 The comparison follows the protocol in
 Section~\ref{subsec:evaluation}. Figure~\ref{fig:underwater_strategy_trajectories}
 first illustrates the resulting trajectory structure for the three strategies.
@@ -1498,8 +1498,8 @@ and random control. The improvement over passive drift ranges from 2.1\% to
 2.0\% to 5.1\%. Random control remains close to passive drift in mean current
 speed but travels substantially farther.
 
-The longer trajectories of active IPPO are an intended observation advantage,
-not merely a motion cost. Its path is 3.6--7.3 times that of passive drift,
+The longer trajectories of active IPPO provide an intended observation
+advantage. Its path is 3.6--7.3 times that of passive drift,
 allowing the four SUVs to move through a larger spatial footprint and acquire
 more current profiles and contextual samples. The corresponding nominal
 coverage increases by roughly 3.3--5.7 times. Across the 140 seed-configuration comparisons,
@@ -1516,8 +1516,8 @@ depths, the 2.0 m/s policy travels 1.24--1.31 times farther than the 1.5 m/s
 policy because the larger speed envelope permits more movement within the same
 20 h episode. This result links future platform speed directly to observation
 capacity: a faster SUV can cover more of the TC-induced current field and
-collect more profiles, although the associated energy and control constraints
-must still be considered. Mean experienced drift current decreases from 0.521
+collect more profiles, although endurance and control constraints must still
+be considered. Mean experienced drift current decreases from 0.521
 to 0.292 m/s between 0 and 60 m, and passive-drift paths contract from 33.6 to
 17.1 km. Active paths decrease more moderately, from 122.1 to 98.7 km at
 1.5 m/s and from 155.1 to 124.6 km at 2.0 m/s. The increasing active/passive
@@ -1626,10 +1626,10 @@ every depth. A larger speed envelope permits more movement within the same 20 h
 evaluation horizon and therefore creates more opportunities to observe
 TC-induced currents. This identifies a direct path for future platform development:
 increasing SUV speed could raise the observation benefit for subsurface
-temperature, salinity, current, and biogeochemical fields, provided that energy
-use and control stability remain acceptable. The full seven-depth matrix
+temperature, salinity, current, and biogeochemical fields, provided that
+endurance and control stability remain acceptable. The full seven-depth matrix
 therefore supports active sampling as an observation-capacity strategy while
-also exposing the propulsion-cost trade-off that must be managed operationally.
+also showing how expanded trajectories must be managed operationally.
 
 The present evidence is simulation-based and uses a mission-level horizontal
 point-mass model. Field validation, operational forecast impact, and calibrated
