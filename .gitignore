@@ -32,7 +32,6 @@ ppo_*/
 *.DONE
 *_tmp/
 paper/figures/pre_unitdisk_static_history_backup/
-paper/tables/
 paper/sections/
 
 # Python and Jupyter

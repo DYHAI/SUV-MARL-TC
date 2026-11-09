@@ -1,0 +1,24 @@
+\begin{table*}[htbp]
+\centering
+\caption{Execution-layer low-pass filtering for 4/8/12/16 surface SUVs on 768 held-out segments from 50 unseen TCs in the 500-TC dataset. Each trained actor is evaluated with the filter off and on ($\beta=0.8$) on the same validation episodes.}
+\label{tab:surface_control_ablations}
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\renewcommand{\arraystretch}{0.9}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llrrrr@{}}
+\toprule
+Fleet & Filter & Final tracking error (km) & Path per SUV (km) & Mean speed (m/s) & Maximum speed (m/s) \\
+\midrule
+4 & Off & 355.4 & 1160.0 & 16.45 & 19.47 \\
+4 & On & \textbf{251.3} & \textbf{508.2} & \textbf{8.49} & \textbf{14.25} \\
+8 & Off & 324.7 & 1119.5 & 16.11 & 19.47 \\
+8 & On & \textbf{277.8} & \textbf{504.7} & \textbf{8.65} & \textbf{15.32} \\
+12 & Off & 312.0 & 1019.2 & 14.85 & 19.46 \\
+12 & On & \textbf{278.8} & \textbf{497.4} & \textbf{8.52} & \textbf{15.96} \\
+16 & Off & 260.2 & 1129.9 & 16.29 & 19.47 \\
+16 & On & \textbf{256.1} & \textbf{670.8} & \textbf{11.01} & \textbf{17.97} \\
+\bottomrule
+\end{tabular*}
+\par\smallskip
+\parbox{\textwidth}{\footnotesize Final tracking error is the fleet average of the individual SUV-to-best-track-center distances at the final time step. Off and on use the same trained actor.}
+\end{table*}

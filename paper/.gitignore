@@ -9,7 +9,6 @@
 *.xdv
 __pycache__/
 *.pyc
-tables/
 sections/
 __pycache__/
 *.pyc

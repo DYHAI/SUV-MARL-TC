@@ -1,0 +1,26 @@
+\begin{table*}[t]
+\centering
+\caption{Surface initial-formation comparison for eight SUVs. Each policy was trained with formation-center offsets sampled inside an 800 km radius and evaluated without retraining at fixed offsets of 100, 200, 400, 600, and 800 km on the same 768 held-out TC segments. Error is the final SUV-to-best-track-center distance and path is the per-vehicle trajectory length. Bold entries are the best value in each speed/radius row; error and path are assessed separately. All distances are in km.}
+\label{tab:formation_comparison}
+\small
+\setlength{\tabcolsep}{2.7pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}ccccccccc@{}}
+\toprule
+Speed & Train radius & Eval radius & \multicolumn{2}{c}{Ring} & \multicolumn{2}{c}{Line} & \multicolumn{2}{c}{Grid} \\
+\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+(m/s) & (km) & (km) & Error & Path & Error & Path & Error & Path \\
+\midrule
+12 & 800 & 100 & 210.4 & 284.4 & \textbf{184.8} & 330.4 & 295.8 & \textbf{219.3} \\
+12 & 800 & 200 & 228.6 & 317.2 & \textbf{202.4} & 364.5 & 317.7 & \textbf{241.2} \\
+12 & 800 & 400 & 312.0 & 364.2 & \textbf{295.7} & 409.9 & 408.5 & \textbf{272.8} \\
+12 & 800 & 600 & \textbf{445.9} & 383.9 & 452.6 & 408.5 & 542.6 & \textbf{291.4} \\
+12 & 800 & 800 & \textbf{636.5} & 372.4 & 655.6 & 394.1 & 733.5 & \textbf{285.9} \\
+\midrule
+20 & 800 & 100 & 197.5 & \textbf{356.2} & \textbf{156.4} & 435.3 & 204.7 & 383.2 \\
+20 & 800 & 200 & 209.9 & \textbf{404.6} & \textbf{168.0} & 489.5 & 217.7 & 433.7 \\
+20 & 800 & 400 & 266.6 & \textbf{502.5} & \textbf{228.4} & 599.5 & 277.7 & 537.7 \\
+20 & 800 & 600 & 371.1 & \textbf{571.9} & \textbf{342.1} & 676.6 & 390.6 & 616.4 \\
+20 & 800 & 800 & 533.9 & \textbf{607.7} & \textbf{522.0} & 717.2 & 571.1 & 645.5 \\
+\bottomrule
+\end{tabular*}
+\end{table*}
