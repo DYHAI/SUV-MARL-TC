@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -11,15 +10,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from code.paths import PAPER_ROOT, REPO_ROOT, RESULTS_ROOT, RUNS_ROOT
 
-ROOT = REPO_ROOT
-DOC = PAPER_ROOT
-EXPERIMENT = Path(
-    os.environ.get("OFFICIAL_RUNS_ROOT", str(RUNS_ROOT / "official"))
-)
-OUT = RESULTS_ROOT / "baselines"
-FIG = RESULTS_ROOT / "figures"
+ROOT = Path(__file__).resolve().parent
+DOC = ROOT / "Latex_Yihui_MARL"
+EXPERIMENT = ROOT / "constrained_dynamics_experiments"
+OUT = EXPERIMENT / "results" / "classical_aggregate"
+FIG = OUT / "figures"
 UNDERWATER_RESULTS = EXPERIMENT / "results" / "underwater"
 SURFACE_CLASSICAL = EXPERIMENT / "results" / "surface_dynamics_only" / "classical"
 UNDERWATER_CLASSICAL = EXPERIMENT / "results" / "classical_underwater"
@@ -111,9 +107,7 @@ def aggregate_surface() -> pd.DataFrame:
     grouped.to_csv(OUT / "surface_classical_summary.csv", index=False)
 
     # Add the ten-seed MARL means in the same long-form schema.
-    dynamic = pd.read_csv(
-        RESULTS_ROOT / "surface" / "surface_vmax_10seed_summary.csv"
-    )
+    dynamic = pd.read_csv(DOC / "surface_distance_summary.csv")
     marl = dynamic.rename(
         columns={
             "fleet": "n_auv",
@@ -170,9 +164,7 @@ def aggregate_underwater() -> tuple[pd.DataFrame, pd.DataFrame]:
     )
     summary.to_csv(OUT / "underwater_classical_summary.csv", index=False)
 
-    final = pd.read_csv(
-        RESULTS_ROOT / "underwater" / "underwater_final_analysis.csv"
-    )
+    final = pd.read_csv(DOC / "underwater_final_analysis.csv")
     marl = final[final.method == "Active IPPO"].copy()
     marl = marl.rename(
         columns={
@@ -434,7 +426,8 @@ def write_summary_table(surface: pd.DataFrame, underwater: pd.DataFrame) -> None
         r"are better; higher current and coverage are better.}",
         r"\label{tab:classical_planners}",
         r"\small",
-        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrrr@{}}",
+        r"\resizebox{\textwidth}{!}{%",
+        r"\begin{tabular}{@{}lrrrr@{}}",
         r"\toprule",
         r"\multicolumn{5}{l}{\textbf{Panel A: surface tracking}}\\",
         r"Method & Final error (km) & Time-averaged distance (km) & "
@@ -478,7 +471,8 @@ def write_summary_table(surface: pd.DataFrame, underwater: pd.DataFrame) -> None
         lines.append(f"{labels[row.method]} & " + " & ".join(cells) + r" \\")
     lines += [
         r"\bottomrule",
-        r"\end{tabular*}",
+        r"\end{tabular}",
+        r"}",
         r"\end{table*}",
         "",
     ]
