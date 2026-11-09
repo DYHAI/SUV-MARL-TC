@@ -5,6 +5,7 @@
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+source "$ROOT/scripts/official_env.sh"
 
 RL=${PYTHON_BIN:-python}
 MODEL_DIR=${FLEET_MODEL_DIR:-"$ROOT/runs/surface/models"}

@@ -9,7 +9,7 @@
     运动方程含平流、奖励 B/C、Vmax、深度、续航、起点布防、台风集、seed。
 
 用法:
-  SPLIT_JSON=... SEGMENTS_CSV=... python -m code.underwater.train_uwflow_sb3 \
+  SPLIT_JSON=... SEGMENTS_CSV=... python train_uwflow_sb3.py \
       <total_steps> <out_name> <vmax> <reward_mode> <depth_m> <dur_h> <seed> [grid_deg] [start_km] [n_envs]
 """
 import os, sys, time, json
@@ -17,6 +17,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pandas as pd
 from code.underwater.underwater_fleet_flow_env import UnderwaterFleetFlowEnv
 from code.underwater.underwater_flow_env import preload
@@ -26,10 +27,16 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
 BASE = str(REPO_ROOT)
-SPLIT = os.environ.get("SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_500.json"))
-SEGCSV = os.environ.get("SEGMENTS_CSV", os.path.join(BASE, "data", "segments_500.csv"))
+SPLIT = os.environ.get(
+    "SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_500.json")
+)
+SEGCSV = os.environ.get(
+    "SEGMENTS_CSV", os.path.join(BASE, "data", "segments_500.csv")
+)
 OUT = os.path.abspath(
-    os.environ.get("UWFLOW_MODEL_DIR", str(RUNS_ROOT / "underwater" / "models"))
+    os.environ.get(
+        "UWFLOW_MODEL_DIR", str(RUNS_ROOT / "underwater" / "official_models")
+    )
 )
 os.makedirs(OUT, exist_ok=True)
 
@@ -38,15 +45,23 @@ OUT_NAME = sys.argv[2] if len(sys.argv) > 2 else "ppo_uwflow_sb3"
 VMAX = float(sys.argv[3]) if len(sys.argv) > 3 else 2.0
 REWARD_MODE = sys.argv[4] if len(sys.argv) > 4 else "C"
 DEPTH = float(sys.argv[5]) if len(sys.argv) > 5 else 50.0
-DURATION_H = float(sys.argv[6]) if len(sys.argv) > 6 else 10.0
+DURATION_H = float(sys.argv[6]) if len(sys.argv) > 6 else 20.0
 SEED = int(sys.argv[7]) if len(sys.argv) > 7 else 0
 GRID_DEG = float(sys.argv[8]) if len(sys.argv) > 8 else 0.25
 START_R = float(sys.argv[9]) if len(sys.argv) > 9 else 200.0
-NENV = int(sys.argv[10]) if len(sys.argv) > 10 else 4
+NENV = int(sys.argv[10]) if len(sys.argv) > 10 else 5
 
 N_AUV = 4
 FRAME_K = 5
-OBS_DIM = FRAME_K * 3 + 2          # 17：1×1 流速 + 5 帧记忆 + 自身速度
+OBS_DIM = (
+    FRAME_K * 3 + 2
+    + (
+        2
+        if os.environ.get("DYNAMICS_MODE", "kinematic").strip().lower()
+        == "constrained"
+        else 0
+    )
+)  # 17 in the original model; +2 for explicit constrained heading state
 CROP_M = 3.0
 
 
@@ -64,6 +79,11 @@ class FlatUnderwaterFleetEnv(gym.Env):
         self.reward_clip = reward_clip
         self.n_auv = n_auv
         self.obs_dim = self.inner.obs_dim
+        if OBS_DIM != self.obs_dim:
+            raise ValueError(
+                f"underwater observation dimension mismatch: "
+                f"wrapper={OBS_DIM}, env={self.obs_dim}"
+            )
         self.act_dim = 2
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf,
                                             shape=(n_auv * self.obs_dim,), dtype=np.float32)
@@ -87,7 +107,13 @@ def make_env(storms, seg_df, worker_id, n_envs, **kw):
     def _init():
         sub = storms[worker_id::n_envs]
         sseg = seg_df[seg_df.storm.isin([s for s in sub])].reset_index(drop=True)
-        return FlatUnderwaterFleetEnv(storms=sub, segments_df=sseg, **kw)
+        env = FlatUnderwaterFleetEnv(storms=sub, segments_df=sseg, **kw)
+        # SubprocVecEnv workers inherit the same global NumPy RNG state under
+        # fork.  Seed every worker explicitly before SB3 performs its first
+        # unseeded reset; otherwise all workers replay the same episode and
+        # deployment stream even though the environment itself supports seeds.
+        env.reset(seed=SEED + worker_id)
+        return env
     return _init
 
 
@@ -129,7 +155,9 @@ def main():
                 max_grad_norm=0.5, verbose=0, seed=SEED, device="cpu")
     model.learn(total_timesteps=TOTAL_STEPS, callback=LogCallback())
     out = os.path.join(OUT, OUT_NAME if OUT_NAME.endswith(".zip") else OUT_NAME + ".zip")
-    model.save(out)
+    tmp = f"{out}.tmp.{os.getpid()}"
+    model.save(tmp)
+    os.replace(tmp, out)
     print("saved", out, flush=True)
 
 

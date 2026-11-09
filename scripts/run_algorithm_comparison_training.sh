@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+source "$ROOT/scripts/official_env.sh"
 RL=${PYTHON_BIN:-python}
 OUT="$ROOT/runs/algorithm_comparison"
 LOGS="$ROOT/runs/algorithm_comparison/logs"

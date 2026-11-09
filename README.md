@@ -64,11 +64,25 @@ Surface training uses ERA5 10 m winds. Subsurface experiments use HYCOM current
 fields at 0, 10, 20, 30, 40, 50, and 60 m. The 500-TC archive is split at TC
 level into 450 training TCs and 50 held-out TCs.
 
+The official submission uses constrained planar motion in both stages:
+
+- surface command: desired ground velocity with no added ocean current,
+  `0.02 m/s^2` acceleration, `0.03 m/s^2` deceleration, `1 deg/s` yaw rate,
+  and `200 m` minimum turn radius;
+- subsurface command: propulsion plus HYCOM advection, `0.002 m/s^2`
+  acceleration, `0.003 m/s^2` deceleration, `2 deg/s` yaw rate, and `100 m`
+  minimum turn radius.
+
+The complete protocol and audit are in
+[`code/official_experiments/FINAL_CONFIGURATION.md`](code/official_experiments/FINAL_CONFIGURATION.md)
+and [`code/official_experiments/AUDIT_2026-11-09.md`](code/official_experiments/AUDIT_2026-11-09.md).
+
 ## Key Findings
 
 - Surface IPPO minimizes final tracking error and time-averaged center distance.
 - Higher surface speed improves tracking but increases path length and speed.
 - Underwater, IPPO provides the broadest current-weighted observation coverage.
-- Ring formation has the lowest mean final tracking error.
+- The line formation has the lowest aggregate final tracking error; the ring is
+  retained for broader spatial coverage.
 
 Detailed methods, tables, and references are in the [manuscript](paper/main.pdf).

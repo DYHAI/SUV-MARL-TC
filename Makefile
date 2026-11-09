@@ -1,12 +1,15 @@
 PYTHON ?= python
 PYTHON_BIN ?= $(PYTHON)
 
-.PHONY: check paper data-audit cache surface-train surface-eval underwater-train classical classical-results formation formation-results
+.PHONY: check validate-dynamics paper data-audit cache surface-train surface-eval underwater-train classical classical-results formation formation-results
 
 check:
 	$(PYTHON) -m compileall -q code scripts/check_runtime.py
 	@for script in scripts/*.sh; do bash -n "$$script"; done
 	$(PYTHON) scripts/check_runtime.py
+
+validate-dynamics:
+	$(PYTHON) -m code.official_experiments.validate_dynamics
 
 paper:
 	cd paper && tectonic -X compile --keep-intermediates --keep-logs main.tex

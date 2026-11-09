@@ -6,7 +6,7 @@
 奖励、数据、布阵、超参**一律不动**；唯一新增的是这个动作滤波器（给系统"动作惯性"，
 不引入任何可学习记忆、参数量不变）。
 
-用法: python -m code.surface.train_fleet_segment_actfilter <total_steps> <out_name.zip> [beta] [n_auv] [deploy]
+用法: python train_fleet_segment_actfilter.py <total_steps> <out_name.zip> [beta] [n_auv] [deploy]
 """
 import os
 import sys
@@ -21,22 +21,29 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from code.surface.fleet_segment_env import FleetSegmentEnv, STEP_MIN, VMAX
 from code.surface.fleet_sb3 import SharedPerAgentPolicy
 from code.paths import REPO_ROOT, RUNS_ROOT
 
 BASE = str(REPO_ROOT)
-SPLIT = os.environ.get("SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_500.json"))
-SEGCSV = os.environ.get("SEGMENTS_CSV", os.path.join(BASE, "data", "segments_500.csv"))
+SPLIT = os.environ.get(
+    "SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_500.json")
+)
+SEGCSV = os.environ.get(
+    "SEGMENTS_CSV", os.path.join(BASE, "data", "segments_500.csv")
+)
 OUT = os.path.abspath(
-    os.environ.get("FLEET_MODEL_DIR", str(RUNS_ROOT / "surface" / "models"))
+    os.environ.get(
+        "FLEET_MODEL_DIR", str(RUNS_ROOT / "surface" / "official_models")
+    )
 )
 
 TOTAL = int(sys.argv[1]) if len(sys.argv) > 1 else 2_000_000
 OUT_NAME = sys.argv[2] if len(sys.argv) > 2 else "ppo_fleet_actfilter.zip"
-BETA = float(sys.argv[3]) if len(sys.argv) > 3 else 0.5
+BETA = float(sys.argv[3]) if len(sys.argv) > 3 else 0.8
 N_AUV = int(sys.argv[4]) if len(sys.argv) > 4 else 4
-DEPLOY = float(sys.argv[5]) if len(sys.argv) > 5 else 200.0
+DEPLOY = float(sys.argv[5]) if len(sys.argv) > 5 else 800.0
 
 SPACING, PATCH_N, SMOOTH, HIDDEN = 0.25, 1, 0.05, 256
 RING_RADIUS = float(os.environ.get("FORMATION_RADIUS_KM", "100"))
@@ -72,6 +79,8 @@ class FlatFleetSegmentEnvActFilter(gym.Env):
         self.n_auv = n_auv
         self.beta = float(beta)
         self.obs_dim = self.inner.obs_dim
+        if tuple(self.inner.observation_space.shape) != (n_auv, self.obs_dim):
+            raise ValueError("surface observation dimension mismatch")
         self.observation_space = spaces.Box(-np.inf, np.inf, (n_auv * self.obs_dim,), dtype=np.float32)
         self.action_space = spaces.Box(-1.0, 1.0, (n_auv * 2,), dtype=np.float32)
         self.a_exec = np.zeros((n_auv, 2), dtype=np.float32)
@@ -137,7 +146,12 @@ def main():
     if _mode == "1":
         _mode = "onehot"
     n_id = (N_AUV if _mode in ("onehot", "both") else 0) + (2 if _mode in ("angle", "both") else 0)
-    od = nch * N_AUV + 2 + n_id
+    n_heading = 2 if (
+        os.environ.get("DYNAMICS_MODE", "kinematic").strip().lower()
+        == "constrained"
+        or os.environ.get("OBS_HEADING", "0") == "1"
+    ) else 0
+    od = nch * N_AUV + 2 + n_id + n_heading
     print("[config] MLP + 动作低通滤波  STEP_MIN=%d VMAX=%.2fm/s n_auv=%d deploy=%.0fkm  beta=%.2f  hidden=%d  "
           "n_steps=%d batch=%d n_env=%d total=%d seed=%d  coast_obs=%d  sst=%s  mslp=%d  agent_id=%s"
           % (STEP_MIN, VMAX, N_AUV, DEPLOY, BETA, HIDDEN, N_STEPS, BATCH, NENV, TOTAL, SEED,
@@ -155,7 +169,9 @@ def main():
     model.learn(total_timesteps=TOTAL, callback=LogCallback())
     os.makedirs(OUT, exist_ok=True)
     p = os.path.join(OUT, OUT_NAME[:-4] if OUT_NAME.endswith(".zip") else OUT_NAME)
-    model.save(p)
+    tmp = f"{p}.tmp.{os.getpid()}"
+    model.save(tmp)
+    os.replace(tmp, p + ".zip")
     print("saved", p + ".zip", flush=True)
 
 

@@ -1,0 +1,17 @@
+{
+  "underwater": {
+    "main_episodes": 84000,
+    "algorithm_episodes": 2500,
+    "classical_episodes": 28000,
+    "max_prop_speed_mps": 2.0,
+    "max_accel_mps2": 0.003,
+    "max_yaw_rate_dps": 2.0
+  },
+  "surface_dynamics_only": {
+    "main_evaluations": 400,
+    "max_prop_speed_mps": 20.0,
+    "max_accel_mps2": 0.03,
+    "max_yaw_rate_dps": 1.0,
+    "max_surface_current_mps": 0.0
+  }
+}

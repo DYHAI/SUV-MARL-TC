@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+source "$ROOT/scripts/official_env.sh"
 RL=${PYTHON_BIN:-python}
 MODEL_DIR="$ROOT/runs/formation/models"
 LOGDIR="$ROOT/runs/formation/logs"

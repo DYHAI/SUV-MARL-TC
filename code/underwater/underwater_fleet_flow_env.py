@@ -19,15 +19,25 @@
        d_nov = 到「团队历史采样点」的最近距离（不含自己当前点）→ 奖励覆盖新区域、
        自动产生编队分散。该奖励下 4 台 AUV 的观测空间完全不变。
 """
-import os
+import os, sys
 import numpy as np
-import pandas as pd
 import gymnasium as gym
 from gymnasium import spaces
-from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage import map_coordinates
 
-from code.underwater.underwater_flow_env import load_storm, D2KM, STEP_MIN, LAND_PENALTY, R_BUFFER, W_BUFFER
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from code.underwater.underwater_flow_env import (
+    load_storm,
+    D2KM,
+    STEP_MIN,
+    LAND_PENALTY,
+    R_BUFFER,
+    W_BUFFER,
+)
+from code.common.constrained_dynamics import (
+    ConstrainedPlanarDynamics,
+    DynamicsConfig,
+)
 
 N_AUV = 4
 VMAX = 2.0
@@ -62,6 +72,12 @@ class UnderwaterFleetFlowEnv(gym.Env):
         super().__init__()
         self.n_auv = n_auv
         self.vmax = vmax
+        self.dynamics_config = DynamicsConfig.from_env("subsurface")
+        self.dynamics = (
+            ConstrainedPlanarDynamics(self.n_auv, self.vmax, self.dynamics_config)
+            if self.dynamics_config.mode == "constrained"
+            else None
+        )
         self.reward_mode = reward_mode.upper()
         self.spacing_deg = spacing_deg
         self.N = N
@@ -95,12 +111,13 @@ class UnderwaterFleetFlowEnv(gym.Env):
         self.storms = list(self.data.keys())
         self.segments = segments_df[segments_df.storm.isin(self.storms)].reset_index(drop=True)
         extra = (3 if use_flowdiff else 0)
+        self._n_heading = 2 if self.dynamics is not None else 0
         if use_frame_stack and N > 1:
-            self.obs_dim = 3 * N * N + frame_k * 3 + 2 + extra
+            self.obs_dim = 3 * N * N + frame_k * 3 + 2 + extra + self._n_heading
         elif use_frame_stack:
-            self.obs_dim = frame_k * 3 + 2 + extra
+            self.obs_dim = frame_k * 3 + 2 + extra + self._n_heading
         else:
-            self.obs_dim = 3 * N * N + 2 + (2 if use_bearing else 0)
+            self.obs_dim = 3 * N * N + 2 + (2 if use_bearing else 0) + self._n_heading
         self.use_flowdiff = use_flowdiff
         self.use_bearing = use_bearing
         self.use_frame_stack = use_frame_stack
@@ -117,6 +134,13 @@ class UnderwaterFleetFlowEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        # Gymnasium's reset(seed=...) only seeds ``self.np_random``.  This
+        # environment still uses NumPy's process RNG for episode selection and
+        # deployment, so seed it explicitly.  SB3 calls reset(seed+i) once per
+        # worker; subsequent unseeded resets then continue each worker's own
+        # RNG stream instead of sharing the parent process state.
+        if seed is not None:
+            np.random.seed(int(seed))
         row = self.segments.iloc[np.random.randint(len(self.segments))]
         s = row["storm"]
         self.d = self.data[s]
@@ -139,6 +163,8 @@ class UnderwaterFleetFlowEnv(gym.Env):
         self.lons = np.clip(self.lons, lo.min(), lo.max())
         self.lats = np.clip(self.lats, la.min(), la.max())
         self.vxs = np.zeros(self.n_auv); self.vys = np.zeros(self.n_auv)
+        if self.dynamics is not None:
+            self.dynamics.reset()
         self.step_count = 0
         # P3 信息增益：重置覆盖/历史，并构建本段的「信息价值图」W
         self._cov_cells = set()
@@ -238,6 +264,7 @@ class UnderwaterFleetFlowEnv(gym.Env):
                 h = h[-self.frame_k:]
                 parts = []
                 if self.N > 1:   # patch + 历史
+                    Ispd, Iu, Iv = self._interp_fields()
                     ys = self.lats[i] + offs; xs = self.lons[i] + offs
                     YY, XX = np.meshgrid(ys, xs)
                     parts += [self._at(Ispd, YY.ravel(), XX.ravel())/V_NORM,
@@ -251,6 +278,11 @@ class UnderwaterFleetFlowEnv(gym.Env):
                     else:
                         parts.append(np.zeros(3, dtype=np.float32))
                 parts.append([self.vxs[i]/self.vmax, self.vys[i]/self.vmax])
+                if self._n_heading:
+                    parts.append([
+                        np.cos(self.dynamics.heading[i]),
+                        np.sin(self.dynamics.heading[i]),
+                    ])
                 obs[i] = np.concatenate(parts).astype(np.float32)
             return obs
         Ispd, Iu, Iv = self._interp_fields()
@@ -275,6 +307,14 @@ class UnderwaterFleetFlowEnv(gym.Env):
                 ny = dgy * D2KM
                 nn = np.hypot(nx, ny)
                 o = np.concatenate([o, np.array([nx / nn if nn > 1e-9 else 0.0, ny / nn if nn > 1e-9 else 0.0])])
+            if self._n_heading:
+                o = np.concatenate([
+                    o,
+                    np.array([
+                        np.cos(self.dynamics.heading[i]),
+                        np.sin(self.dynamics.heading[i]),
+                    ]),
+                ])
             obs[i] = o.astype(np.float32)
         return obs
 
@@ -302,12 +342,24 @@ class UnderwaterFleetFlowEnv(gym.Env):
             cv = self._at(Iv, self.lats, self.lons)
             cs_prev = self._at(Ispd, self.lats, self.lons)
         spd_at = np.asarray(cs_prev, dtype=np.float32)
-        self.vxs = actions[:, 0] * self.vmax
-        self.vys = actions[:, 1] * self.vmax
-        vx_abs = self.vxs + cu; vy_abs = self.vys + cv
         coslat = np.cos(np.deg2rad(self.lats))
-        self.lons = np.clip(self.lons + vx_abs * dt / 1000.0 / (D2KM * coslat), lo.min(), lo.max())
-        self.lats = np.clip(self.lats + vy_abs * dt / 1000.0 / D2KM, la.min(), la.max())
+        if self.dynamics is None:
+            self.vxs = actions[:, 0] * self.vmax
+            self.vys = actions[:, 1] * self.vmax
+            dx_m = (self.vxs + cu) * dt
+            dy_m = (self.vys + cv) * dt
+            dynamics_info = {}
+        else:
+            current_velocity = np.stack([cu, cv], axis=1)
+            prop_velocity, displacement_m, dynamics_info = self.dynamics.step(
+                actions, dt, current_velocity=current_velocity
+            )
+            self.vxs = prop_velocity[:, 0]
+            self.vys = prop_velocity[:, 1]
+            dx_m = displacement_m[:, 0]
+            dy_m = displacement_m[:, 1]
+        self.lons = np.clip(self.lons + dx_m / 1000.0 / (D2KM * coslat), lo.min(), lo.max())
+        self.lats = np.clip(self.lats + dy_m / 1000.0 / D2KM, la.min(), la.max())
         if self.use_frame_stack:
             cs_new = self._at2m("spd", self.lats, self.lons)
             cu_new = self._at2m("u", self.lats, self.lons)
@@ -394,4 +446,5 @@ class UnderwaterFleetFlowEnv(gym.Env):
         terminated = False
         info = {"storm": self.d["storm"], "spd_at": spd_at, "t": self.t,
                 "W_at": W_at, "new_cell": new_flag, "d_nov_km": d_nov, "cov_km2": cov_km2}
+        info.update(dynamics_info)
         return self._obs(), rewards, terminated, truncated, info

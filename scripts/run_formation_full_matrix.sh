@@ -7,6 +7,7 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+source "$ROOT/scripts/official_env.sh"
 
 RL=${PYTHON_BIN:-python}
 OUTDIR="$ROOT/runs/formation/eval"

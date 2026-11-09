@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import os
+import re
 from pathlib import Path
 
 import numpy as np
@@ -11,9 +13,16 @@ import pandas as pd
 from code.paths import PAPER_ROOT, REPO_ROOT, RESULTS_ROOT, RUNS_ROOT
 
 ROOT = REPO_ROOT
-RAW = RUNS_ROOT / "formation" / "eval"
+EXPERIMENT = Path(
+    os.environ.get("OFFICIAL_RUNS_ROOT", str(RUNS_ROOT / "official"))
+)
+RAW = EXPERIMENT / "results" / "surface_dynamics_only" / "formation" / "logs"
 TABLES = PAPER_ROOT / "tables"
-SUMMARY = RESULTS_ROOT / "formation" / "formation_full_matrix_summary.csv"
+SUMMARY = (
+    RESULTS_ROOT
+    / "formation"
+    / "formation_full_matrix_summary.csv"
+)
 SPEEDS = (12, 20)
 FORMATIONS = ("ring", "line", "grid")
 RADII = (100, 200, 400, 600, 800)
@@ -32,27 +41,44 @@ def load_and_summarize() -> pd.DataFrame:
     for speed in SPEEDS:
         for formation in FORMATIONS:
             for radius in RADII:
-                path = RAW / f"formation_{formation}_v{speed}_d{radius}.csv"
+                path = RAW / f"{formation}_v{speed}_d{radius}.log"
                 if not path.is_file():
                     raise FileNotFoundError(path)
-                frame = pd.read_csv(path)
-                if len(frame) != 768:
-                    raise ValueError(f"{path}: expected 768 rows, got {len(frame)}")
-                if set(frame["condition"]) != {"clean"}:
-                    raise ValueError(f"{path}: expected only clean evaluations")
-                if not np.allclose(frame["vmax_ms"], speed):
-                    raise ValueError(f"{path}: speed metadata mismatch")
-                if not np.allclose(frame["radius_km"], radius):
-                    raise ValueError(f"{path}: radius metadata mismatch")
+                text = path.read_text(errors="replace")
+                row_match = re.search(
+                    r"^ROW\|([^\n]+)$", text, flags=re.MULTILINE
+                )
+                final_match = re.search(
+                    r"^FINALROW\|([^\n]+)$", text, flags=re.MULTILINE
+                )
+                formation_match = re.search(
+                    r"^FORMATIONROW\|([^\n]+)$", text, flags=re.MULTILINE
+                )
+                if not (row_match and final_match and formation_match):
+                    raise ValueError(f"{path}: incomplete evaluation record")
+                row_values = [float(x) for x in row_match.group(1).split("|")]
+                final_values = [
+                    float(x) for x in final_match.group(1).split("|")
+                ]
+                formation_values = [
+                    float(x) for x in formation_match.group(1).split("|")
+                ]
+                if int(row_values[-1]) != 768:
+                    raise ValueError(f"{path}: expected 768 evaluations")
                 row = {
                     "speed_ms": speed,
                     "training_radius_km": 800,
                     "evaluation_radius_km": radius,
                     "formation": formation,
-                    "n_segments": len(frame),
-                    "model": str(frame["model"].iloc[0]),
+                    "n_segments": int(row_values[-1]),
+                    "model": formation,
+                    "final_distance_km": final_values[3],
+                    "distance_avg_km": row_values[3],
+                    "path_km": row_values[5],
+                    "on_land_fraction": row_values[10],
+                    "formation_radius_km": formation_values[3],
+                    "pairwise_spacing_km": formation_values[4],
                 }
-                row.update({metric: float(frame[metric].mean()) for metric in METRICS})
                 rows.append(row)
     return pd.DataFrame(rows)
 

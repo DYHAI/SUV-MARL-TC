@@ -7,6 +7,9 @@
 - `formation/`: ring, line, and grid formation experiments.
 - `algorithm_comparison/`: representative IPPO, SAC, and TD3 comparison.
 - `analysis/`: final tables, figures, and result summaries.
+- `common/`: shared constrained planar dynamics.
+- `official_experiments/`: official configuration, equations audit, and
+  verification report.
 
 Run executable modules from the repository root with `python -m ...`; the
 launchers in `scripts/` do this automatically.

@@ -9,6 +9,7 @@ the much smaller segment-level SEM.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 from pathlib import Path
 
@@ -20,10 +21,9 @@ from scipy import stats
 from code.paths import PAPER_ROOT, REPO_ROOT, RESULTS_ROOT, RUNS_ROOT
 
 ROOT = REPO_ROOT
-LOG_ROOT = RUNS_ROOT / "surface" / "logs"
+LOG_ROOT = Path(os.environ.get("SURFACE_LOG_ROOT", str(RUNS_ROOT / "surface")))
 OUTDIR = PAPER_ROOT / "figures"
 TABLEDIR = PAPER_ROOT / "tables"
-RESULTDIR = RESULTS_ROOT / "surface"
 FLEETS = (4, 8, 12, 16)
 SEEDS = tuple(range(10))
 RADII = (100, 200, 400, 600, 800)
@@ -42,12 +42,28 @@ FIELDS = {
 
 def row_path(version: int, n_auv: int, seed: int, distance: int) -> Path:
     if version == 12:
-        return LOG_ROOT / "vmax12_seed10" / f"eval_n{n_auv}_s{seed}_d{distance}.log"
+        return (
+            LOG_ROOT
+            / "logs_vmax12_seed10"
+            / f"eval_n{n_auv}_s{seed}_d{distance}.log"
+        )
     if n_auv == 16:
-        return LOG_ROOT / "seed16" / f"eval_n16_s{seed}_d{distance}.log"
+        return (
+            LOG_ROOT
+            / "logs_seed16"
+            / f"eval_n16_s{seed}_d{distance}.log"
+        )
     if seed == 0:
-        return LOG_ROOT / "xfer" / f"xfer_r800_windonly_n{n_auv}_d{distance}.log"
-    return LOG_ROOT / "seed_extra" / f"eval_n{n_auv}_s{seed}_d{distance}.log"
+        return (
+            LOG_ROOT
+            / "logs_xfer"
+            / f"xfer_r800_windonly_n{n_auv}_d{distance}.log"
+        )
+    return (
+        LOG_ROOT
+        / "logs_seed_extra"
+        / f"eval_n{n_auv}_s{seed}_d{distance}.log"
+    )
 
 
 def parse_row(path: Path) -> dict[str, float]:
@@ -206,59 +222,113 @@ def plot_metrics(summary: pd.DataFrame, path_pdf: Path, path_png: Path) -> None:
         }
     )
     fig, axes = plt.subplots(
-        2, 2, figsize=(10.0, 6.5), sharex=True, layout="constrained"
+        4, 4, figsize=(13.0, 11.0), sharex=True, constrained_layout=True
     )
     metrics = [
-        ("distance", "Tracking distance (km)"),
-        ("path", "Path length per SUV (km)"),
+        ("distance", "Tracking distance (km)", 1.0),
+        ("path", "Path length per SUV (km)", 1.0),
+        ("mean_speed", "Mean speed (m s$^{-1}$)", 1.0),
+        ("on_land_fraction", "On-land fraction (%)", 100.0),
     ]
     style = {
-        4: dict(color="#0072B2", marker="o"),
-        8: dict(color="#009E73", marker="s"),
-        12: dict(color="#D55E00", marker="^"),
-        16: dict(color="#CC79A7", marker="D"),
+        20: dict(color="#226aa6", marker="o"),
+        12: dict(color="#d9791f", marker="s"),
     }
-    for row, version in enumerate((20, 12)):
-        for col, (metric, ylabel) in enumerate(metrics):
+    for row, fleet in enumerate(FLEETS):
+        for col, (metric, ylabel, scale) in enumerate(metrics):
             ax = axes[row, col]
-            for fleet in FLEETS:
+            for version in (20, 12):
                 d = summary[
                     (summary.fleet == fleet)
                     & (summary.version_ms == version)
                 ].sort_values("distance_target_km")
                 ax.errorbar(
                     d.distance_target_km,
-                    d[metric],
-                    yerr=d[f"{metric}_std"],
+                    d[metric] * scale,
+                    yerr=d[f"{metric}_std"] * scale,
                     capsize=3,
                     lw=1.6,
                     elinewidth=0.9,
-                    label=rf"{fleet}-SUV",
-                    **style[fleet],
+                    label=rf"$V_{{\max}}$={version} m/s",
+                    **style[version],
                 )
-            if row == 1:
+            ax.set_title(rf"$N$={fleet}")
+            if row == 3:
                 ax.set_xlabel("Deployment radius (km)")
-            ax.set_ylabel(ylabel)
-            ax.text(
-                0.01, 0.98, rf"$V_{{\max}}$ = {version} m/s",
-                transform=ax.transAxes, ha="left", va="top",
-                fontsize=10, fontweight="bold",
-            )
+            if col == 0:
+                ax.set_ylabel(ylabel)
             ax.grid(alpha=0.25)
             ax.set_xticks(RADII)
-    handles, labels = axes[0, 0].get_legend_handles_labels()
-    fig.legend(
-        handles, labels, frameon=False, ncol=4,
-        loc="outside lower center",
-    )
+            if row == 0 and col == 0:
+                ax.legend(frameon=False, loc="best")
     fig.suptitle(
-        "Surface tracking and path-length comparison",
-        fontsize=14,
+        "Ten-seed surface comparison: 12 versus 20 m/s",
+        fontsize=15,
         fontweight="bold",
     )
     fig.savefig(path_pdf, bbox_inches="tight")
     fig.savefig(path_png, dpi=300, bbox_inches="tight")
     plt.close(fig)
+
+
+def write_numeric_results(
+    summary: pd.DataFrame, tests: pd.DataFrame, path: Path
+) -> None:
+    paired = tests[tests.metric == "distance"].copy()
+    better = int((paired.delta_12_minus_20 > 0).sum())
+    sig = paired[paired.p_value < 0.05]
+    sig_20 = int((sig.delta_12_minus_20 > 0).sum())
+    sig_12 = int((sig.delta_12_minus_20 < 0).sum())
+    by_radius = (
+        summary.groupby(["version_ms", "distance_target_km"])[
+            ["distance", "path", "mean_speed", "on_land_fraction"]
+        ]
+        .mean()
+        .reset_index()
+    )
+    lines = []
+    pct_lines = []
+    for distance in RADII:
+        q = by_radius[by_radius.distance_target_km == distance].set_index(
+            "version_ms"
+        )
+        delta_d = q.loc[12, "distance"] - q.loc[20, "distance"]
+        delta_p = q.loc[12, "path"] - q.loc[20, "path"]
+        delta_v = q.loc[12, "mean_speed"] - q.loc[20, "mean_speed"]
+        pct_d = 100.0 * delta_d / q.loc[20, "distance"]
+        lines.append(
+            f"{distance}~km: "
+            f"$\\Delta d={delta_d:+.1f}$~km, "
+            f"$\\Delta L={delta_p:+.1f}$~km, "
+            f"$\\Delta \\bar v={delta_v:+.2f}$~m/s"
+        )
+        pct_lines.append(f"{distance}~km: {pct_d:+.1f}\\%")
+    median_delta = float(
+        paired.delta_12_minus_20.median()
+    )
+    text = [
+        "Across the twenty matched fleet-size/radius comparisons, the 20 m/s "
+        f"policy has the smaller mean tracking distance in {better} cases. "
+        f"The median paired difference "
+        f"$(d_{{12}}-d_{{20}})$ is {median_delta:+.1f} km. "
+        f"Paired tests identify {sig_20} cases in which 20 m/s is significantly "
+        f"better and {sig_12} cases in which 12 m/s is significantly better "
+        r"at $p<0.05$.",
+        "Averaged over the four fleet sizes, the differences "
+        "(12 m/s minus 20 m/s) at the five radii are: "
+        + "; ".join(lines)
+        + ". Here, positive tracking distance and negative path length mean "
+        "that the 12 m/s policy is farther from the center and travels less; "
+        "negative mean-speed differences show the direct propulsion penalty.",
+        "The relative tracking-distance penalty of the 12 m/s policy is "
+        + "; ".join(pct_lines)
+        + ". The absolute penalty therefore grows with the deployment radius, "
+        "consistent with the finite time available to remove forecast-induced "
+        "displacement. The shorter 12 m/s paths reduce propulsion demand, but "
+        "that energy saving comes at the cost of poorer TC-center tracking.",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n\n".join(text) + "\n")
 
 
 def main() -> None:
@@ -284,12 +354,11 @@ def main() -> None:
 
     OUTDIR.mkdir(parents=True, exist_ok=True)
     TABLEDIR.mkdir(parents=True, exist_ok=True)
-    RESULTDIR.mkdir(parents=True, exist_ok=True)
-    raw.to_csv(RESULTDIR / "surface_vmax_10seed_raw.csv", index=False)
+    raw.to_csv(ROOT / "Latex_Yihui_MARL" / "surface_vmax_10seed_raw.csv", index=False)
     summary = summarize(raw)
-    summary.to_csv(RESULTDIR / "surface_vmax_10seed_summary.csv", index=False)
+    summary.to_csv(ROOT / "Latex_Yihui_MARL" / "surface_vmax_10seed_summary.csv", index=False)
     tests = paired_tests(raw)
-    tests.to_csv(RESULTDIR / "surface_vmax_10seed_paired_tests.csv", index=False)
+    tests.to_csv(ROOT / "Latex_Yihui_MARL" / "surface_vmax_10seed_paired_tests.csv", index=False)
 
     if len(summary) != 2 * len(FLEETS) * len(RADII):
         print("Partial data: tables and final figure were not generated.")
@@ -318,7 +387,12 @@ def main() -> None:
         OUTDIR / "surface_vmax_10seed_metrics.pdf",
         OUTDIR / "surface_vmax_10seed_metrics.png",
     )
-    print(RESULTDIR / "surface_vmax_10seed_summary.csv")
+    write_numeric_results(
+        summary,
+        tests,
+        ROOT / "Latex_Yihui_MARL" / "sections" / "surface_vmax_results.tex",
+    )
+    print(ROOT / "Latex_Yihui_MARL" / "surface_vmax_10seed_summary.csv")
     print(TABLEDIR / "surface_vmax_dynamic.tex")
     print(TABLEDIR / "surface_vmax_operational.tex")
     print(OUTDIR / "surface_vmax_10seed_metrics.pdf")

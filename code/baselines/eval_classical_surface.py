@@ -14,7 +14,6 @@ import pandas as pd
 from code.baselines.classical_planning_baselines import make_planner
 from code.surface.fleet_segment_env import (
     D2KM,
-    R_BUFFER,
     FleetSegmentEnv,
     deploy_formation,
     land_interp,
@@ -27,7 +26,11 @@ from code.paths import REPO_ROOT, RUNS_ROOT
 ROOT = REPO_ROOT
 SPLIT = ROOT / "data" / "typhoon_split_500.json"
 SEGCSV = ROOT / "data" / "segments_500.csv"
-OUTDIR = RUNS_ROOT / "baselines"
+OUTDIR = Path(os.environ.get("CLASSICAL_OUT_DIR", str(RUNS_ROOT / "baselines")))
+# Preserve the historical default for old experiments.  The constrained
+# dynamics matrix explicitly exports ACTION_FILTER_BETA=0.8 so classical
+# planners use the same low-pass controller as the IPPO policies.
+ACTION_FILTER_BETA = float(os.environ.get("ACTION_FILTER_BETA", "0.8"))
 
 
 def deploy_fixed(d, t0, n_auv, radius_km, seed, formation="ring", ring_radius=100.0):
@@ -67,6 +70,8 @@ def run_episode(planner, env, row, idx, deployment_seed, radius_km):
     env.vxs = np.zeros(env.n_auv, dtype=np.float32)
     env.vys = np.zeros(env.n_auv, dtype=np.float32)
     seed = 100000 + 97 * idx + deployment_seed
+    if env.dynamics is not None:
+        env.dynamics.reset(seed=seed)
     env.lons, env.lats, initial_clearance = deploy_fixed(
         d, env.t0, env.n_auv, radius_km, seed
     )
@@ -79,33 +84,50 @@ def run_episode(planner, env, row, idx, deployment_seed, radius_km):
     land_auv_steps = 0
     auv_steps = 0
     steps = 0
+    max_prop_speed = 0.0
+    max_accel = 0.0
+    max_yaw_rate = 0.0
     while True:
         raw = np.asarray(planner.act(obs, env), dtype=np.float32).reshape(
             env.n_auv, 2
         )
-        executed = 0.8 * executed + 0.2 * raw
+        executed = (
+            ACTION_FILTER_BETA * executed
+            + (1.0 - ACTION_FILTER_BETA) * raw
+        )
         norm = np.linalg.norm(executed, axis=1, keepdims=True)
         action = executed / np.maximum(1.0, norm)
         action = safety_filter(
             action, env.lons, env.lats, env.dist_interp, 100.0
         )
-        path += float(
-            np.mean(np.linalg.norm(action, axis=1))
-            * env.vmax
-            * 10.0
-            * 60.0
-            / 1000.0
-        )
+        prev_lons = env.lons.copy()
+        prev_lats = env.lats.copy()
         obs, _reward, terminated, truncated, info = env.step(action)
+        path += float(
+            np.mean(
+                np.hypot(
+                    (env.lons - prev_lons) * D2KM * np.cos(np.deg2rad(prev_lats)),
+                    (env.lats - prev_lats) * D2KM,
+                )
+            )
+        )
         obs = obs.reshape(-1).astype(np.float32)
         distances.append(float(np.mean(info["dist_km"])))
         land_auv_steps += int((info["land_dist"] <= 0.0).sum())
         auv_steps += env.n_auv
         steps += 1
+        if env.dynamics is not None:
+            max_prop_speed = max(
+                max_prop_speed, float(np.max(info["speed"]))
+            )
+            max_accel = max(max_accel, float(np.max(info["accel_peak"])))
+            max_yaw_rate = max(
+                max_yaw_rate, float(np.max(info["yaw_rate_peak"]))
+            )
         if terminated or truncated:
             break
     duration_h = steps * 10.0 / 60.0
-    return {
+    result = {
         "planner": planner.__class__.__name__,
         "n_auv": env.n_auv,
         "vmax_ms": float(env.vmax),
@@ -121,7 +143,24 @@ def run_episode(planner, env, row, idx, deployment_seed, radius_km):
         "on_land_fraction": land_auv_steps / max(auv_steps, 1),
         "initial_clearance_km": initial_clearance,
         "duration_h": duration_h,
+        "action_filter_beta": ACTION_FILTER_BETA,
+        "dynamics_mode": (
+            env.dynamics.config.mode if env.dynamics is not None else "kinematic"
+        ),
+        "max_prop_speed_ms": max_prop_speed,
+        "max_accel_mps2": max_accel,
+        "max_yaw_rate_dps": np.degrees(max_yaw_rate),
     }
+    if env.dynamics is not None:
+        config = env.dynamics.config
+        assert max_prop_speed <= env.vmax + 1e-6
+        assert max_accel <= max(
+            config.accel_mps2, config.decel_mps2
+        ) + 1e-6
+        assert np.degrees(max_yaw_rate) <= np.degrees(
+            config.yaw_rate_max_rad_s
+        ) + 1e-6
+    return result
 
 
 def main() -> None:
@@ -188,7 +227,11 @@ def main() -> None:
         f"_v{args.vmax:g}_s{args.seeds}.csv"
     )
     out.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(rows).to_csv(out, index=False)
+    expected = len(seg) * args.seeds * len(args.radii)
+    assert len(rows) == expected, f"surface rows: {len(rows)}/{expected}"
+    temp = out.with_name(out.name + ".tmp")
+    pd.DataFrame(rows).to_csv(temp, index=False)
+    temp.replace(out)
     print(out, flush=True)
 
 

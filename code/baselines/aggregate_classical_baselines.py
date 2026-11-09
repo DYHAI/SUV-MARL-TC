@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -14,9 +15,14 @@ from code.paths import PAPER_ROOT, REPO_ROOT, RESULTS_ROOT, RUNS_ROOT
 
 ROOT = REPO_ROOT
 DOC = PAPER_ROOT
-OUT = RUNS_ROOT / "baselines"
-RESULT_OUT = RESULTS_ROOT / "baselines"
-FIG = RESULT_OUT / "figures"
+EXPERIMENT = Path(
+    os.environ.get("OFFICIAL_RUNS_ROOT", str(RUNS_ROOT / "official"))
+)
+OUT = RESULTS_ROOT / "baselines"
+FIG = RESULTS_ROOT / "figures"
+UNDERWATER_RESULTS = EXPERIMENT / "results" / "underwater"
+SURFACE_CLASSICAL = EXPERIMENT / "results" / "surface_dynamics_only" / "classical"
+UNDERWATER_CLASSICAL = EXPERIMENT / "results" / "classical_underwater"
 
 DEPTHS = (0, 10, 20, 30, 40, 50, 60)
 SPEEDS_UW = (2.0, 1.5)
@@ -41,19 +47,15 @@ STYLE = {
 
 def learned_episode_metrics(depth_m: float, vmax_ms: float) -> pd.DataFrame:
     """Load IPPO evaluations and aggregate training seeds per deployment episode."""
-    eval_path = (
-        RUNS_ROOT
-        / "underwater"
-        / "eval"
-        / f"eval_info_info_d{depth_m:g}_start200_20h_v{vmax_ms:g}_500.csv"
+    eval_path = UNDERWATER_RESULTS / (
+        f"eval_info_info_d{depth_m:g}_start200_20h_v{vmax_ms:g}_500.csv"
     )
     learned = pd.read_csv(eval_path)
-    learned = learned[learned.policy.str.startswith("ppo_")].copy()
+    learned = learned[learned.policy.str.startswith("uw_")].copy()
     learned = learned.rename(
         columns={
             "mean_V": "mean_current_ms",
             "cov_area_km2": "coverage_area_km2",
-            "mean_a2": "command_proxy",
         }
     )
     learned["current_weighted_coverage"] = (
@@ -63,7 +65,6 @@ def learned_episode_metrics(depth_m: float, vmax_ms: float) -> pd.DataFrame:
         "mean_current_ms",
         "coverage_area_km2",
         "path_km",
-        "command_proxy",
         "current_weighted_coverage",
     )
     return (
@@ -74,7 +75,7 @@ def learned_episode_metrics(depth_m: float, vmax_ms: float) -> pd.DataFrame:
 
 
 def aggregate_surface() -> pd.DataFrame:
-    paths = sorted(OUT.glob("surface_*_test_n*_v*_s1.csv"))
+    paths = sorted(SURFACE_CLASSICAL.glob("surface_*_test_n*_v*_s1.csv"))
     if len(paths) != 32:
         raise SystemExit(f"expected 32 surface planner files, found {len(paths)}")
     frames = []
@@ -110,7 +111,9 @@ def aggregate_surface() -> pd.DataFrame:
     grouped.to_csv(OUT / "surface_classical_summary.csv", index=False)
 
     # Add the ten-seed MARL means in the same long-form schema.
-    dynamic = pd.read_csv(RESULTS_ROOT / "surface" / "surface_distance_summary.csv")
+    dynamic = pd.read_csv(
+        RESULTS_ROOT / "surface" / "surface_vmax_10seed_summary.csv"
+    )
     marl = dynamic.rename(
         columns={
             "fleet": "n_auv",
@@ -132,12 +135,12 @@ def aggregate_surface() -> pd.DataFrame:
     marl = marl[keep]
     marl["n_episode"] = 7680
     combined = pd.concat([marl, grouped[keep + ["duration_h", "n_episode"]]], ignore_index=True)
-    combined.to_csv(RESULT_OUT / "surface_all_methods_summary.csv", index=False)
+    combined.to_csv(OUT / "surface_all_methods_summary.csv", index=False)
     return raw, combined
 
 
 def aggregate_underwater() -> tuple[pd.DataFrame, pd.DataFrame]:
-    paths = sorted(OUT.glob("underwater_*_test_d*_v*_s10.csv"))
+    paths = sorted(UNDERWATER_CLASSICAL.glob("underwater_*_test_d*_v*_s10.csv"))
     if len(paths) != 56:
         raise SystemExit(f"expected 56 underwater planner files, found {len(paths)}")
     frames = []
@@ -160,8 +163,6 @@ def aggregate_underwater() -> tuple[pd.DataFrame, pd.DataFrame]:
             path_km=("path_km", "mean"),
             path_km_std=("path_km", "std"),
             mean_ground_speed_ms=("mean_ground_speed_ms", "mean"),
-            command_proxy=("command_proxy", "mean"),
-            command_proxy_std=("command_proxy", "std"),
             current_weighted_coverage=("current_weighted_coverage", "mean"),
             current_weighted_coverage_std=("current_weighted_coverage", "std"),
             n_episode=("storm", "size"),
@@ -169,44 +170,29 @@ def aggregate_underwater() -> tuple[pd.DataFrame, pd.DataFrame]:
     )
     summary.to_csv(OUT / "underwater_classical_summary.csv", index=False)
 
-    final = pd.read_csv(RESULTS_ROOT / "underwater" / "underwater_final_analysis.csv")
+    final = pd.read_csv(
+        RESULTS_ROOT / "underwater" / "underwater_final_analysis.csv"
+    )
     marl = final[final.method == "Active IPPO"].copy()
     marl = marl.rename(
         columns={
-            "mean_V": "mean_current_ms",
-            "mean_V_std": "mean_current_std",
-            "cov_area_km2": "coverage_area_km2",
-            "cov_area_km2_std": "coverage_area_std",
-            "mean_speed_ms": "mean_ground_speed_ms",
-            "mean_a2": "command_proxy",
-            "mean_a2_std": "command_proxy_std",
+            "mean_current_speed": "mean_current_ms",
+            "mean_current_speed_std": "mean_current_std",
+            "coverage_area_km2_std": "coverage_area_std",
         }
     )
     marl["method"] = "IPPO"
     marl["n_episode"] = 500
-    marl["current_weighted_coverage"] = np.nan
-    marl["current_weighted_coverage_std"] = np.nan
-    for idx, row in marl.iterrows():
-        learned = learned_episode_metrics(
-            float(row["depth_m"]), float(row["vmax_ms"])
-        )
-        marl.at[idx, "current_weighted_coverage"] = learned[
-            "current_weighted_coverage"
-        ].mean()
-        marl.at[idx, "current_weighted_coverage_std"] = learned[
-            "current_weighted_coverage"
-        ].std(ddof=1)
     marl = marl[
         [
             "method", "depth_m", "vmax_ms", "mean_current_ms",
             "mean_current_std", "coverage_area_km2", "coverage_area_std",
-            "path_km", "path_km_std", "mean_ground_speed_ms",
-            "command_proxy", "command_proxy_std", "n_episode",
+            "path_km", "path_km_std", "n_episode",
             "current_weighted_coverage", "current_weighted_coverage_std",
         ]
     ]
     combined = pd.concat([marl, summary], ignore_index=True)
-    combined.to_csv(RESULT_OUT / "underwater_all_methods_summary.csv", index=False)
+    combined.to_csv(OUT / "underwater_all_methods_summary.csv", index=False)
     return raw, combined
 
 
@@ -216,7 +202,6 @@ def underwater_paired_tests(raw: pd.DataFrame) -> None:
         "mean_current_ms",
         "coverage_area_km2",
         "path_km",
-        "command_proxy",
         "current_weighted_coverage",
     )
     for (method, depth, speed), base in raw.groupby(
@@ -269,7 +254,7 @@ def underwater_paired_tests(raw: pd.DataFrame) -> None:
         running = max(running, value)
         adjusted[idx] = running
     result["p_value_holm"] = adjusted
-    result.to_csv(RESULT_OUT / "underwater_pairwise_tests.csv", index=False)
+    result.to_csv(OUT / "underwater_pairwise_tests.csv", index=False)
 
 
 def plot_surface(summary: pd.DataFrame) -> None:
@@ -346,7 +331,7 @@ def surface_pairwise_tests(summary: pd.DataFrame) -> None:
                     "p_value_wilcoxon": wil.pvalue,
                 }
             )
-    pd.DataFrame(rows).to_csv(RESULT_OUT / "surface_pairwise_tests.csv", index=False)
+    pd.DataFrame(rows).to_csv(OUT / "surface_pairwise_tests.csv", index=False)
 
 
 def plot_underwater(summary: pd.DataFrame) -> None:
@@ -449,34 +434,54 @@ def write_summary_table(surface: pd.DataFrame, underwater: pd.DataFrame) -> None
         r"are better; higher current and coverage are better.}",
         r"\label{tab:classical_planners}",
         r"\small",
-        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrr@{}}",
+        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrrr@{}}",
         r"\toprule",
-        r"\multicolumn{4}{l}{\textbf{Panel A: surface tracking}}\\",
-        r"Method & Final error (km) & Time-averaged distance (km) & Path per SUV (km)\\",
+        r"\multicolumn{5}{l}{\textbf{Panel A: surface tracking}}\\",
+        r"Method & Final error (km) & Time-averaged distance (km) & "
+        r"\multicolumn{2}{c}{Path per SUV (km)}\\",
         r"\midrule",
     ]
     for _, row in s.iterrows():
         values = (row.final_error, row.mean_distance, row.path)
         best = [abs(row[k] - s[k].min()) < 1e-9 for k in ("final_error", "mean_distance", "path")]
         cells = [f"\\textbf{{{v:.1f}}}" if mark else f"{v:.1f}" for v, mark in zip(values, best)]
-        lines.append(f"{labels[row.method]} & " + " & ".join(cells) + r" \\")
+        lines.append(
+            f"{labels[row.method]} & " + " & ".join(cells[:2])
+            + rf" & \multicolumn{{2}}{{c}}{{{cells[2]}}} \\"
+        )
     lines += [
         r"\midrule",
-        r"\multicolumn{4}{l}{\textbf{Panel B: subsurface observation}}\\",
-        r"Method & Mean current (m/s) & Nominal coverage (km$^2$) & Path (km)\\",
+        r"\multicolumn{5}{l}{\textbf{Panel B: subsurface observation}}\\",
+        r"Method & Mean current (m/s) & Nominal coverage (km$^2$) & "
+        r"Path (km) & Current-weighted coverage "
+        r"($10^3$ m\,s$^{-1}$\,km$^2$)\\",
         r"\midrule",
     ]
     for _, row in u.iterrows():
-        values = (row.current, row.coverage, row.path)
-        best = [abs(row[k] - u[k].max()) < 1e-9 for k in ("current", "coverage")]
+        weighted = row.weighted_coverage / 1.0e3
+        values = (row.current, row.coverage, row.path, weighted)
+        best = [
+            abs(row[k] - u[k].max()) < 1e-9
+            for k in ("current", "coverage", "weighted_coverage")
+        ]
         best.append(abs(row.path - u.path.min()) < 1e-9)
         cells = [
             f"\\textbf{{{row.current:.3f}}}" if best[0] else f"{row.current:.3f}",
             f"\\textbf{{{row.coverage:.0f}}}" if best[1] else f"{row.coverage:.0f}",
         ]
-        cells.append(f"\\textbf{{{values[2]:.1f}}}" if best[2] else f"{values[2]:.1f}")
+        cells.append(
+            f"\\textbf{{{values[2]:.1f}}}" if best[3] else f"{values[2]:.1f}"
+        )
+        cells.append(
+            f"\\textbf{{{values[3]:.3f}}}" if best[2] else f"{values[3]:.3f}"
+        )
         lines.append(f"{labels[row.method]} & " + " & ".join(cells) + r" \\")
-    lines += [r"\bottomrule", r"\end{tabular*}", r"\end{table*}", ""]
+    lines += [
+        r"\bottomrule",
+        r"\end{tabular*}",
+        r"\end{table*}",
+        "",
+    ]
     (DOC / "tables" / "classical_planner_comparison.tex").write_text(
         "\n".join(lines), encoding="utf-8"
     )
@@ -484,18 +489,16 @@ def write_summary_table(surface: pd.DataFrame, underwater: pd.DataFrame) -> None
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    RESULT_OUT.mkdir(parents=True, exist_ok=True)
-    (DOC / "tables").mkdir(parents=True, exist_ok=True)
+    FIG.mkdir(parents=True, exist_ok=True)
     _, surface = aggregate_surface()
     surface_pairwise_tests(surface)
     underwater_raw, underwater = aggregate_underwater()
     underwater_paired_tests(underwater_raw)
-    FIG.mkdir(parents=True, exist_ok=True)
     plot_surface(surface)
     plot_underwater(underwater)
     write_summary_table(surface, underwater)
-    print(RESULT_OUT / "surface_all_methods_summary.csv")
-    print(RESULT_OUT / "underwater_all_methods_summary.csv")
+    print(OUT / "surface_all_methods_summary.csv")
+    print(OUT / "underwater_all_methods_summary.csv")
     print(FIG / "classical_surface_comparison.pdf")
     print(FIG / "classical_underwater_comparison.pdf")
 

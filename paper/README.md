@@ -10,9 +10,8 @@ This directory is the working copy for the final manuscript.
 - `figures/`: all figures, including regenerated PDF/PNG pairs.
 - `../code/analysis/`: scripts that regenerate result tables and figures.
 
-All active tables and result paragraphs are embedded directly in `main.tex`;
-the submission package does not require the `tables/` or `sections/`
-directories.
+The four active comparison tables are in `tables/` and are included directly
+by `main.tex`. Other result tables are embedded in the manuscript source.
 
 ## Compile
 
@@ -36,26 +35,27 @@ The first script requires the complete ten-seed matrix for both 12 and
 
 The complete 12/20 m/s matrix contains 400 seed-level evaluations:
 4/8/12/16 SUVs x seeds 0--9 x five deployment radii x two speed limits.
-The 20 m/s policy has the lower mean tracking distance in all 20
-fleet-size/radius comparisons (19/20 significant at $p<0.05$). Averaged over
-the four fleet sizes, the 12-minus-20 m/s tracking-distance gaps are 10.1,
-19.3, 49.1, 73.5, and 84.2 km at 100, 200, 400, 600, and 800 km. The 12 m/s
-policy instead uses 78.7--233.3 km shorter paths on average and has lower mean
-speed, exposing the intended efficiency--tracking trade-off.
+The 20 m/s policy has the lower time-averaged distance in all 20
+fleet-size/radius comparisons. Averaged over the four fleet sizes, its final
+tracking error is 31.9, 37.9, 63.0, 89.1, and 110.5 km lower than that of the
+12 m/s policy at 100, 200, 400, 600, and 800 km. The 12 m/s policy instead uses
+83.4--220.1 km shorter paths on average and has lower mean speed, exposing the
+intended efficiency--tracking trade-off.
 
 The final underwater matrix contains seven depths, two propulsion limits, ten
 active-policy seeds, and paired random-control and passive-drift baselines.
-Active IPPO improves mean experienced current speed by 2.11--5.36% and path
-length by 3.63--7.27 times relative to passive drift, with 3.25--5.70 times
-greater spatial coverage.
+Active IPPO improves configuration-mean experienced current speed by
+2.2--4.6%, increases path length by 3.47--7.22 times, and increases nominal
+coverage by 3.09--5.68 times relative to passive drift.
 
 ## Classical planner comparison
 
-Table 4 in the manuscript compares parameter-sharing IPPO with a causal
-potential-field planner and a periodically replanned A* planner on the same
-500-TC train/test split. Surface results cover all 40 fleet/speed/deployment
-configurations and 768 test segments. Subsurface results cover seven depths,
-both propulsion limits, and 500 paired episodes per setting.
+Table 6 in the manuscript compares parameter-sharing IPPO with potential-field,
+receding-horizon A*, lawnmower-coverage, and information-greedy planners on the
+same 500-TC train/test split. Surface results cover all 40
+fleet/speed/deployment configurations and 768 test segments. Subsurface results
+cover seven depths, both propulsion limits, and 500 paired episodes per
+setting.
 
 Baseline code is under `../code/baselines/`, and the corresponding summary and
 paired-test files are under `../results/baselines/`:

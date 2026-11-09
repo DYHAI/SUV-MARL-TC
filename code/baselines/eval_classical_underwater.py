@@ -5,13 +5,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from code.baselines.classical_planning_baselines import make_planner
-from code.underwater.underwater_fleet_flow_env import D2KM, UnderwaterFleetFlowEnv
+from code.underwater.underwater_fleet_flow_env import (
+    D2KM,
+    UnderwaterFleetFlowEnv,
+)
 from code.underwater.underwater_flow_env import STEP_MIN
 from code.paths import REPO_ROOT, RUNS_ROOT
 
@@ -19,7 +23,7 @@ from code.paths import REPO_ROOT, RUNS_ROOT
 ROOT = REPO_ROOT
 SPLIT = ROOT / "data" / "typhoon_split_500.json"
 SEGCSV = ROOT / "data" / "segments_500.csv"
-OUTDIR = RUNS_ROOT / "baselines"
+OUTDIR = Path(os.environ.get("CLASSICAL_OUT_DIR", str(RUNS_ROOT / "baselines")))
 
 
 def selected_segments(storms: list[str]) -> pd.DataFrame:
@@ -35,6 +39,9 @@ def run_episode(planner, env, row, seed):
     obs, _ = env.reset()
     planner.reset(env)
     lats, lons, speeds, actions = [], [], [], []
+    max_prop_speed = 0.0
+    max_accel = 0.0
+    max_yaw_rate = 0.0
     done = False
     while not done:
         action = np.asarray(planner.act(obs, env), dtype=np.float64).reshape(
@@ -45,8 +52,22 @@ def run_episode(planner, env, row, seed):
         actions.append(np.linalg.norm(action, axis=1))
         obs, _reward, terminated, truncated, info = env.step(action)
         speeds.append(np.asarray(info["spd_at"], dtype=np.float64))
+        if env.dynamics is not None:
+            max_prop_speed = max(
+                max_prop_speed, float(np.max(info["speed"]))
+            )
+            max_accel = max(max_accel, float(np.max(info["accel_peak"])))
+            max_yaw_rate = max(
+                max_yaw_rate, float(np.max(info["yaw_rate_peak"]))
+            )
         done = bool(terminated or truncated)
 
+    # Include the state reached by the final action in path and coverage.
+    lats.append(np.asarray(env.lats).copy())
+    lons.append(np.asarray(env.lons).copy())
+    speeds.append(
+        np.asarray(env._at2m("spd", env.lats, env.lons), dtype=np.float64)
+    )
     LAT = np.asarray(lats, dtype=np.float64)
     LON = np.asarray(lons, dtype=np.float64)
     SPD = np.asarray(speeds, dtype=np.float64)
@@ -61,7 +82,7 @@ def run_episode(planner, env, row, seed):
         path_km = float(step_km.sum(axis=0).mean())
     else:
         path_km = 0.0
-    duration_s = max(len(LAT) - 1, 1) * STEP_MIN * 60.0
+    duration_s = max(len(ACT), 1) * STEP_MIN * 60.0
 
     cov_deg = float(env.cov_deg)
     lat0 = float(np.min(env.d["lat"]))
@@ -73,7 +94,7 @@ def run_episode(planner, env, row, seed):
         )
         for lat, lon in zip(LAT.ravel(), LON.ravel())
     }
-    return {
+    result = {
         "planner": planner.__class__.__name__,
         "depth_m": float(env.depth_m),
         "vmax_ms": float(env.vmax),
@@ -84,8 +105,24 @@ def run_episode(planner, env, row, seed):
         "path_km": path_km,
         "mean_ground_speed_ms": path_km * 1000.0 / max(duration_s, 1e-9),
         "command_proxy": float(np.mean(ACT * ACT)),
-        "duration_h": len(ACT) * STEP_MIN / 60.0,
+        "duration_h": duration_s / 3600.0,
+        "dynamics_mode": (
+            env.dynamics.config.mode if env.dynamics is not None else "kinematic"
+        ),
+        "max_prop_speed_ms": max_prop_speed,
+        "max_accel_mps2": max_accel,
+        "max_yaw_rate_dps": np.degrees(max_yaw_rate),
     }
+    if env.dynamics is not None:
+        config = env.dynamics.config
+        assert max_prop_speed <= env.vmax + 1e-6
+        assert max_accel <= max(
+            config.accel_mps2, config.decel_mps2
+        ) + 1e-6
+        assert np.degrees(max_yaw_rate) <= np.degrees(
+            config.yaw_rate_max_rad_s
+        ) + 1e-6
+    return result
 
 
 def main() -> None:
@@ -150,7 +187,11 @@ def main() -> None:
         f"_v{args.vmax:g}_s{args.seeds}.csv"
     )
     out.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(rows).to_csv(out, index=False)
+    expected = len(picks) * args.seeds
+    assert len(rows) == expected, f"underwater rows: {len(rows)}/{expected}"
+    temp = out.with_name(out.name + ".tmp")
+    pd.DataFrame(rows).to_csv(temp, index=False)
+    temp.replace(out)
     print(out, flush=True)
 
 

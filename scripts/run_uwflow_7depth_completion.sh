@@ -4,6 +4,7 @@
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+source "$ROOT/scripts/official_env.sh"
 
 RL=${PYTHON_BIN:-python}
 NAS=/mnt/nas/multi_auv_typhoon_tracking/union_current_depths

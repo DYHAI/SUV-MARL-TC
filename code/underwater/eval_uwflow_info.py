@@ -18,27 +18,58 @@
 评估区定义：以 episode 时间窗内台风眼轨迹均值位置为圆心、半径 R_EVAL=300km 的海洋格点
 （不含陆地）。所有策略在同一 episode（同种子 → 同段、同布防）上对比。
 
-Usage:
-  python -m code.underwater.eval_uwflow_info <n_seed> <depth_m> <start_km> <dur_h> <model.zip> [...]
+用法:
+  python eval_uwflow_info.py <n_seed> <depth_m> <start_km> <dur_h> <model.pt> [model2.pt ...]
 """
 import os
 import sys
 import json
 import numpy as np
 import pandas as pd
+import torch
+import torch.nn as nn
 
-from code.underwater.underwater_fleet_flow_env import UnderwaterFleetFlowEnv, D2KM  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from code.underwater.underwater_fleet_flow_env import (
+    UnderwaterFleetFlowEnv,
+    D2KM,
+)  # noqa: E402
 from code.underwater.underwater_flow_env import STEP_MIN  # noqa: E402
 from code.paths import REPO_ROOT, RUNS_ROOT
 
+
+class Actor(nn.Module):
+    """与 train_underwater_fleet_flow_shared.Actor 完全一致（本地复制，避免 import
+    训练脚本时它按自己的 sys.argv 解析参数而报错）。"""
+
+    def __init__(self, obs_dim, act_dim=2, hidden=256):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(obs_dim, hidden), nn.Tanh(),
+                                 nn.Linear(hidden, hidden), nn.Tanh(),
+                                 nn.Linear(hidden, act_dim))
+        self.log_std = nn.Parameter(torch.zeros(act_dim))
+
+    def dist(self, x):
+        mean = self.net(x)
+        std = self.log_std.exp().clamp(min=1e-4, max=1.0)
+        return mean, std
+
 BASE = str(REPO_ROOT)
-SPLIT = os.environ.get("SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_500.json"))
-SEGCSV = os.environ.get("SEGMENTS_CSV", os.path.join(BASE, "data", "segments_500.csv"))
+SPLIT = os.environ.get(
+    "SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_500.json")
+)
+SEGCSV = os.environ.get(
+    "SEGMENTS_CSV", os.path.join(BASE, "data", "segments_500.csv")
+)
 OUT = os.path.abspath(
-    os.environ.get("UWFLOW_MODEL_DIR", str(RUNS_ROOT / "underwater" / "models"))
+    os.environ.get(
+        "UWFLOW_MODEL_DIR", str(RUNS_ROOT / "underwater" / "official_models")
+    )
 )
 EVAL_OUT = os.path.abspath(
-    os.environ.get("UWFLOW_EVAL_DIR", str(RUNS_ROOT / "underwater" / "eval"))
+    os.environ.get(
+        "UWFLOW_EVAL_DIR", str(RUNS_ROOT / "underwater" / "official_eval")
+    )
 )
 R_EVAL_KM = 250.0
 IDW_POWER = 2.0
@@ -51,23 +82,55 @@ def make_env(depth, start, dur, storms, seg, n_patch=1, frame_stack=True,
     vmax = float(os.environ.get("VMAX", 1.5)) if vmax is None else float(vmax)
     reward = os.environ.get("REWARD", "G") if reward is None else reward
     grid = float(os.environ.get("GRID_DEG", 0.25)) if grid is None else float(grid)
-    return UnderwaterFleetFlowEnv(
+    depths_env = os.environ.get("DEPTHS", "").strip()
+    if depths_env:      # P19 × P3：4 台 AUV 分别观测不同深度
+        from underwater_fleet_depth_env import UnderwaterFleetFlowEnv as _Env
+        extra = {"depths": [float(x) for x in depths_env.split(",")]}
+    else:
+        _Env = UnderwaterFleetFlowEnv
+        extra = {}
+    return _Env(
         storms=storms, segments_df=seg, vmax=vmax, reward_mode=reward,
         N=n_patch, use_frame_stack=frame_stack, frame_k=5,
         start_radius=float(start), crop_margin=(3.0 if start <= 200 else 6.0),
-        depth_m=depth, grid_deg=grid, duration_h=float(dur), native_res=native)
+        depth_m=depth, grid_deg=grid, duration_h=float(dur), native_res=native, **extra)
+
+
+def load_actor(name, obs_dim):
+    w = torch.load(os.path.join(OUT, name), weights_only=True)
+    if isinstance(w, dict) and "actor" in w:
+        w = w["actor"]
+    a = Actor(obs_dim)
+    a.load_state_dict(w)
+    a.eval()
+    return a
 
 
 def load_policy(name, obs_dim):
-    """Load one final Stable-Baselines3 IPPO checkpoint."""
-    if not name.endswith(".zip"):
-        raise ValueError("final underwater policies must be Stable-Baselines3 .zip files")
-    from stable_baselines3 import PPO
-    model = PPO.load(os.path.join(OUT, name), device="cpu")
+    """统一入口：支持手写 IPPO 的 .pt 和 SB3 PPO 的 .zip，统一产出 policy(obs, env)->(n,2)。"""
+    if name.endswith(".zip"):
+        from stable_baselines3 import PPO, SAC, TD3
 
-    def pol(o, e, model=model):
-        a, _ = model.predict(np.asarray(o, dtype=np.float32).reshape(-1), deterministic=True)
-        return np.clip(np.asarray(a, dtype=np.float32).reshape(e.n_auv, 2), -1, 1)
+        lowered = os.path.basename(name).lower()
+        if "_sac_" in lowered or lowered.startswith("sac_"):
+            model_class = SAC
+        elif "_td3_" in lowered or lowered.startswith("td3_"):
+            model_class = TD3
+        else:
+            model_class = PPO
+        model = model_class.load(os.path.join(OUT, name), device="cpu")
+
+        def pol(o, e, model=model):
+            a, _ = model.predict(np.asarray(o, dtype=np.float32).reshape(-1), deterministic=True)
+            return np.clip(np.asarray(a, dtype=np.float32).reshape(e.n_auv, 2), -1, 1)
+        return pol
+    actor = load_actor(name, obs_dim)
+
+    def pol(o, e, actor=actor):
+        ot = torch.tensor(o, dtype=torch.float32)
+        with torch.no_grad():
+            mean, _ = actor.dist(ot)
+        return np.clip(mean.numpy(), -1, 1)
     return pol
 
 
@@ -77,7 +140,8 @@ def rollout(env, policy, seed, row=None):
         env.segments = pd.DataFrame([row]).reset_index(drop=True)
     np.random.seed(seed)
     obs, _ = env.reset()
-    slat, slon, sspd, sact, sW = [], [], [], [], []
+    slat, slon, sspd, sact, sprop, sW = [], [], [], [], [], []
+    speak, sapeak, sypeak = [], [], []
     done = False
     while not done:
         a = policy(obs, env)
@@ -86,9 +150,36 @@ def rollout(env, policy, seed, row=None):
         sspd.append(np.asarray(info["spd_at"], dtype=np.float64))
         sW.append(np.asarray(info["W_at"], dtype=np.float64))
         sact.append(np.linalg.norm(np.asarray(a, dtype=np.float64), axis=1))
+        if "speed" in info:
+            sprop.append(np.asarray(info["speed"], dtype=np.float64))
+        else:
+            sprop.append(
+                np.linalg.norm(np.asarray(a, dtype=np.float64), axis=1)
+                * float(env.vmax)
+            )
+        speak.append(
+            np.asarray(info.get("speed", np.zeros(env.n_auv)), dtype=np.float64)
+        )
+        sapeak.append(
+            np.asarray(info.get("accel_peak", np.zeros(env.n_auv)), dtype=np.float64)
+        )
+        sypeak.append(
+            np.asarray(info.get("yaw_rate_peak", np.zeros(env.n_auv)), dtype=np.float64)
+        )
         done = bool(term or trunc)
+    # Positions are stored before each action. Add the final state and sampled
+    # field values so the last transition contributes to path and coverage.
+    slat.append(np.asarray(env.lats, dtype=np.float64))
+    slon.append(np.asarray(env.lons, dtype=np.float64))
+    sspd.append(
+        np.asarray(env._at2m("spd", env.lats, env.lons), dtype=np.float64)
+    )
+    sW.append(
+        np.atleast_1d(env._at(env.W, env.lats, env.lons)).astype(np.float64)
+    )
     return (np.concatenate(slat), np.concatenate(slon), np.concatenate(sspd),
-            np.concatenate(sact), np.concatenate(sW))
+            np.concatenate(sact), np.concatenate(sprop), np.concatenate(sW),
+            np.concatenate(speak), np.concatenate(sapeak), np.concatenate(sypeak))
 
 
 def _region(env):
@@ -98,7 +189,7 @@ def _region(env):
     为心的 250km 圆盘；用这个固定区域保证各策略比较的是同一块海域。
     """
     d = env.d
-    t0 = int(env.t); t1 = int(env.t_end)
+    t0 = int(env.t)
     clon = float(d["track_lon"][t0])
     clat = float(d["track_lat"][t0])
     LON, LAT = np.meshgrid(d["lon"], d["lat"])
@@ -129,7 +220,7 @@ def idw_to_region(env, slat, slon, sspd, region):
     return rmse, corr
 
 
-def episode_metrics(env, slat, slon, sspd, sact, sW):
+def episode_metrics(env, slat, slon, sspd, sact, sprop, sW, speak, sapeak, sypeak):
     d = env.d
     region, _, _ = _region(env)
     lat_g = d["lat"]; lon_g = d["lon"]
@@ -162,8 +253,8 @@ def episode_metrics(env, slat, slon, sspd, sact, sW):
         path_km = 0.0
     dur_s = max(len(LAT) - 1, 1) * float(STEP_MIN) * 60.0
     mean_speed = path_km * 1000.0 / dur_s
-    # 推进速度（不含水流）：动作幅值 × Vmax。地速 = 推进 + 流，所以地速可以 > Vmax。
-    prop_speed = float(np.mean(sact)) * float(getattr(env, "vmax", np.nan))
+    # 推进速度（不含水流）：约束动力学下取实际积分速度，原模型取动作幅值×Vmax。
+    prop_speed = float(np.mean(sprop))
     sspd_arr = np.asarray(sspd, dtype=np.float64)
     W = env.W
     Wr = W[region]
@@ -207,6 +298,8 @@ def episode_metrics(env, slat, slon, sspd, sact, sW):
     rmse, corr = idw_to_region(env, slat, slon, sspd, region)
     return {
         "storm": env.d["storm"],
+        "depth_m": float(env.depth_m),
+        "vmax_ms": float(env.vmax),
         "mean_V": float(sspd.mean()),
         "mean_a2": float((sact ** 2).mean()),
         "cov_area_km2": float(n_cells * env._cell_area_km2),
@@ -220,6 +313,9 @@ def episode_metrics(env, slat, slon, sspd, sact, sW):
         "path_km": path_km,
         "mean_speed_ms": mean_speed,
         "prop_speed_ms": prop_speed,
+        "max_prop_speed_ms": float(np.max(speak)),
+        "max_accel_mps2": float(np.max(sapeak)),
+        "max_yaw_rate_dps": float(np.degrees(np.max(sypeak))),
         "V_p50": float(np.percentile(sspd_arr, 50)),
         "V_p90": float(np.percentile(sspd_arr, 90)),
         "V_p95": float(np.percentile(sspd_arr, 95)),
@@ -233,7 +329,7 @@ def main():
     n_seed = int(sys.argv[1]) if len(sys.argv) > 1 else 8
     depth = float(sys.argv[2]) if len(sys.argv) > 2 else 50.0
     start = float(sys.argv[3]) if len(sys.argv) > 3 else 200.0
-    dur = float(sys.argv[4]) if len(sys.argv) > 4 else 10.0
+    dur = float(sys.argv[4]) if len(sys.argv) > 4 else 20.0
     models = sys.argv[5:]
 
     split = json.load(open(SPLIT)); test = split["test"]
@@ -254,7 +350,7 @@ def main():
     ]
     for name in models:
         pol = load_policy(name, obs_dim)
-        label = os.path.basename(name).removesuffix(".zip")
+        label = os.path.basename(name).replace(".pt", "").replace(".zip", "")
         policies.append((label, pol))
 
     rows = []

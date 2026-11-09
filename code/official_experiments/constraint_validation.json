@@ -1,0 +1,22 @@
+{
+  "surface": {
+    "vmax_mps": 20.0,
+    "accel_limit_mps2": 0.02,
+    "decel_limit_mps2": 0.03,
+    "yaw_limit_deg_s": 1.0,
+    "min_turn_radius_m": 200.0,
+    "observed_max_speed_mps": 20.0,
+    "observed_max_accel_mps2": 0.029999999999999995,
+    "observed_max_yaw_deg_s": 1.0
+  },
+  "subsurface": {
+    "vmax_mps": 2.0,
+    "accel_limit_mps2": 0.002,
+    "decel_limit_mps2": 0.003,
+    "yaw_limit_deg_s": 2.0,
+    "min_turn_radius_m": 100.0,
+    "observed_max_speed_mps": 2.0,
+    "observed_max_accel_mps2": 0.003,
+    "observed_max_yaw_deg_s": 1.1459155902616465
+  }
+}

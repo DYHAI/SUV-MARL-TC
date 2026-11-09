@@ -14,7 +14,12 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from code.surface.fleet_segment_env import D2KM, STEP_MIN, coast_gradient, safety_filter
+from code.surface.fleet_segment_env import (
+    D2KM,
+    STEP_MIN,
+    coast_gradient,
+    safety_filter,
+)
 
 
 def _unit(v: np.ndarray) -> np.ndarray:

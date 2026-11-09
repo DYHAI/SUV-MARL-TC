@@ -6,6 +6,10 @@ Set `PYTHON_BIN` when the trained environment is not the active `python`:
 export PYTHON_BIN=/path/to/RL/python
 ```
 
+Every launcher sources `official_env.sh`, which enables constrained planar
+dynamics, disables the surface-current term, and sets the final acceleration,
+yaw-rate, and minimum-turn-radius limits.
+
 Main entries:
 
 - `run_surface_vmax12_seed10.sh`: final surface multi-seed training.

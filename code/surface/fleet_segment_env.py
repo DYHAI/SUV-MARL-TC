@@ -1,11 +1,34 @@
-"""Segmented surface fleet environment used by the final IPPO experiments."""
-import os
+"""9-AUV 集群在 300-500km 段上追眼（海面）。
+
+与 fleet_env.py 的区别：
+- 每回合 = 一条 300-500km 轨迹段（data/segments_64.csv）。
+- 每个 AUV 观测自己的 1x1 局部风场 cell = 该位置 spacing_deg x spacing_deg 尺度单元上的平均风(spd,u,v)，
+  通过共享知道集群 9 个 cell 的风场。spacing_deg=0.25（~28km 单元）或 0.025（~2.8km 单元，细网格平均）。
+- 编队半径约束 R_FORM=100 km（不是 200）。
+- 初始在段首 200km 内随机布防，52 训练 / 12 测试。
+观测(每AUV) = 9*(spd,u,v)/50 = 27 + 自身速度2 = 29 维。
+"""
+import os, sys
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from scipy.interpolate import RegularGridInterpolator
+from scipy.ndimage import map_coordinates
 
-from code.surface.surface_wind_env import load_storm, land_ocean_mask, D2KM, STEP_MIN, LAND_PENALTY, R_BUFFER, W_BUFFER
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from code.surface.surface_wind_env import (
+    load_storm,
+    land_ocean_mask,
+    D2KM,
+    STEP_MIN,
+    LAND_PENALTY,
+    R_BUFFER,
+    W_BUFFER,
+)
+from code.common.constrained_dynamics import (
+    ConstrainedPlanarDynamics,
+    DynamicsConfig,
+)
 
 N_AUV = 9
 # Default remains 20 m/s for exact reproduction of existing experiments.
@@ -202,6 +225,19 @@ class FleetSegmentEnv(gym.Env):
                  comm_dropout=0.0, comm_outage_steps=3):
         super().__init__()
         self.n_auv = n_auv
+        self.vmax = float(vmax)
+        self.dynamics_config = DynamicsConfig.from_env("surface")
+        self.dynamics = (
+            ConstrainedPlanarDynamics(self.n_auv, self.vmax, self.dynamics_config)
+            if self.dynamics_config.mode == "constrained"
+            else None
+        )
+        _surface_current_flag = os.environ.get("DYN_SURFACE_CURRENT")
+        self.dynamics_surface_current = (
+            self.dynamics is not None
+            if _surface_current_flag is None
+            else _surface_current_flag == "1"
+        )
         self.spacing_deg = spacing_deg
         self.patch_n = patch_n
         self.deploy_radius = deploy_radius
@@ -239,7 +275,19 @@ class FleetSegmentEnv(gym.Env):
             # 裁剪范围要覆盖「训练半径」和「实际布防距离」的较大者，否则远距离布防会被裁掉
             cm = (max(self.deploy_radius, self.deploy_fixed_km) + 200.0) \
                 if hasattr(self, 'deploy_radius') else None
-            self.data = {s: load_storm(s, use_uv=use_uv, crop_margin_km=cm, use_sst=use_sst, use_hycom0=use_hycom0, hycom0_native=hycom0_native, use_mslp=use_mslp) for s in storms}
+            needs_hycom0 = use_hycom0 or self.dynamics_surface_current
+            self.data = {s: load_storm(s, use_uv=use_uv, crop_margin_km=cm, use_sst=use_sst, use_hycom0=needs_hycom0, hycom0_native=hycom0_native, use_mslp=use_mslp, hycom0_motion_only=(self.dynamics_surface_current and not use_hycom0)) for s in storms}
+        if self.dynamics_surface_current:
+            missing = [
+                s
+                for s, data in self.data.items()
+                if "hycom0_u" not in data or "hycom0_v" not in data
+            ]
+            if missing:
+                raise ValueError(
+                    "DYN_SURFACE_CURRENT requires preloaded HYCOM 0 m fields; "
+                    f"missing for {missing[:5]}"
+                )
         if use_vorticity or use_framediff:
             R = 6371000.0
             for _s, _d in self.data.items():
@@ -314,8 +362,13 @@ class FleetSegmentEnv(gym.Env):
         self.nch = (3 + n_sst + (3 if use_hycom0 else 0) + (1 if use_vorticity else 0)
                     + (2 if use_framediff else 0) + (3 if use_mslp else 0)
                     + (1 if self.use_coast_obs else 0))
+        self._obs_heading = (
+            self.dynamics is not None
+            or os.environ.get("OBS_HEADING", "0") == "1"
+        )
+        self._n_heading = 2 if self._obs_heading else 0
         self.obs_dim = (n_auv * patch_n * patch_n * self.nch + 2
-                        + self._n_id)
+                        + self._n_id + self._n_heading)
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(n_auv, self.obs_dim), dtype=np.float32)
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(n_auv, 2), dtype=np.float32)
         self.step_count = 0
@@ -436,9 +489,23 @@ class FleetSegmentEnv(gym.Env):
             for i in range(self.n_auv):
                 obs[i, :self.n_auv*nch] = cells_v.ravel()
                 obs[i, i * nch:(i + 1) * nch] = cells[i]   # 自己的观测永远可见
-                obs[i, self.n_auv*nch:self.n_auv*nch+2] = [self.vxs[i]/self.vmax, self.vys[i]/self.vmax]
+                base = self.n_auv * nch
+                obs[i, base:base+2] = [self.vxs[i]/self.vmax, self.vys[i]/self.vmax]
+                cursor = base + 2
                 if self._n_id:
-                    obs[i, self.n_auv * nch + 2:] = self._id_block[i]   # 身份/角度编码
+                    obs[i, cursor:cursor+self._n_id] = self._id_block[i]
+                    cursor += self._n_id
+                if self._n_heading:
+                    if self.dynamics is not None:
+                        heading = self.dynamics.heading[i]
+                    else:
+                        speed = float(np.hypot(self.vxs[i], self.vys[i]))
+                        heading = (
+                            float(np.arctan2(self.vys[i], self.vxs[i]))
+                            if speed > 1e-9
+                            else 0.0
+                        )
+                    obs[i, cursor:cursor+2] = [np.cos(heading), np.sin(heading)]
             return self._sanitize_obs(obs)
         offs = (np.arange(pn) - (pn - 1) / 2) * self.spacing_deg
         cells = np.zeros((self.n_auv, pn * pn * nch), dtype=np.float32)
@@ -478,7 +545,23 @@ class FleetSegmentEnv(gym.Env):
         obs = np.zeros((self.n_auv, self.obs_dim), dtype=np.float32)
         for i in range(self.n_auv):
             obs[i, :self.n_auv*pn*pn*nch] = cells.ravel()
-            obs[i, self.n_auv*pn*pn*nch:self.n_auv*pn*pn*nch+2] = [self.vxs[i]/self.vmax, self.vys[i]/self.vmax]
+            base = self.n_auv*pn*pn*nch
+            obs[i, base:base+2] = [self.vxs[i]/self.vmax, self.vys[i]/self.vmax]
+            cursor = base + 2
+            if self._n_id:
+                obs[i, cursor:cursor+self._n_id] = self._id_block[i]
+                cursor += self._n_id
+            if self._n_heading:
+                if self.dynamics is not None:
+                    heading = self.dynamics.heading[i]
+                else:
+                    speed = float(np.hypot(self.vxs[i], self.vys[i]))
+                    heading = (
+                        float(np.arctan2(self.vys[i], self.vxs[i]))
+                        if speed > 1e-9
+                        else 0.0
+                    )
+                obs[i, cursor:cursor+2] = [np.cos(heading), np.sin(heading)]
         return self._sanitize_obs(obs)
 
     def _sanitize_obs(self, obs):
@@ -496,6 +579,22 @@ class FleetSegmentEnv(gym.Env):
             self._obs_nan_hits = int(getattr(self, "_obs_nan_hits", 0)) + int(bad.any(axis=1).sum())
             np.nan_to_num(obs, copy=False, nan=0.0, posinf=PGRAD_CLIP, neginf=-PGRAD_CLIP)
         return obs
+
+    def _surface_current(self):
+        """Return HYCOM 0 m zonal/meridional velocity at each SUV position."""
+        h0 = int(self.d["h0"][self.t])
+        h1 = int(self.d["h1"][self.t])
+        frac = float(self.d["frac"][self.t])
+        hlat = self.d["hycom0_lat"] if self.hycom0_native else self.d["lat"]
+        hlon = self.d["hycom0_lon"] if self.hycom0_native else self.d["lon"]
+        u = (1.0 - frac) * self.d["hycom0_u"][h0] + frac * self.d["hycom0_u"][h1]
+        v = (1.0 - frac) * self.d["hycom0_v"][h0] + frac * self.d["hycom0_v"][h1]
+        li = (np.asarray(self.lats) - hlat[0]) / (hlat[1] - hlat[0])
+        lj = (np.asarray(self.lons) - hlon[0]) / (hlon[1] - hlon[0])
+        coords = np.stack([li, lj])
+        cu = map_coordinates(u, coords, order=1, mode="nearest")
+        cv = map_coordinates(v, coords, order=1, mode="nearest")
+        return np.stack([cu, cv], axis=1)
 
     def _reset(self, seed=None, options=None):
         if seed is not None:
@@ -518,6 +617,8 @@ class FleetSegmentEnv(gym.Env):
             min_coast_km=getattr(self, "deploy_min_coast_km", 0.0),
             fixed_km=getattr(self, "deploy_fixed_km", 0.0))
         self.prev_actions = np.zeros((self.n_auv, 2), dtype=np.float32)
+        if self.dynamics is not None:
+            self.dynamics.reset()
         self.step_count = 0
         return self._obs(), {}
 
@@ -532,11 +633,39 @@ class FleetSegmentEnv(gym.Env):
             a = safety_filter(a, self.lons, self.lats, self.dist_interp, self.safety_margin_km)
         a_change = a - self.prev_actions
         self.prev_actions = a.copy()
-        self.vxs = a[:, 0] * self.vmax
-        self.vys = a[:, 1] * self.vmax
         dt = float(STEP_MIN * 60)
-        dx_km = self.vxs * dt / 1000.0
-        dy_km = self.vys * dt / 1000.0
+        if self.dynamics is None:
+            self.vxs = a[:, 0] * self.vmax
+            self.vys = a[:, 1] * self.vmax
+            if self.dynamics_surface_current:
+                surface_current = self._surface_current()
+                dx_km = (self.vxs + surface_current[:, 0]) * dt / 1000.0
+                dy_km = (self.vys + surface_current[:, 1]) * dt / 1000.0
+                dynamics_info = {
+                    "surface_current_speed": np.linalg.norm(
+                        surface_current, axis=1
+                    )
+                }
+            else:
+                dx_km = self.vxs * dt / 1000.0
+                dy_km = self.vys * dt / 1000.0
+                dynamics_info = {}
+        else:
+            if self.dynamics_surface_current:
+                surface_current = self._surface_current()
+            else:
+                surface_current = None
+            prop_velocity, displacement_m, dynamics_info = self.dynamics.step(
+                a, dt, current_velocity=surface_current
+            )
+            self.vxs = prop_velocity[:, 0]
+            self.vys = prop_velocity[:, 1]
+            dx_km = displacement_m[:, 0] / 1000.0
+            dy_km = displacement_m[:, 1] / 1000.0
+            if surface_current is not None:
+                dynamics_info["surface_current_speed"] = np.linalg.norm(
+                    surface_current, axis=1
+                )
         self.lons += dx_km / (D2KM * np.cos(np.deg2rad(self.lats)))
         self.lats += dy_km / D2KM
         lo = self.d["lon"]; la = self.d["lat"]
@@ -570,6 +699,7 @@ class FleetSegmentEnv(gym.Env):
         info = {"dist_km": dist, "eye_lon": eye_lon, "eye_lat": eye_lat,
                 "storm": self.d["storm"], "rewards": rewards, "t0": self.t0, "t1": self.t1,
                 "land_pen": land_pen, "on_land": on_land, "land_dist": land_dist}
+        info.update(dynamics_info)
         return self._obs(), float(rewards.sum()), terminated, truncated, info
 
     def reset(self, seed=None, options=None):

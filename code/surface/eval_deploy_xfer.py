@@ -14,15 +14,25 @@
 用法:
     XFER_R_TRAIN=800 DEPLOY_FIXED_KM=200 STORAGE16=0 \
       SST_MODE=none USE_MSLP=0 \
-      python -m code.surface.eval_deploy_xfer <model.zip> <n_auv> <D_km> [seeds]
+      python eval_deploy_xfer.py <model.zip> <n_auv> <D_km> [seeds]
 """
-import os, sys, json
+import fcntl, hashlib, os, sys, json
 import numpy as np
 import pandas as pd
-from code.surface.fleet_segment_env import (FleetSegmentEnv, D2KM, deploy_formation, seg_idx, STEP_MIN,
-                               VMAX, R_BUFFER, safety_filter)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from code.surface.fleet_segment_env import (
+    FleetSegmentEnv,
+    D2KM,
+    deploy_formation,
+    seg_idx,
+    STEP_MIN,
+    VMAX,
+    R_BUFFER,
+    safety_filter,
+    land_interp,
+)
+from stable_baselines3 import PPO, SAC, TD3
 from code.paths import REPO_ROOT, RUNS_ROOT
-from stable_baselines3 import PPO
 
 BASE = str(REPO_ROOT)
 SPLIT = os.environ.get("SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_500.json"))
@@ -41,12 +51,40 @@ MODEL = sys.argv[1]
 N_AUV = int(sys.argv[2]) if len(sys.argv) > 2 else 4
 D_FIXED = float(sys.argv[3]) if len(sys.argv) > 3 else 200.0
 SEEDS = int(sys.argv[4]) if len(sys.argv) > 4 else 3
-R_TRAIN = float(os.environ.get("XFER_R_TRAIN", "200"))
-LOG_DIR = str(RUNS_ROOT / "surface" / "logs_xfer")
+R_TRAIN = float(os.environ.get("XFER_R_TRAIN", "800"))
 
-SPACING, PATCH_N, BETA = 0.25, 1, 0.8
+SPACING, PATCH_N = 0.25, 1
+BETA = float(os.environ.get("ACTION_FILTER_BETA", "0.8"))
 RING_RADIUS = float(os.environ.get("FORMATION_RADIUS_KM", "100"))
 FORMATION = os.environ.get("FORMATION", "ring")
+
+
+def acquire_evaluation_lock():
+    """Prevent concurrent duplicate rollouts of the same evaluation config."""
+    key = "|".join(
+        [
+            os.path.abspath(MODEL),
+            str(N_AUV),
+            str(D_FIXED),
+            str(SEEDS),
+            str(R_TRAIN),
+            str(BETA),
+            FORMATION,
+            str(RING_RADIUS),
+            SPLIT_KEY,
+        ]
+    )
+    digest = hashlib.sha256(key.encode()).hexdigest()[:24]
+    lock_dir = "/tmp/suv_marl_eval_locks"
+    os.makedirs(lock_dir, exist_ok=True)
+    stream = open(os.path.join(lock_dir, f"{digest}.lock"), "a+")
+    try:
+        fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print(f"duplicate evaluation already running: {key}", flush=True)
+        stream.close()
+        return None
+    return stream
 
 
 def deploy_fixed(d, t0, n_auv, D, seed):
@@ -81,6 +119,8 @@ def run_segment(model, env, seg, idx, sd):
     # 种子只依赖 (段号, sd)，**与 D 无关** → 5 个 D 共用同一方位角，严格配对
     seed = 100000 + 97 * idx + sd
     env.vxs = np.zeros(env.n_auv); env.vys = np.zeros(env.n_auv)
+    if env.dynamics is not None:
+        env.dynamics.reset(seed=seed)
     env.lons, env.lats, dep_centre_km, dep_coast_km = deploy_fixed(
         d, env.t0, env.n_auv, D_FIXED, seed)
     env.prev_actions = np.zeros((env.n_auv, 2), dtype=np.float32)
@@ -92,8 +132,14 @@ def run_segment(model, env, seg, idx, sd):
 
     a_exec = np.zeros((env.n_auv, 2), dtype=np.float32)
     land_steps = 0; buf_steps = 0; any_land_steps = 0; tot_steps = 0; touched = False
-    path = np.zeros(env.n_auv); dt_h = STEP_MIN / 60.0
+    path = np.zeros(env.n_auv)
     dists = []
+    max_prop_speed = 0.0
+    max_accel = 0.0
+    max_yaw_rate = 0.0
+    max_surface_current = 0.0
+    formation_radii = []
+    pairwise_spacings = []
     while True:
         a, _ = model.predict(obs, deterministic=True)
         a = np.asarray(a, dtype=np.float32).reshape(env.n_auv, 2)
@@ -103,9 +149,32 @@ def run_segment(model, env, seg, idx, sd):
         a_use = a_use / np.maximum(1.0, nrm)
         if SAFETY_MARGIN_KM > 0:
             a_use = safety_filter(a_use, env.lons, env.lats, env.dist_interp, SAFETY_MARGIN_KM)
-        v = np.hypot(a_use[:, 0], a_use[:, 1]) * VMAX
-        path += v * (STEP_MIN * 60) / 1000.0
+        prev_lons = env.lons.copy()
+        prev_lats = env.lats.copy()
         obs, _r, _t, trunc, info = env.step(a_use)
+        max_prop_speed = max(
+            max_prop_speed,
+            min(
+                float(VMAX),
+                float(np.max(np.linalg.norm(a_use, axis=1)) * VMAX),
+            ),
+        )
+        if "speed" in info:
+            max_prop_speed = max(max_prop_speed, float(np.max(info["speed"])))
+        if "accel_peak" in info:
+            max_accel = max(max_accel, float(np.max(info["accel_peak"])))
+        if "yaw_rate_peak" in info:
+            max_yaw_rate = max(max_yaw_rate, float(np.max(info["yaw_rate_peak"])))
+        if "surface_current_speed" in info:
+            max_surface_current = max(
+                max_surface_current,
+                float(np.max(info["surface_current_speed"])),
+            )
+        step_km = np.hypot(
+            (env.lons - prev_lons) * D2KM * np.cos(np.deg2rad(prev_lats)),
+            (env.lats - prev_lats) * D2KM,
+        )
+        path += step_km
         obs = obs.reshape(-1).astype(np.float32)
         ld = info["land_dist"]
         onl = ld <= 0.0
@@ -117,6 +186,31 @@ def run_segment(model, env, seg, idx, sd):
         if onl.any():
             touched = True
         dists.append(float(np.mean(info["dist_km"])))
+        centroid_lon = float(np.mean(env.lons))
+        centroid_lat = float(np.mean(env.lats))
+        from_center_km = np.hypot(
+            (env.lons - centroid_lon)
+            * D2KM
+            * np.cos(np.deg2rad(centroid_lat)),
+            (env.lats - centroid_lat) * D2KM,
+        )
+        formation_radii.append(float(np.mean(from_center_km)))
+        if env.n_auv > 1:
+            pair_distances = [
+                float(
+                    np.hypot(
+                        (env.lons[j] - env.lons[i])
+                        * D2KM
+                        * np.cos(np.deg2rad(env.lats[i])),
+                        (env.lats[j] - env.lats[i]) * D2KM,
+                    )
+                )
+                for i in range(env.n_auv)
+                for j in range(i + 1, env.n_auv)
+            ]
+            pairwise_spacings.append(float(np.mean(pair_distances)))
+        else:
+            pairwise_spacings.append(0.0)
         if trunc:
             break
     n_auv_steps = tot_steps * env.n_auv
@@ -133,13 +227,30 @@ def run_segment(model, env, seg, idx, sd):
         vmean=float(path.mean() * 1000.0 / (tot_steps * STEP_MIN * 60.0 + 1e-9)),
         dist=float(np.mean(dists)),
         final_dist=float(dists[-1]) if dists else float("nan"),
-        T_h=float(tot_steps * STEP_MIN / 60.0))
+        T_h=float(tot_steps * STEP_MIN / 60.0),
+        max_prop_speed_ms=max_prop_speed,
+        max_accel_mps2=max_accel,
+        max_yaw_rate_dps=float(np.degrees(max_yaw_rate)),
+        max_surface_current_ms=max_surface_current,
+        formation_radius_km=float(np.mean(formation_radii)),
+        pairwise_spacing_km=float(np.mean(pairwise_spacings)),
+    )
 
 
 def main():
+    lock_stream = acquire_evaluation_lock()
+    if lock_stream is None:
+        raise SystemExit(75)
     print("XFER 训练半径 R_train=%.0f km | 固定布防距离 D=%.0f km | 台数=%d | seeds=%d"
           % (R_TRAIN, D_FIXED, N_AUV, SEEDS), flush=True)
-    model = PPO.load(MODEL, device="cpu")
+    lowered = os.path.basename(MODEL).lower()
+    if "_sac_" in lowered or lowered.startswith("sac_"):
+        model_class = SAC
+    elif "_td3_" in lowered or lowered.startswith("td3_"):
+        model_class = TD3
+    else:
+        model_class = PPO
+    model = model_class.load(MODEL, device="cpu")
     split = json.load(open(SPLIT)); storms = split[SPLIT_KEY]
     seg = pd.read_csv(SEGCSV); seg = seg[seg.storm.isin(storms)].reset_index(drop=True)
     lim = int(os.environ.get("XFER_LIMIT", "0"))
@@ -166,8 +277,9 @@ def main():
     if XFER_DUMP and "idx" in df.columns:
         tag = os.environ.get("XFER_TAG", "xfer")
         keep = ["idx", "storm", "t0", "sd", "dist", "path", "vmean", "T_h", "land_frac"]
-        os.makedirs(LOG_DIR, exist_ok=True)
-        df[keep].to_csv(os.path.join(LOG_DIR, "%s_seg.csv" % tag), index=False)
+        out_dir = RUNS_ROOT / "surface" / "eval"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        df[keep].to_csv(out_dir / f"{tag}_seg.csv", index=False)
     # 段级误差棒（768 个测试段 = 768 个不同的方位角实现，天然给出不确定度）
     n_seg = max(len(df), 1)
     sem_dist = float(df.dist.std(ddof=1) / np.sqrt(n_seg)) if n_seg > 1 else 0.0
@@ -201,6 +313,31 @@ def main():
     print(
         "FINALROW|%.0f|%.0f|%d|%.1f|%.2f|%.0f"
         % (R_TRAIN, D_FIXED, N_AUV, final_mean, final_sem, len(df)),
+        flush=True,
+    )
+    print(
+        "CONSTRAINTROW|%.0f|%.0f|%d|%.6f|%.6f|%.6f|%.6f"
+        % (
+            R_TRAIN,
+            D_FIXED,
+            N_AUV,
+            float(df.max_prop_speed_ms.max()),
+            float(df.max_accel_mps2.max()),
+            float(df.max_yaw_rate_dps.max()),
+            float(df.max_surface_current_ms.max()),
+        ),
+        flush=True,
+    )
+    print(
+        "FORMATIONROW|%.0f|%.0f|%d|%.3f|%.3f|%.0f"
+        % (
+            R_TRAIN,
+            D_FIXED,
+            N_AUV,
+            float(df.formation_radius_km.mean()),
+            float(df.pairwise_spacing_km.mean()),
+            len(df),
+        ),
         flush=True,
     )
 
