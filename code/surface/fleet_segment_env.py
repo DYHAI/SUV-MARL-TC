@@ -1,12 +1,13 @@
-"""9-AUV 集群在 300-500km 段上追眼（海面）。
+"""Parameter-sharing SUV fleet tracking on 300-500 km surface segments.
 
 与 fleet_env.py 的区别：
-- 每回合 = 一条 300-500km 轨迹段（data/segments_64.csv）。
-- 每个 AUV 观测自己的 1x1 局部风场 cell = 该位置 spacing_deg x spacing_deg 尺度单元上的平均风(spd,u,v)，
-  通过共享知道集群 9 个 cell 的风场。spacing_deg=0.25（~28km 单元）或 0.025（~2.8km 单元，细网格平均）。
+- 每回合 = 一条 300-500 km 轨迹段；正式数据使用
+  ``data/segments_500.csv``。
+- 每个 SUV 观测自己的 1x1 局部风场 cell；通过理想全局共享获得全编队
+  ``N`` 个 cell 的风场。正式实验使用 ``spacing_deg=0.25``。
 - 编队半径约束 R_FORM=100 km（不是 200）。
-- 初始在段首 200km 内随机布防，52 训练 / 12 测试。
-观测(每AUV) = 9*(spd,u,v)/50 = 27 + 自身速度2 = 29 维。
+- 正式训练从 0--800 km 布防误差包络内采样，测试使用 450/50 TC 划分。
+- 观测维度为 ``3N + 2 + 2``：全编队风速三分量、自身有效速度、航向。
 """
 import os, sys
 import numpy as np
