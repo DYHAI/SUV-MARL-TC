@@ -10,8 +10,8 @@ This directory is the working copy for the final manuscript.
 - `figures/`: all figures, including regenerated PDF/PNG pairs.
 - `../code/analysis/`: scripts that regenerate result tables and figures.
 
-The four active comparison tables are in `tables/` and are included directly
-by `main.tex`. Other result tables are embedded in the manuscript source.
+All tables are embedded directly in `main.tex`; a separate `tables/` directory
+is not required.
 
 ## Compile
 

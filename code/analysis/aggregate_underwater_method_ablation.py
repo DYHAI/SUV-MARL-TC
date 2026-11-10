@@ -209,10 +209,10 @@ def make_figure(s: pd.DataFrame) -> None:
         y=0.99,
     )
     fig.savefig(
-        FIGDIR / "underwater_methods_7depth.pdf", bbox_inches="tight"
+        FIGDIR / "FigC2_Underwater_Methods_7Depth.pdf", bbox_inches="tight"
     )
     fig.savefig(
-        FIGDIR / "underwater_methods_7depth.png", dpi=300, bbox_inches="tight"
+        FIGDIR / "FigC2_Underwater_Methods_7Depth.png", dpi=300, bbox_inches="tight"
     )
     plt.close(fig)
 
@@ -227,7 +227,7 @@ def main() -> None:
     make_table(s)
     make_figure(s)
     print(csv_path)
-    print(FIGDIR / "underwater_methods_7depth.pdf")
+    print(FIGDIR / "FigC2_Underwater_Methods_7Depth.pdf")
 
 
 if __name__ == "__main__":

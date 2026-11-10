@@ -261,7 +261,7 @@ def make_surface_matrix(row, storm):
         r"deployment radii ($V_{\max}$=20 m/s)",
         fontsize=15, fontweight="bold",
     )
-    out = FIGDIR / "surface_trajectory_matrix_20ms"
+    out = FIGDIR / "Fig4_Surface_Trajectory_Matrix"
     fig.savefig(out.with_suffix(".pdf"), bbox_inches="tight")
     fig.savefig(out.with_suffix(".png"), dpi=280, bbox_inches="tight")
     plt.close(fig)
@@ -314,7 +314,7 @@ def make_surface_snapshots(row, storm):
         "Four-SUV surface tracking from a 400 km deployment radius",
         fontsize=14, fontweight="bold",
     )
-    out = FIGDIR / "surface_trajectory_4suv_400km_20ms"
+    out = FIGDIR / "Fig2_Surface_Trajectory_Evolution"
     fig.savefig(out.with_suffix(".pdf"), bbox_inches="tight")
     fig.savefig(out.with_suffix(".png"), dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -535,7 +535,7 @@ def make_underwater_comparison(row, storm):
         "Representative four-SUV subsurface strategies at 0, 30, and 50 m",
         fontsize=18, fontweight="bold",
     )
-    out = FIGDIR / "underwater_strategy_trajectories_multidepth"
+    out = FIGDIR / "FigC1_Underwater_Strategy_Trajectories"
     fig.savefig(out.with_suffix(".pdf"), bbox_inches="tight")
     fig.savefig(out.with_suffix(".png"), dpi=300, bbox_inches="tight")
     plt.close(fig)

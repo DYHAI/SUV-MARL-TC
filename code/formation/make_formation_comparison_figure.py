@@ -224,13 +224,13 @@ def main() -> None:
         fontsize=12,
     )
     OUT.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT / "formation_comparison.pdf", bbox_inches="tight")
+    fig.savefig(OUT / "FigB1_Formation_Comparison.pdf", bbox_inches="tight")
     fig.savefig(OUT / "formation_comparison.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
     pd.DataFrame(metric_rows).to_csv(
         RESULTS_ROOT / "formation" / "formation_representative.csv", index=False
     )
-    print(OUT / "formation_comparison.pdf")
+    print(OUT / "FigB1_Formation_Comparison.pdf")
 
 
 if __name__ == "__main__":

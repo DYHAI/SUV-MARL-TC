@@ -232,7 +232,7 @@ parameter-sharing policy is later evaluated with 4, 8, 12, and 16 SUVs.
 \begin{figure*}[htbp]
 \centering
 \includegraphics[width=\textwidth]
-    {figures/fig2_surface_subsurface_observation.png}
+    {figures/Fig1_Surface_Subsurface_Observation.png}
 \caption{Coordinated surface--subsurface TC observation for a representative
 HINNAMNOR (2022) snapshot. The left panel shows four SUVs tracking the IBTrACS
 best track while sampling ERA5 winds at 10 m above the sea surface. The right
@@ -825,11 +825,11 @@ Surface formation & -- & 100 km ring, $360^\circ/N$ &
 \end{tabular}}
 \end{table*}
 
-Across 30,498 IBTrACS track samples, the median, 95th-percentile, and
+Across 32,352 IBTrACS track samples, the median, 95th-percentile, and
 99th-percentile TC translation speeds are 5.14, 13.38, and 20.06 m/s
 (Table~\ref{tab:tc_speed_envelope}). The 12 and 20 m/s surface limits cover
 93.8\% and 98.9\% of these samples, respectively. The submerged limits cover
-only 3.6\% and 7.8%; the subsurface task is local adaptive sampling within the
+only 3.7\% and 7.8%; the subsurface task is local adaptive sampling within the
 200 km initialization region and does not attempt to overtake and follow the
 TC center.
 \begin{table*}[t]
@@ -844,10 +844,10 @@ tracking also depends on bearing error and remaining segment duration.}
 \toprule
 Quantity & P50 & P90 & P95 & P99 & Samples & TCs \\
 \midrule
-TC translation speed (m s$^{-1}$) & 5.14 & 9.77 & 13.38 & 20.06 & 30,498 & 500 \\
+TC translation speed (m s$^{-1}$) & 5.14 & 9.77 & 13.38 & 20.06 & 32,352 & 500 \\
 \midrule
 Envelope & \multicolumn{2}{c}{Samples within speed} & \multicolumn{2}{c}{Samples above speed} & \multicolumn{2}{c}{Interpretation} \\
-1.5 m/s submerged & \multicolumn{2}{c}{3.6\%} & \multicolumn{2}{c}{96.4\%} & \multicolumn{2}{l}{local sampling, not TC chasing} \\
+1.5 m/s submerged & \multicolumn{2}{c}{3.7\%} & \multicolumn{2}{c}{96.3\%} & \multicolumn{2}{l}{local sampling, not TC chasing} \\
 2.0 m/s submerged & \multicolumn{2}{c}{7.8\%} & \multicolumn{2}{c}{92.2\%} & \multicolumn{2}{l}{local sampling, not TC chasing} \\
 12 m/s surface & \multicolumn{2}{c}{93.8\%} & \multicolumn{2}{c}{6.2\%} & \multicolumn{2}{l}{current-platform scenario} \\
 20 m/s surface & \multicolumn{2}{c}{98.9\%} & \multicolumn{2}{c}{1.1\%} & \multicolumn{2}{l}{future-upgrade scenario} \\
@@ -1264,7 +1264,7 @@ summarizes the validation dataset over ten independent training seeds.
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]
-  {figures/surface_trajectory_4suv_400km_20ms.pdf}
+  {figures/Fig2_Surface_Trajectory_Evolution.pdf}
 \caption{Four-SUV surface-tracking process for CHAMPI (2015) at the 20 m/s
 speed limit. The four panels show the initial deployment and subsequent
 states at approximately 6.5, 13.0, and 19.5 h. The color background is the
@@ -1276,7 +1276,7 @@ mark vehicle positions, and the yellow star marks the TC center.}
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]
-  {figures/surface_vmax_distance_comparison.pdf}
+  {figures/Fig3_Surface_Vmax_Distance_Comparison.pdf}
 \caption{SUV surface tracking performance across deployment errors. The left panel
 shows the fleet-mean time-averaged distance to the TC center, representing whether
 the fleet remains close to the moving TC throughout an episode. The right
@@ -1376,7 +1376,7 @@ error correction in this representative episode.
 \begin{figure*}[p]
 \centering
 \includegraphics[width=\textwidth]
-  {figures/surface_trajectory_matrix_20ms.pdf}
+  {figures/Fig4_Surface_Trajectory_Matrix.pdf}
 \caption{Representative CHAMPI (2015) trajectories for the final 20 m/s
 surface policy. Columns show 4-, 8-, 12-, and 16-SUV formations, while rows
 show nominal formation-center deployment radii of 100, 200, 400, 600, and
@@ -1466,14 +1466,40 @@ none is treated as a universally superior formation.
 Figure~\ref{fig:formation_comparison} visualizes one matched CHAMPI segment.
 The formation geometry is not rigidly preserved because each policy moves
 under the same shared wind observation but with its own state. This
-representative episode illustrates how a compact line can move efficiently,
-whereas the ring and grid retain a broader sampling footprint. Formation choice
+representative episode illustrates how the compact line formation remains
+spatially concentrated, whereas the ring and grid retain a broader sampling
+footprint. Formation choice
 is based on the aggregate 768-segment results; the selected episode is
 illustrative. On this basis, we retain the ring as the main configuration and
 report the alternatives as a sensitivity study without claiming that one
 formation is universally optimal.
 
-\input{tables/formation_comparison.tex}
+\begin{table*}[t]
+\centering
+\caption{Surface initial-formation comparison for eight SUVs. Each policy was trained with formation-center offsets sampled inside an 800 km radius and evaluated without retraining at fixed offsets of 100, 200, 400, 600, and 800 km on the same 768 held-out TC segments. Error is the final SUV-to-best-track-center distance and path is the per-vehicle trajectory length. Bold entries are the best value in each speed/radius row; error and path are assessed separately. All distances are in km.}
+\label{tab:formation_comparison}
+\small
+\setlength{\tabcolsep}{2.7pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}ccccccccc@{}}
+\toprule
+Speed & Train radius & Eval radius & \multicolumn{2}{c}{Ring} & \multicolumn{2}{c}{Line} & \multicolumn{2}{c}{Grid} \\
+\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+(m/s) & (km) & (km) & Error & Path & Error & Path & Error & Path \\
+\midrule
+12 & 800 & 100 & 210.4 & 284.4 & \textbf{184.8} & 330.4 & 295.8 & \textbf{219.3} \\
+12 & 800 & 200 & 228.6 & 317.2 & \textbf{202.4} & 364.5 & 317.7 & \textbf{241.2} \\
+12 & 800 & 400 & 312.0 & 364.2 & \textbf{295.7} & 409.9 & 408.5 & \textbf{272.8} \\
+12 & 800 & 600 & \textbf{445.9} & 383.9 & 452.6 & 408.5 & 542.6 & \textbf{291.4} \\
+12 & 800 & 800 & \textbf{636.5} & 372.4 & 655.6 & 394.1 & 733.5 & \textbf{285.9} \\
+\midrule
+20 & 800 & 100 & 197.5 & \textbf{356.2} & \textbf{156.4} & 435.3 & 204.7 & 383.2 \\
+20 & 800 & 200 & 209.9 & \textbf{404.6} & \textbf{168.0} & 489.5 & 217.7 & 433.7 \\
+20 & 800 & 400 & 266.6 & \textbf{502.5} & \textbf{228.4} & 599.5 & 277.7 & 537.7 \\
+20 & 800 & 600 & 371.1 & \textbf{571.9} & \textbf{342.1} & 676.6 & 390.6 & 616.4 \\
+20 & 800 & 800 & 533.9 & \textbf{607.7} & \textbf{522.0} & 717.2 & 571.1 & 645.5 \\
+\bottomrule
+\end{tabular*}
+\end{table*}
 
 \subsection{Execution-Layer Action Filtering}
 
@@ -1496,8 +1522,60 @@ respectively, while maximum speed decreases by 5.22, 4.14, 3.50, and 1.49 m/s.
 The execution filter improves final tracking while substantially shortening
 trajectories and reducing mean and peak speed.
 
-\input{tables/surface_control_ablations.tex}
-\input{tables/classical_planner_comparison.tex}
+\begin{table*}[htbp]
+\centering
+\caption{Execution-layer low-pass filtering for 4/8/12/16 surface SUVs on 768 held-out segments from 50 unseen TCs in the 500-TC dataset. Each trained actor is evaluated with the filter off and on ($\beta=0.8$) on the same validation episodes.}
+\label{tab:surface_control_ablations}
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\renewcommand{\arraystretch}{0.9}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llrrrr@{}}
+\toprule
+Fleet & Filter & Final tracking error (km) & Path per SUV (km) & Mean speed (m/s) & Maximum speed (m/s) \\
+\midrule
+4 & Off & 355.4 & 1160.0 & 16.45 & 19.47 \\
+4 & On & \textbf{251.3} & \textbf{508.2} & \textbf{8.49} & \textbf{14.25} \\
+8 & Off & 324.7 & 1119.5 & 16.11 & 19.47 \\
+8 & On & \textbf{277.8} & \textbf{504.7} & \textbf{8.65} & \textbf{15.32} \\
+12 & Off & 312.0 & 1019.2 & 14.85 & 19.46 \\
+12 & On & \textbf{278.8} & \textbf{497.4} & \textbf{8.52} & \textbf{15.96} \\
+16 & Off & 260.2 & 1129.9 & 16.29 & 19.47 \\
+16 & On & \textbf{256.1} & \textbf{670.8} & \textbf{11.01} & \textbf{17.97} \\
+\bottomrule
+\end{tabular*}
+\par\smallskip
+\parbox{\textwidth}{\footnotesize Final tracking error is the fleet average of the individual SUV-to-best-track-center distances at the final time step. Off and on use the same trained actor.}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\caption{Comparison with four traditional planning baselines on the held-out TC segments from the same 500-TC train/test split. Surface values are means over the 4/8/12/16-SUV fleets, both speed limits, and all five deployment radii. Subsurface values are means over all seven depths and both propulsion limits. Smaller errors and paths are better; higher current and coverage are better.}
+\label{tab:classical_planners}
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\multicolumn{5}{l}{\textbf{Panel A: surface tracking}}\\
+Method & Final error (km) & Time-averaged distance (km) & \multicolumn{2}{c}{Path per SUV (km)}\\
+\midrule
+Parameter-sharing IPPO & \textbf{356.2} & \textbf{356.6} & \multicolumn{2}{c}{\textbf{462.3}} \\
+Potential field & 413.4 & 404.2 & \multicolumn{2}{c}{728.8} \\
+Receding-horizon A* & 457.2 & 429.4 & \multicolumn{2}{c}{823.9} \\
+Lawnmower coverage & 554.7 & 478.4 & \multicolumn{2}{c}{509.1} \\
+Information greedy & 466.2 & 429.4 & \multicolumn{2}{c}{528.7} \\
+\midrule
+\multicolumn{5}{l}{\textbf{Panel B: subsurface observation}}\\
+Method & Mean current (m/s) & Nominal coverage (km$^2$) & Path (km) & Current-weighted coverage ($10^3$ m\,s$^{-1}$\,km$^2$)\\
+\midrule
+Parameter-sharing IPPO & 0.408 & \textbf{3506} & 123.0 & \textbf{1.599} \\
+Potential field & \textbf{0.452} & 2048 & 107.3 & 1.050 \\
+Receding-horizon A* & 0.427 & 2310 & \textbf{95.8} & 1.097 \\
+Lawnmower coverage & 0.408 & 2914 & 110.8 & 1.286 \\
+Information greedy & 0.429 & 1549 & 98.8 & 0.739 \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}
 
 \subsection{Subsurface Strategy Comparison}
 
@@ -1558,7 +1636,7 @@ envelope. It does not indicate a growing policy advantage.
 The current fields in Fig.~\ref{fig:underwater_strategy_trajectories} contain
 pronounced horizontal gradients and localized high-speed bands. The
 fleet-mean experienced current speed in the final experiments ranges from
-0.29 to 0.54 m/s across methods and depths, but this average includes the full
+0.29 to 0.53 m/s across methods and depths, but this average includes the full
 sampled trajectory and does not isolate the strongest-current patches. Local
 current speeds can be substantially higher than the fleet mean and are of
 comparable magnitude to the 1.5 and 2.0 m/s propulsion limits. Active
@@ -1603,10 +1681,9 @@ value in every individual underwater metric.
 Appendix Table~\ref{tab:planner_stratified} resolves these averages by
 deployment radius and ocean depth. IPPO retains the lowest final error and
 time-averaged distance at all five surface radii. Underwater, the
-metric-specific ordering is consistent at every depth: potential field gives
-the highest mean experienced current, IPPO gives the largest nominal coverage,
-and A* gives the shortest path. The aggregate rankings do not depend on a single
-radius or depth.
+potential field gives the highest mean experienced current and IPPO gives the
+largest nominal coverage at every depth. A* gives the shortest path from 10 to
+60 m, whereas at 0 m the information-greedy planner is marginally shorter.
 
 \section{Conclusion}
 
@@ -1688,7 +1765,66 @@ Southern Marine Science and Engineering Guangdong Laboratory (Zhuhai)
 Table~\ref{tab:planner_stratified} reports the traditional-planning comparison
 with the two surface distance metrics separated by deployment radius and the
 three subsurface observation metrics separated by depth.
-\input{tables/planner_stratified.tex}
+\begin{center}
+\captionof{table}{Distance and observation metrics for the traditional planner comparison on the held-out TC segments. Panel A reports the two surface distance metrics by deployment radius, averaged over the four fleet sizes and both speed limits. Panel B reports mean experienced current speed, nominal coverage, and path per SUV at each depth, averaged over the two propulsion limits.}
+\label{tab:planner_stratified}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.04}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llrrrrr@{}}
+\toprule
+\multicolumn{7}{l}{\textbf{Panel A: surface distance metrics}}\\
+Radius & Metric & IPPO & PF & A* & Lawn & Greedy\\
+\midrule
+100 km & Final error (km) & \textbf{220.8} & 290.4 & 325.8 & 366.1 & 295.2 \\
+ & Time-averaged distance (km) & \textbf{170.6} & 229.9 & 250.5 & 232.9 & 212.0 \\
+\addlinespace[1.5pt]
+200 km & Final error (km) & \textbf{236.1} & 295.4 & 330.0 & 394.5 & 310.7 \\
+ & Time-averaged distance (km) & \textbf{197.6} & 248.5 & 267.1 & 285.9 & 244.5 \\
+\addlinespace[1.5pt]
+400 km & Final error (km) & \textbf{304.0} & 353.5 & 394.9 & 504.5 & 405.1 \\
+ & Time-averaged distance (km) & \textbf{303.0} & 343.0 & 367.4 & 441.8 & 374.5 \\
+\addlinespace[1.5pt]
+600 km & Final error (km) & \textbf{423.9} & 476.1 & 527.6 & 661.2 & 560.1 \\
+ & Time-averaged distance (km) & \textbf{460.8} & 505.1 & 536.7 & 621.7 & 559.1 \\
+\addlinespace[1.5pt]
+800 km & Final error (km) & \textbf{596.1} & 651.8 & 707.6 & 847.4 & 759.8 \\
+ & Time-averaged distance (km) & \textbf{650.8} & 694.4 & 725.0 & 809.7 & 756.7 \\
+\addlinespace[1.5pt]
+\midrule
+\multicolumn{7}{l}{\textbf{Panel B: subsurface metrics by depth}}\\
+Depth & Metric & IPPO & PF & A* & Lawn & Greedy\\
+\midrule
+0 m & Mean experienced current (m/s) & 0.534 & \textbf{0.577} & 0.548 & 0.536 & 0.551 \\
+ & Nominal coverage (km$^2$) & \textbf{3672} & 2214 & 2445 & 3067 & 1579 \\
+ & Path per SUV (km) & 129.6 & 114.1 & 102.2 & 116.0 & \textbf{101.7} \\
+\addlinespace[1.5pt]
+10 m & Mean experienced current (m/s) & 0.474 & \textbf{0.515} & 0.489 & 0.472 & 0.492 \\
+ & Nominal coverage (km$^2$) & \textbf{3729} & 2189 & 2414 & 3020 & 1620 \\
+ & Path per SUV (km) & 130.2 & 112.5 & \textbf{100.7} & 114.5 & 102.1 \\
+\addlinespace[1.5pt]
+20 m & Mean experienced current (m/s) & 0.444 & \textbf{0.486} & 0.462 & 0.444 & 0.464 \\
+ & Nominal coverage (km$^2$) & \textbf{3720} & 2152 & 2388 & 2987 & 1632 \\
+ & Path per SUV (km) & 130.8 & 111.2 & \textbf{99.3} & 113.7 & 101.8 \\
+\addlinespace[1.5pt]
+30 m & Mean experienced current (m/s) & 0.409 & \textbf{0.452} & 0.429 & 0.410 & 0.431 \\
+ & Nominal coverage (km$^2$) & \textbf{3574} & 2105 & 2329 & 2939 & 1588 \\
+ & Path per SUV (km) & 125.2 & 108.5 & \textbf{96.3} & 111.7 & 99.6 \\
+\addlinespace[1.5pt]
+40 m & Mean experienced current (m/s) & 0.366 & \textbf{0.412} & 0.386 & 0.368 & 0.391 \\
+ & Nominal coverage (km$^2$) & \textbf{3330} & 1999 & 2273 & 2876 & 1542 \\
+ & Path per SUV (km) & 118.0 & 105.1 & \textbf{93.8} & 109.5 & 97.5 \\
+\addlinespace[1.5pt]
+50 m & Mean experienced current (m/s) & 0.326 & \textbf{0.374} & 0.349 & 0.327 & 0.351 \\
+ & Nominal coverage (km$^2$) & \textbf{3328} & 1876 & 2200 & 2803 & 1470 \\
+ & Path per SUV (km) & 116.1 & 101.7 & \textbf{91.0} & 106.6 & 95.5 \\
+\addlinespace[1.5pt]
+60 m & Mean experienced current (m/s) & 0.302 & \textbf{0.350} & 0.325 & 0.301 & 0.324 \\
+ & Nominal coverage (km$^2$) & \textbf{3189} & 1799 & 2120 & 2702 & 1410 \\
+ & Path per SUV (km) & 110.9 & 98.3 & \textbf{87.6} & 103.2 & 93.0 \\
+\bottomrule
+\end{tabular*}
+\end{center}
 
 Table~\ref{tab:reward_parameters} summarizes the reward, action-filter, and
 safety parameters used in the surface and underwater experiments.
@@ -1902,7 +2038,7 @@ All reported IPPO experiments were trained on CPU. \\
 \renewcommand{\theHfigure}{B.\arabic{figure}}
 
 \begin{center}
-\includegraphics[width=\textwidth]{figures/formation_comparison.pdf}
+\includegraphics[width=\textwidth]{figures/FigB1_Formation_Comparison.pdf}
 \captionof{figure}{Representative surface trajectory comparison for ring, line,
 and grid formations with eight SUVs at 12 m/s. Open circles denote initial
 positions, triangles denote final positions, and the red star denotes the TC
@@ -1920,7 +2056,7 @@ instantaneous TC center.}
 
 \begin{center}
 \includegraphics[width=\textwidth]
-  {figures/underwater_strategy_trajectories_multidepth.pdf}
+  {figures/FigC1_Underwater_Strategy_Trajectories.pdf}
 \captionof{figure}{Representative four-SUV trajectories at 0, 30, and 50 m for
 the same CHAMPI (2015) segment used in the surface trajectory figures. These
 three depths provide shallow, intermediate, and deep examples from the full
@@ -1930,19 +2066,19 @@ episode duration is 20 h. Background color is the spatially interpolated
 episode-mean HYCOM current speed at the corresponding depth; dashed white
 curves show the TC best track, open circles mark the initial vehicle positions,
 the dotted circle marks the 200 km initialization boundary, and small red
-arrows mark final vehicle positions.}
+circular markers indicate final vehicle positions.}
 \label{fig:underwater_strategy_trajectories}
 \end{center}
 
 \clearpage
 \begin{center}
 \includegraphics[width=\textwidth]
-  {figures/underwater_methods_7depth.pdf}
+  {figures/FigC2_Underwater_Methods_7Depth.pdf}
 \captionof{figure}{Comparison of active control, random control, and passive drift in
 the 20 h subsurface task at seven depths from 0 to 60 m. Rows show maximum
-propulsion speeds of 2.0 and 1.5 m/s; columns report the fleet-mean motion
-path length, mean experienced current speed, nominal spatial coverage area,
-and current-weighted coverage. Error bars show the sample standard deviation
+propulsion speeds of 2.0 and 1.5 m/s; columns report mean experienced current
+speed, nominal spatial coverage area, fleet-mean motion path length, and
+current-weighted coverage. Error bars show the sample standard deviation
 across ten active-policy training seeds. Random control and passive drift are
 paired baselines without training-seed variability.}
 \label{fig:underwater_methods_10seed}

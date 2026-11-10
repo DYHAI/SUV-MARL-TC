@@ -278,8 +278,8 @@ def main():
     add_horizontal_colorbar(fig, cax2, im2,
                             "30 m current speed (m s$^{-1}$)")
 
-    out_png = HERE / "figures" / "fig2_surface_subsurface_observation.png"
-    out_pdf = HERE / "figures" / "fig2_surface_subsurface_observation.pdf"
+    out_png = HERE / "figures" / "Fig1_Surface_Subsurface_Observation.png"
+    out_pdf = HERE / "figures" / "Fig1_Surface_Subsurface_Observation.pdf"
     fig.savefig(out_png, dpi=300, bbox_inches="tight", facecolor="white")
     fig.savefig(out_pdf, bbox_inches="tight", facecolor="white")
     plt.close(fig)

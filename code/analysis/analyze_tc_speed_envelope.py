@@ -30,7 +30,9 @@ def main() -> None:
             path, usecols=["STORM_SPEED", "TRACK_TYPE"], low_memory=False
         )
         main = frame[
-            frame["TRACK_TYPE"].astype(str).str.lower().eq("main")
+            frame["TRACK_TYPE"].astype(str).str.lower().isin(
+                ("main", "us-provisional")
+            )
         ]
         speed = pd.to_numeric(main["STORM_SPEED"], errors="coerce").dropna()
         speed_ms = speed.to_numpy(dtype=float) * KNOT_TO_MS
@@ -42,7 +44,7 @@ def main() -> None:
 
     speeds = np.concatenate(point_speeds)
     summary = {
-        "n_tc": len(storms),
+        "n_tc": len(point_speeds),
         "n_track_points": int(speeds.size),
         "mean_ms": float(speeds.mean()),
         "median_ms": float(np.median(speeds)),
