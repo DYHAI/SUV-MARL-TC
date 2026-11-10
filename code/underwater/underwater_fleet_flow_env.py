@@ -1,9 +1,10 @@
 """4-AUV 水下 50m 追流速环境（IPPO，独立奖励，含流速平流，多种奖励模式）。
 
-阶段二任务：海表追眼段结束时（t1），4 AUV 以台风眼为中心 200km 内随机布防、下潜到 50m，
-固定 10 小时追「附近流速较大的区域」。
+阶段二任务：海表追眼段结束时（t1），4 AUV 以台风眼为中心 200km 内随机布防，
+下潜到指定深度，默认运行 20 小时追「附近流速较大的区域」。
 
-- 观测(每台, 29 维) = 3×3 patch 的 50m 流速(spd/u/v) + 自身速度(vx/vy)。不含台风位置。
+- 默认 N=3 时每台观测 29 维，由 3×3 流速 patch 和自身速度组成。
+  最终论文配置使用 N=1、5 帧历史、自身速度和航向，共 19 维。观测不含台风位置。
 - 动作(每台, 2 维) = 推进速度方向 [-1,1]²。
 - 运动方程：绝对速度 = 推进速度(动作×Vmax) + 50m 背景流速（顺流加速/逆流减速）。
 - 奖励(每台独立)：
@@ -24,6 +25,10 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from scipy.ndimage import map_coordinates
+
+# The paper-facing default is constrained subsurface dynamics. Historical
+# kinematic development runs can override DYNAMICS_MODE explicitly.
+os.environ.setdefault("DYNAMICS_MODE", "constrained")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from code.underwater.underwater_flow_env import (
@@ -49,7 +54,7 @@ CLIMB_COEF = 1.0        # 爬坡奖励系数（流速提升为正时加分）
 R_FLOW_W = 1.0        # 效率奖励 F：流速增益(climb) 权重
 LAMBDA_EFF = 1.0     # 效率奖励 F：能耗惩罚系数 λ|a|²
 START_RADIUS = 200.0  # 起点：眼 200km 内布防
-DURATION_H = 10.0     # 固定 10 小时
+DURATION_H = 20.0     # 正式实验默认 20 小时
 DEPTH_M = 50
 # ---- P3 信息增益奖励（reward_mode="G"）参数 ----
 INFO_W_COV = 1.0      # 「覆盖面积」权重：新增覆盖格点 × 信息价值 W

@@ -5,7 +5,8 @@
   * 奖励：手写 IPPO 用**每台 AUV 各自的奖励**、逐 agent GAE；
     SB3 走单智能体接口，用**团队均值奖励**（÷n_auv）；critic 共享、动作逐 agent 独立采样
     （SharedPerAgentPolicy：obs (B, n_auv*obs_dim) → 同一套 MLP 逐 agent 前向）。
-  * 其余全部对齐：观测 17 维（1×1 流速 + 5 帧记忆 + 自身速度）、动作 2 维 ×4、
+  * 其余全部对齐：最终约束版本观测 19 维（5 帧局部流速历史 + 自身归一化推进速度 +
+    航向 [cos, sin]）、动作 2 维 ×4、
     运动方程含平流、奖励 B/C、Vmax、深度、续航、起点布防、台风集、seed。
 
 用法:
@@ -61,7 +62,7 @@ OBS_DIM = (
         == "constrained"
         else 0
     )
-)  # 17 in the original model; +2 for explicit constrained heading state
+)  # 19 in the final constrained model: 15 history + 2 velocity + 2 heading
 CROP_M = 3.0
 
 

@@ -15,6 +15,11 @@ from gymnasium import spaces
 from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage import map_coordinates
 
+# The paper-facing default is the constrained surface model with no added
+# surface current. Development scripts may still override these explicitly.
+os.environ.setdefault("DYNAMICS_MODE", "constrained")
+os.environ.setdefault("DYN_SURFACE_CURRENT", "0")
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from code.surface.surface_wind_env import (
     load_storm,

@@ -26,7 +26,19 @@ ROOT = REPO_ROOT
 PYTHON = sys.executable
 MAX_JOBS = int(os.environ.get("DYN_MAX_JOBS", "6"))
 STEPS = int(os.environ.get("DYN_TRAIN_STEPS", "2000000"))
-NENV = int(os.environ.get("DYN_NENV", "5"))
+SURFACE_NENV = int(
+    os.environ.get("DYN_SURFACE_NENV", os.environ.get("DYN_NENV", "4"))
+)
+UNDERWATER_NENV = int(
+    os.environ.get("DYN_UNDERWATER_NENV", os.environ.get("DYN_NENV", "5"))
+)
+# These three completed official runs used four environments after resource-
+# constrained restarts; all other subsurface runs used five.
+UNDERWATER_NENV4 = {
+    "uw_d0_v1.5_s0",
+    "uw_d0_v2_s0",
+    "uw_d10_v1.5_s0",
+}
 SURFACE_ENABLED = os.environ.get("DYN_SURFACE_ENABLED", "1") == "1"
 UNDERWATER_ENABLED = os.environ.get("DYN_UNDERWATER_ENABLED", "1") == "1"
 UNDERWATER_JOBS = int(os.environ.get("DYN_UNDERWATER_JOBS", "7"))
@@ -93,7 +105,7 @@ def surface_jobs() -> list[Job]:
                         "FLEET_VMAX": str(speed),
                         "FLEET_MODEL_DIR": str(model_dir),
                         "SEED": str(seed),
-                        "NENV": str(NENV),
+                        "NENV": str(SURFACE_NENV),
                         "DEPLOY_OCEAN_ONLY": "1",
                         "DEPLOY_MIN_COAST_KM": "100",
                         "SAFETY_MARGIN_KM": "100",
@@ -159,7 +171,11 @@ def underwater_jobs() -> list[Job]:
                             str(seed),
                             "0.25",
                             "200",
-                            str(NENV),
+                            str(
+                                4
+                                if name in UNDERWATER_NENV4
+                                else UNDERWATER_NENV
+                            ),
                         ],
                         env=env,
                         log=log_dir / f"{name}.log",
