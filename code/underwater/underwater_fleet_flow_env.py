@@ -48,11 +48,11 @@ N_AUV = 4
 VMAX = 2.0
 V_NORM = 1.0          # 50m 流速归一化（m/s）
 RMAX = 2.0            # 流速奖励限幅
-LAMBDA_ENERGY = 0.05  # 能耗惩罚系数 λ|a|²
+LAMBDA_ACTION = 0.05  # 归一化动作幅度惩罚系数 λ|a|²
 BETA_ALIGN = 0.5      # 顺流追踪系数 β
 CLIMB_COEF = 1.0        # 爬坡奖励系数（流速提升为正时加分）
 R_FLOW_W = 1.0        # 效率奖励 F：流速增益(climb) 权重
-LAMBDA_EFF = 1.0     # 效率奖励 F：能耗惩罚系数 λ|a|²
+LAMBDA_ACTION_EFF = 1.0  # 效率奖励 F：归一化动作幅度惩罚系数 λ|a|²
 START_RADIUS = 200.0  # 起点：眼 200km 内布防
 DURATION_H = 20.0     # 正式实验默认 20 小时
 DEPTH_M = 50
@@ -69,11 +69,11 @@ class UnderwaterFleetFlowEnv(gym.Env):
                  spacing_deg=0.25, N=3, start_radius=START_RADIUS, duration_h=DURATION_H, depth_m=DEPTH_M,
                  use_anomaly=False, grid_deg=0.25, crop_margin=3.0, use_bearing=False,
                  use_frame_stack=False, frame_k=5, use_flowdiff=False, native_res=False, storage16=False,
-                 lambda_eff=None, r_flow_w=None, lambda_energy=None,
+                 lambda_action_eff=None, r_flow_w=None, lambda_action=None,
                  info_w_cov=INFO_W_COV, info_w_nov=INFO_W_NOV, info_w_var=INFO_W_VAR,
                  cov_deg=COV_DEG, nov_ref_km=NOV_REF_KM):
-        # P4：能耗惩罚系数 λ（自适应/湍流的关键旋钮）。不传则用类默认 0.05
-        self.lambda_energy = LAMBDA_ENERGY if lambda_energy is None else float(lambda_energy)
+        # P4：归一化动作幅度惩罚系数 λ（自适应/湍流的关键旋钮）。不传则用类默认 0.05
+        self.lambda_action = LAMBDA_ACTION if lambda_action is None else float(lambda_action)
         super().__init__()
         self.n_auv = n_auv
         self.vmax = vmax
@@ -98,7 +98,9 @@ class UnderwaterFleetFlowEnv(gym.Env):
                 _d["u"]=_d["u"].astype(np.float16); _d["v"]=_d["v"].astype(np.float16)
                 _d["spd"]=_d["spd"].astype(np.float16); _d["dist_to_land"]=_d["dist_to_land"].astype(np.float16)
         self.storage16=storage16
-        self.lambda_eff = LAMBDA_EFF if lambda_eff is None else float(lambda_eff)
+        self.lambda_action_eff = (
+            LAMBDA_ACTION_EFF if lambda_action_eff is None else float(lambda_action_eff)
+        )
         self.r_flow_w = R_FLOW_W if r_flow_w is None else float(r_flow_w)
         # P3 信息增益奖励参数
         self.info_w_cov = float(info_w_cov)
@@ -423,13 +425,13 @@ class UnderwaterFleetFlowEnv(gym.Env):
                 rewards[i] = min(cs / V_NORM, RMAX)
                 continue
             if self.reward_mode == "G":
-                # 覆盖面积 × 信息价值 + 新颖度 × 信息价值 + 采样流速方差 − 能耗
+                # 覆盖面积 × 信息价值 + 新颖度 × 信息价值 + 采样流速方差 − 动作幅度惩罚
                 r = (self.info_w_cov * float(W_at[i]) * float(new_flag[i])
                      + self.info_w_nov * float(W_at[i]) * float(nov[i])
                      + self.info_w_var * abs(float(cs_new[i]) - team_mean_spd) / V_NORM
-                     - self.lambda_energy * float(a[0] ** 2 + a[1] ** 2))
+                     - self.lambda_action * float(a[0] ** 2 + a[1] ** 2))
             else:
-                r = min(cs / V_NORM, RMAX) - self.lambda_energy * float(a[0] ** 2 + a[1] ** 2)
+                r = min(cs / V_NORM, RMAX) - self.lambda_action * float(a[0] ** 2 + a[1] ** 2)
                 if self.reward_mode in ("C", "D"):
                     spd_auv = np.hypot(self.vxs[i], self.vys[i])
                     if spd_auv > 1e-6 and cs > 1e-6:
@@ -438,7 +440,7 @@ class UnderwaterFleetFlowEnv(gym.Env):
                 if self.reward_mode == "D":
                     r += CLIMB_COEF * climb[i]
                 if self.reward_mode == "F":
-                    r = self.r_flow_w * climb[i] - self.lambda_eff * float(a[0] ** 2 + a[1] ** 2)
+                    r = self.r_flow_w * climb[i] - self.lambda_action_eff * float(a[0] ** 2 + a[1] ** 2)
             land_dist = self._at(self.d["dist_to_land"].astype(np.float32) if self.storage16 else self.d["dist_to_land"], self.lats[i], self.lons[i])
             if land_dist <= 0.0:
                 r -= LAND_PENALTY

@@ -23,8 +23,8 @@ across the evaluated fleet sizes, speed limits, and deployment radii.
 
 <img src="paper/figures/FigC1_Underwater_Strategy_Trajectories.png" alt="Subsurface SUV tracking trajectories" width="900">
 
-At depth, potential field gives the highest mean experienced current, A* gives
-the shortest path, and IPPO gives the largest spatial observation coverage.
+At depth, potential field gives the highest mean experienced current, while
+IPPO gives the largest nominal and current-weighted observation coverage.
 
 ### Seven-depth comparison
 

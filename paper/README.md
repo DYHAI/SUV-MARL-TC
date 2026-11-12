@@ -45,8 +45,8 @@ intended efficiency--tracking trade-off.
 The final underwater matrix contains seven depths, two propulsion limits, ten
 active-policy seeds, and paired random-control and passive-drift baselines.
 Active IPPO improves configuration-mean experienced current speed by
-2.2--4.6%, increases path length by 3.47--7.22 times, and increases nominal
-coverage by 3.09--5.68 times relative to passive drift.
+2.2--4.6%, increases nominal coverage by 3.09--5.68 times, and increases
+current-weighted coverage by 2.87--4.99 times relative to passive drift.
 
 ## Classical planner comparison
 

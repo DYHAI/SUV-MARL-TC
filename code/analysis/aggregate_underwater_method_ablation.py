@@ -63,13 +63,42 @@ def aggregate(d: pd.DataFrame) -> pd.DataFrame:
                         "mean_speed_ms_std": (
                             part.mean_speed_ms.std(ddof=1) if nseed > 1 else 0.0
                         ),
-                        "energy": part.mean_a2.mean(),
-                        "energy_std": (
+                        "action_magnitude": part.mean_a2.mean(),
+                        "action_magnitude_std": (
                             part.mean_a2.std(ddof=1) if nseed > 1 else 0.0
                         ),
                     }
                 )
     return pd.DataFrame(rows)
+
+
+def add_current_weighted_coverage(s: pd.DataFrame) -> pd.DataFrame:
+    reference = RESULTS_ROOT / "underwater" / "underwater_final_analysis.csv"
+    if not reference.exists():
+        raise FileNotFoundError(
+            "The final current-weighted coverage table is required: "
+            f"{reference}"
+        )
+    ref = pd.read_csv(reference)
+    keys = ["depth_m", "vmax_ms", "method"]
+    weighted = ref[
+        keys
+        + [
+            "current_weighted_coverage",
+            "current_weighted_coverage_std",
+        ]
+    ]
+    out = s.drop(
+        columns=[
+            "current_weighted_coverage",
+            "current_weighted_coverage_std",
+        ],
+        errors="ignore",
+    ).merge(weighted, on=keys, how="left", validate="one_to_one")
+    required = ["current_weighted_coverage", "current_weighted_coverage_std"]
+    if out[required].isna().any().any():
+        raise ValueError("Current-weighted coverage is incomplete for a method.")
+    return out
 
 
 def make_table(s: pd.DataFrame) -> None:
@@ -80,9 +109,8 @@ def make_table(s: pd.DataFrame) -> None:
         r"passive drift in the 20 h subsurface task. Values are means $\pm$ "
         r"sample standard deviations across ten trained active-policy seeds. "
         r"Random control and passive drift share the same 500 evaluation "
-        r"episodes and have no training-seed variability. The command proxy is "
-        r"the squared norm of the unprojected policy action and is not a "
-        r"calibrated propulsion-energy measurement.}",
+        r"episodes and have no training-seed variability. Normalized action "
+        r"magnitude is the mean squared norm of the unprojected action.}",
         r"\label{tab:underwater_methods_10seed}",
         r"\small",
         r"\resizebox{\textwidth}{!}{%",
@@ -90,28 +118,29 @@ def make_table(s: pd.DataFrame) -> None:
         r"\toprule",
         r"Depth (m) & $V_{\max}$ (m/s) & Method & "
         r"Mean current (m/s) & Nominal coverage (km$^2$) & "
-        r"Path (km) & Mean ground speed (m/s) & Command proxy \\",
+        r"Current-weighted coverage ($10^3$ m s$^{-1}$ km$^2$) & "
+        r"Mean ground speed (m/s) & Normalized action magnitude \\",
         r"\midrule",
     ]
     for depth in DEPTHS:
         for speed in SPEEDS:
             q = s[(s.depth_m == depth) & (s.vmax_ms == speed)]
             for _, row in q.iterrows():
-                def field(name: str, digits: int) -> str:
+                def field(name: str, digits: int, scale: float = 1.0) -> str:
                     if int(row.n_seed) == 1:
-                        return f"{row[name]:.{digits}f}"
+                        return f"{row[name] / scale:.{digits}f}"
                     return (
-                        f"{row[name]:.{digits}f}$\\pm$"
-                        f"{row[name + '_std']:.{digits}f}"
+                        f"{row[name] / scale:.{digits}f}$\\pm$"
+                        f"{row[name + '_std'] / scale:.{digits}f}"
                     )
 
                 lines.append(
                     f"{depth:g} & {speed:.1f} & {row.method} & "
                     f"{field('mean_current_speed', 3)} & "
                     f"{field('coverage_area_km2', 0)} & "
-                    f"{field('path_km', 1)} & "
+                    f"{field('current_weighted_coverage', 3, 1.0e3)} & "
                     f"{field('mean_speed_ms', 2)} & "
-                    f"{field('energy', 3)} \\\\"
+                    f"{field('action_magnitude', 3)} \\\\"
                 )
             if not (depth == DEPTHS[-1] and speed == SPEEDS[-1]):
                 lines.append(r"\midrule")
@@ -135,12 +164,6 @@ def make_figure(s: pd.DataFrame) -> None:
     )
     metrics = [
         (
-            "path_km",
-            1.0,
-            "Motion path length",
-            "Path per SUV (km)",
-        ),
-        (
             "mean_current_speed",
             1.0,
             "Experienced current speed",
@@ -151,6 +174,12 @@ def make_figure(s: pd.DataFrame) -> None:
             1.0e3,
             "Nominal spatial coverage",
             r"Nominal coverage ($10^3$ km$^2$)",
+        ),
+        (
+            "current_weighted_coverage",
+            1.0e3,
+            "Current-weighted coverage",
+            r"$\mathcal{C}_w$ ($10^3$ m s$^{-1}$ km$^2$)",
         ),
     ]
     colors = {
@@ -219,7 +248,7 @@ def make_figure(s: pd.DataFrame) -> None:
 
 def main() -> None:
     d = pd.read_csv(SRC, sep="|")
-    s = aggregate(d)
+    s = add_current_weighted_coverage(aggregate(d))
     TABLEDIR.mkdir(parents=True, exist_ok=True)
     FIGDIR.mkdir(parents=True, exist_ok=True)
     csv_path = RESULTS_ROOT / "underwater" / "underwater_methods_10seed.csv"

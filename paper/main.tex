@@ -143,8 +143,8 @@ reducing final tracking error and improving observation benefit. Underwater,
 active control outperforms random control and passive drift in mean
 experienced current, trajectory extent, and spatial coverage. Compared with
 four traditional baselines, IPPO achieves better surface tracking distances.
-Underwater, potential field has the highest mean experienced current, A* the
-shortest path, and IPPO the largest current-weighted coverage. The simulation
+Underwater, potential field has the highest mean experienced current, while
+IPPO gives the largest nominal and current-weighted coverage. The simulation
 demonstrates wind-guided surface approach and current-guided fixed-depth
 sampling by coordinated SUV fleets.
 \end{abstract}
@@ -282,8 +282,8 @@ tracking error, measuring how closely the surface fleet follows the TC and
 enters the high-wind region.
 \item We compare active IPPO, random control, and passive drift for subsurface
 observation with four SUVs at each depth, evaluating mean experienced current
-speed, trajectory length, and spatial coverage as complementary observation
-objectives.
+speed, nominal spatial coverage, and current-weighted coverage as complementary
+observation objectives.
 \item We compare MARL with four causal traditional planners: an artificial
 potential-field planner, a receding-horizon A* planner, a lawnmower coverage
 planner, and an information-greedy planner.
@@ -318,10 +318,10 @@ maximum propulsion speed is 1.5 or 2.0 m/s. This difference creates an
 asymmetric decision problem: surface propulsion is used to follow the TC and
 reach the high-wind region as closely as possible, quantified primarily by the
 final tracking error. At depth, the primary learning objective changes to
-finding and sampling higher-current water, while trajectory length and spatial
-coverage characterize how broadly the fleet explores the dynamically active
-region. The four SUVs must balance active propulsion against passive
-advection by the ambient current.
+finding and sampling higher-current water, while nominal and current-weighted
+spatial coverage characterize how broadly and how valuably the fleet samples
+the dynamically active region. The four SUVs must balance active propulsion
+against passive advection by the ambient current.
 
 \subsection{Problem Definition}
 
@@ -767,12 +767,11 @@ bounds and position updates from
 Eqs.~\eqref{eq:speed_constraint}--\eqref{eq:platform_motion}. The surface actor
 uses globally shared 10 m wind observations and its normalized velocity,
 whereas the underwater actor uses a causal five-frame history of its local
-current and normalized velocity. Path length is reported for evaluation but is
-not an actor input. The surface control variable is defined in the Earth-fixed
-frame as a desired ground velocity. Therefore, ocean-current compensation is
-not included as a separate term in the surface position update. Underwater
-motion retains advection because 1.5--2.0 m/s propulsion is comparable to the
-TC-induced current.
+current and normalized velocity. The surface control variable is defined in the
+Earth-fixed frame as a desired ground velocity. Therefore, ocean-current
+compensation is not included as a separate term in the surface position update.
+Underwater motion retains advection because 1.5--2.0 m/s propulsion is
+comparable to the TC-induced current.
 
 The two simulation configurations compare present and potential future
 platform capabilities. The 12 m/s surface and 1.5 m/s submerged limits are
@@ -889,12 +888,12 @@ the team average reward is clipped to $[-5,2]$.
 
 For subsurface observation, four SUVs are assigned to each prescribed depth.
 Their primary objective is not to follow the surface TC center directly, but to
-observe the highest possible current speed. Trajectory length and spatial
-coverage are then evaluated as complementary measures of observation extent.
-Low-speed SUVs cannot generally overtake a translating TC, and the vertical
-projection of the surface center is not necessarily the location of the
-strongest subsurface current. For the active-control comparison, the
-current-seeking reward is
+observe the highest possible current speed. Nominal and current-weighted
+spatial coverage are then evaluated as complementary measures of observation
+extent and observation value. Low-speed SUVs cannot generally overtake a
+translating TC, and the vertical projection of the surface center is not
+necessarily the location of the strongest subsurface current. For the
+active-control comparison, the current-seeking reward is
 \begin{equation}
 \begin{aligned}
 r_i^{\mathrm{sub}}={}&
@@ -902,14 +901,16 @@ r_i^{\mathrm{sub}}={}&
 \frac{\|\mathbf{u}_{i,k}\|}{V_{\mathrm{norm}}},
 R_{\max}
 \right)\\
-&-\lambda_E\|\tilde{\mathbf{a}}_{i,k}\|_2^2
+&-\lambda_a\|\tilde{\mathbf{a}}_{i,k}\|_2^2
 +\beta_{\parallel}\max(0,\cos\theta_i)\\
 &+r_i^{\mathrm{coast}},
 \end{aligned}
 \label{eq:sub_reward}
 \end{equation}
 where $V_{\mathrm{norm}}=1.0$ m/s, $R_{\max}=2.0$,
-$\lambda_E=0.05$, and $\beta_{\parallel}=0.5$. The angle $\theta_i$ denotes
+$\lambda_a=0.05$, and $\beta_{\parallel}=0.5$. The term
+$-\lambda_a\|\tilde{\mathbf{a}}_{i,k}\|_2^2$ penalizes large normalized
+actions. The angle $\theta_i$ denotes
 the direction difference between the effective propulsion velocity and the
 pre-move current
 $\mathbf{u}_{i,k}$, so the positive-alignment term is activated only when the
@@ -1182,13 +1183,8 @@ history. Passive drift applies zero propulsion and advances solely by ambient
 current advection.
 
 For evaluation reporting, let \(K\) be the number of recorded position
-increments and let \(k=0,\ldots,K\) index the archived positions. The recorded
-ground-path length, mean experienced current speed, and nominal coverage are
-\begin{equation}
-L_i(z)=\sum_{k=0}^{K-1}
-\left\|\mathbf{x}_{i,k+1}-\mathbf{x}_{i,k}\right\|_2,
-\label{eq:underwater_path}
-\end{equation}
+increments and let \(k=0,\ldots,K\) index the archived positions. The mean
+experienced current speed and nominal coverage are
 \begin{equation}
 \bar V_i(z)=\frac{1}{K+1}\sum_{k=0}^{K}
 \left\|\mathbf{u}_{\mathrm{ocean}}
@@ -1207,11 +1203,10 @@ where \(\mathcal{G}(\mathbf{x})\) is the \(0.25^\circ\) grid cell containing
 position \(\mathbf{x}\), \(|\cdot|\) counts unique cells, and
 \(A_{\mathrm{cell}}\approx(0.25^\circ\times111\ \mathrm{km})^2\) is the nominal
 grid-cell area used for cross-method comparison.
-The figures report the fleet means
-\(N^{-1}\sum_{i=1}^{N}L_i(z)\), \(N^{-1}\sum_{i=1}^{N}\bar V_i(z)\), and the
-nominal coverage \(C(z)\). Because neither current intensity nor coverage alone
-captures observation value, we also report the episode-level current-weighted
-coverage
+The figures report the fleet mean
+\(N^{-1}\sum_{i=1}^{N}\bar V_i(z)\) and the nominal coverage \(C(z)\). Because
+neither current intensity nor coverage alone captures observation value, we
+also report the episode-level current-weighted coverage
 \begin{equation}
 \mathcal{C}_{\mathrm{w}}(z)=
 \frac{1}{M}\sum_{e=1}^{M}
@@ -1549,29 +1544,29 @@ Fleet & Filter & Final tracking error (km) & Path per SUV (km) & Mean speed (m/s
 
 \begin{table*}[t]
 \centering
-\caption{Comparison with four traditional planning baselines on the held-out TC segments from the same 500-TC train/test split. Surface values are means over the 4/8/12/16-SUV fleets, both speed limits, and all five deployment radii. Subsurface values are means over all seven depths and both propulsion limits. Smaller errors and paths are better; higher current and coverage are better.}
+\caption{Comparison with four traditional planning baselines on the held-out TC segments from the same 500-TC train/test split. Surface values are means over the 4/8/12/16-SUV fleets, both speed limits, and all five deployment radii. Subsurface values are means over all seven depths and both propulsion limits. For surface tracking, lower errors and paths are better. For subsurface observation, higher current and coverage are better.}
 \label{tab:classical_planners}
 \small
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{@{}lrrrr@{}}
+\begin{tabular}{@{}lrrr@{}}
 \toprule
-\multicolumn{5}{l}{\textbf{Panel A: surface tracking}}\\
-Method & Final error (km) & Time-averaged distance (km) & \multicolumn{2}{c}{Path per SUV (km)}\\
+\multicolumn{4}{l}{\textbf{Panel A: surface tracking}}\\
+Method & Final error (km) & Time-averaged distance (km) & Path per SUV (km)\\
 \midrule
-Parameter-sharing IPPO & \textbf{356.2} & \textbf{356.6} & \multicolumn{2}{c}{\textbf{462.3}} \\
-Potential field & 413.4 & 404.2 & \multicolumn{2}{c}{728.8} \\
-Receding-horizon A* & 457.2 & 429.4 & \multicolumn{2}{c}{823.9} \\
-Lawnmower coverage & 554.7 & 478.4 & \multicolumn{2}{c}{509.1} \\
-Information greedy & 466.2 & 429.4 & \multicolumn{2}{c}{528.7} \\
+Parameter-sharing IPPO & \textbf{356.2} & \textbf{356.6} & \textbf{462.3} \\
+Potential field & 413.4 & 404.2 & 728.8 \\
+Receding-horizon A* & 457.2 & 429.4 & 823.9 \\
+Lawnmower coverage & 554.7 & 478.4 & 509.1 \\
+Information greedy & 466.2 & 429.4 & 528.7 \\
 \midrule
-\multicolumn{5}{l}{\textbf{Panel B: subsurface observation}}\\
-Method & Mean current (m/s) & Nominal coverage (km$^2$) & Path (km) & Current-weighted coverage ($10^3$ m\,s$^{-1}$\,km$^2$)\\
+\multicolumn{4}{l}{\textbf{Panel B: subsurface observation}}\\
+Method & Mean current (m/s) & Nominal coverage (km$^2$) & Current-weighted coverage ($10^3$ m\,s$^{-1}$\,km$^2$)\\
 \midrule
-Parameter-sharing IPPO & 0.408 & \textbf{3506} & 123.0 & \textbf{1.599} \\
-Potential field & \textbf{0.452} & 2048 & 107.3 & 1.050 \\
-Receding-horizon A* & 0.427 & 2310 & \textbf{95.8} & 1.097 \\
-Lawnmower coverage & 0.408 & 2914 & 110.8 & 1.286 \\
-Information greedy & 0.429 & 1549 & 98.8 & 0.739 \\
+Parameter-sharing IPPO & 0.408 & \textbf{3506} & \textbf{1.599} \\
+Potential field & \textbf{0.452} & 2048 & 1.050 \\
+Receding-horizon A* & 0.427 & 2310 & 1.097 \\
+Lawnmower coverage & 0.408 & 2914 & 1.286 \\
+Information greedy & 0.429 & 1549 & 0.739 \\
 \bottomrule
 \end{tabular}
 }
@@ -1581,7 +1576,7 @@ Information greedy & 0.429 & 1549 & 98.8 & 0.739 \\
 
 For each depth, four SUVs seek higher current speed; the central comparison is
 the fleet-mean current speed experienced along each trajectory, together with
-its trajectory length and spatial coverage.
+nominal and current-weighted spatial coverage.
 The comparison follows the protocol in
 Section~\ref{subsec:evaluation}. Figure~\ref{fig:underwater_strategy_trajectories}
 first illustrates the resulting trajectory structure for the three strategies.
@@ -1590,10 +1585,9 @@ Figure~\ref{fig:underwater_strategy_trajectories} illustrates the qualitative
 trajectory construction for the three strategies at shallow, intermediate, and
 deep sampling layers. Across these three representative depths, the mean
 experienced current speeds of active control, random control, and passive drift
-remain close within each depth, whereas their path lengths differ substantially:
-active control requires the longest paths and passive drift the shortest. The
-background fields also show that the spatial current structure changes with
-depth, which is why a single-depth example is insufficient. These episodes
+remain close within each depth, while their observed spatial footprints differ.
+The background fields also show that the spatial current structure changes
+with depth, which is why a single-depth example is insufficient. These episodes
 remain illustrative; all comparative inference is deferred to the final
 ten-seed, seven-depth evaluation.
 
@@ -1602,36 +1596,28 @@ at all seven depths from 0 to 60 m. At every depth and both propulsion limits,
 active IPPO attains a higher mean experienced current speed than passive drift
 and random control. The configuration-mean improvement over passive drift
 ranges from 2.2\% to 4.6\%, while the corresponding improvement over random
-control ranges from 2.3\% to 4.6\%. Random control remains close to passive
-drift in mean current speed but travels substantially farther.
+control ranges from 2.3\% to 4.6\%.
 
-The longer trajectories of active IPPO provide an intended observation
-advantage. Its path is 3.47--7.22 times that of passive drift,
-allowing the four SUVs to move through a larger spatial footprint and acquire
-more current profiles and contextual samples. The corresponding nominal
-coverage increases by 3.09--5.68 times, and current-weighted coverage increases
-by 2.87--4.99 times. Across the 140 training-seed comparisons, active control
-has a higher mean experienced current speed in 126 cases. False-discovery-rate
-adjusted paired tests identify 114 significant improvements and six significant
-deficits relative to passive drift. Coverage, path length, and current-weighted
-coverage improve significantly in all 140 comparisons. The current-speed gain
-is therefore modest and not universally positive at the training-seed level,
-but active control consistently increases the amount and spatial extent of the
-collected underwater data. Passive drift remains the low-motion reference and
-cannot deliberately relocate toward higher-current regions.
+Active IPPO provides an intended observation advantage. Relative to passive
+drift, its nominal coverage increases by 3.09--5.68 times and its
+current-weighted coverage increases by 2.87--4.99 times. Across the 140
+training-seed comparisons, active control has a higher mean experienced current
+speed in 126 cases. False-discovery-rate-adjusted paired tests identify 114
+significant improvements and six significant deficits relative to passive
+drift. Both nominal and current-weighted coverage improve significantly in all
+140 comparisons. The current-speed gain is therefore modest and not universally
+positive at the training-seed level, but active control consistently increases
+the spatial extent and current-weighted value of the collected underwater data.
+Passive drift remains the low-motion reference and cannot deliberately relocate
+toward higher-current regions.
 
-The propulsion limit consistently affects trajectory extent. At all seven
-depths, the 2.0 m/s policy travels 1.20--1.33 times farther than the 1.5 m/s
-policy because the larger speed envelope permits more movement within the same
-20 h episode. Its nominal coverage is 1.18--1.34 times larger. Under this fixed
-horizon, the 2.0 m/s setting therefore increases the number of sampled
-locations and covers a larger part of the TC-induced current field. Mean
-experienced drift current decreases from 0.521 to 0.292 m/s between 0 and
-60 m, and passive-drift paths contract from 33.9 to 17.3 km. Active paths
-decrease from 117.7 to 96.9 km at 1.5 m/s and from 141.6 to 124.9 km at
-2.0 m/s. The increasing active/passive path ratio with depth is consistent
-with weaker ambient advection and a largely depth-independent propulsion
-envelope. It does not indicate a growing policy advantage.
+The propulsion limit consistently affects observation extent. At all seven
+depths, the 2.0 m/s policy obtains 1.18--1.34 times larger nominal coverage
+than the 1.5 m/s policy because the larger speed envelope permits more movement
+within the same 20 h episode. Under this fixed horizon, the 2.0 m/s setting
+therefore samples more locations and covers a larger part of the TC-induced
+current field. Mean experienced drift current decreases from 0.521 to
+0.292 m/s between 0 and 60 m.
 
 The current fields in Fig.~\ref{fig:underwater_strategy_trajectories} contain
 pronounced horizontal gradients and localized high-speed bands. The
@@ -1667,23 +1653,21 @@ Underwater, the four baselines are not dominated on every metric. The
 potential-field planner attains the highest mean experienced current at
 0.452 m/s, followed by information-greedy control at 0.429 m/s and A* at
 0.427 m/s. IPPO and lawnmower coverage are close at approximately 0.408 m/s.
-A* instead has the shortest mean path at 95.8 km, whereas IPPO produces the
-largest nominal coverage of 3506 km\(^2\). The corresponding nominal coverages
-are 2048 km\(^2\) for potential field, 2310 km\(^2\) for A*, 2914 km\(^2\) for
-lawnmower coverage, and 1549 km\(^2\) for information-greedy control. The
-episode-level current-weighted coverage \(\mathcal C_{\mathrm w}(z)\) is larger
-for IPPO than for every baseline in all 14 depth--speed settings, by factors
-of 1.41--1.60 for potential field, 1.39--1.56 for A*, 1.17--1.31 for
-lawnmower coverage, and 1.95--2.28 for information-greedy control. IPPO has
-the broadest current-weighted observation but does not have the strongest
-value in every individual underwater metric.
+IPPO produces the largest nominal coverage of 3506 km\(^2\). The corresponding
+nominal coverages are 2048 km\(^2\) for potential field, 2310 km\(^2\) for A*,
+2914 km\(^2\) for lawnmower coverage, and 1549 km\(^2\) for information-greedy
+control. The episode-level current-weighted coverage
+\(\mathcal C_{\mathrm w}(z)\) is larger for IPPO than for every baseline in all
+14 depth--speed settings, by factors of 1.41--1.60 for potential field,
+1.39--1.56 for A*, 1.17--1.31 for lawnmower coverage, and 1.95--2.28 for
+information-greedy control. IPPO has the broadest current-weighted observation
+but does not have the strongest value in every individual underwater metric.
 
 Appendix Table~\ref{tab:planner_stratified} resolves these averages by
 deployment radius and ocean depth. IPPO retains the lowest final error and
 time-averaged distance at all five surface radii. Underwater, the
 potential field gives the highest mean experienced current and IPPO gives the
-largest nominal coverage at every depth. A* gives the shortest path from 10 to
-60 m, whereas at 0 m the information-greedy planner is marginally shorter.
+largest nominal coverage at every depth.
 
 \section{Conclusion}
 
@@ -1708,19 +1692,19 @@ and reducing peak speed.
 At depth, four SUVs sampled one of seven fixed layers using only their local
 current histories. Relative to random control and passive drift, active IPPO
 achieved a 2.2--4.6\% increase in configuration-mean experienced current, with
-path length, nominal coverage, and current-weighted coverage substantially
-larger in every depth--speed setting. The traditional-planner comparison showed
-no single winner across all underwater metrics: potential field obtained the
-highest mean current, A* the shortest path, and IPPO the largest nominal and
-current-weighted coverage. At the surface, IPPO had the lowest final tracking
-error when averaged over the 40 matched configurations; it was lower than
-potential field in 35 comparisons and lower than each other planner in all 40.
+nominal and current-weighted coverage substantially larger in every
+depth--speed setting. The traditional-planner comparison showed no single
+winner across all underwater metrics: potential field obtained the highest mean
+current, while IPPO obtained the largest nominal and current-weighted coverage.
+At the surface, IPPO had the lowest final tracking error when averaged over the
+40 matched configurations; it was lower than potential field in 35 comparisons
+and lower than each other planner in all 40.
 
 The speed-limit comparison identifies a practical platform trade-off. Under the
 same 20 h horizon, increasing the submerged speed limit from 1.5 to 2.0 m/s
-increased path length at every depth and expanded the sampled area. A faster
-future SUV offers greater spatial sampling capacity, provided that
-endurance, control stability, and mission recovery remain feasible.
+expanded the sampled area at every depth. A faster future SUV offers greater
+spatial sampling capacity, provided that endurance, control stability, and
+mission recovery remain feasible.
 
 The present evidence is simulation-based and uses a mission-level horizontal
 point-mass model. Field validation, operational forecast impact, and calibrated
@@ -1764,9 +1748,9 @@ Southern Marine Science and Engineering Guangdong Laboratory (Zhuhai)
 
 Table~\ref{tab:planner_stratified} reports the traditional-planning comparison
 with the two surface distance metrics separated by deployment radius and the
-three subsurface observation metrics separated by depth.
+two subsurface observation metrics separated by depth.
 \begin{center}
-\captionof{table}{Distance and observation metrics for the traditional planner comparison on the held-out TC segments. Panel A reports the two surface distance metrics by deployment radius, averaged over the four fleet sizes and both speed limits. Panel B reports mean experienced current speed, nominal coverage, and path per SUV at each depth, averaged over the two propulsion limits.}
+\captionof{table}{Distance and observation metrics for the traditional planner comparison on the held-out TC segments. Panel A reports the two surface distance metrics by deployment radius, averaged over the four fleet sizes and both speed limits. Panel B reports mean experienced current speed and nominal coverage at each depth, averaged over the two propulsion limits.}
 \label{tab:planner_stratified}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
@@ -1797,31 +1781,24 @@ Depth & Metric & IPPO & PF & A* & Lawn & Greedy\\
 \midrule
 0 m & Mean experienced current (m/s) & 0.534 & \textbf{0.577} & 0.548 & 0.536 & 0.551 \\
  & Nominal coverage (km$^2$) & \textbf{3672} & 2214 & 2445 & 3067 & 1579 \\
- & Path per SUV (km) & 129.6 & 114.1 & 102.2 & 116.0 & \textbf{101.7} \\
 \addlinespace[1.5pt]
 10 m & Mean experienced current (m/s) & 0.474 & \textbf{0.515} & 0.489 & 0.472 & 0.492 \\
  & Nominal coverage (km$^2$) & \textbf{3729} & 2189 & 2414 & 3020 & 1620 \\
- & Path per SUV (km) & 130.2 & 112.5 & \textbf{100.7} & 114.5 & 102.1 \\
 \addlinespace[1.5pt]
 20 m & Mean experienced current (m/s) & 0.444 & \textbf{0.486} & 0.462 & 0.444 & 0.464 \\
  & Nominal coverage (km$^2$) & \textbf{3720} & 2152 & 2388 & 2987 & 1632 \\
- & Path per SUV (km) & 130.8 & 111.2 & \textbf{99.3} & 113.7 & 101.8 \\
 \addlinespace[1.5pt]
 30 m & Mean experienced current (m/s) & 0.409 & \textbf{0.452} & 0.429 & 0.410 & 0.431 \\
  & Nominal coverage (km$^2$) & \textbf{3574} & 2105 & 2329 & 2939 & 1588 \\
- & Path per SUV (km) & 125.2 & 108.5 & \textbf{96.3} & 111.7 & 99.6 \\
 \addlinespace[1.5pt]
 40 m & Mean experienced current (m/s) & 0.366 & \textbf{0.412} & 0.386 & 0.368 & 0.391 \\
  & Nominal coverage (km$^2$) & \textbf{3330} & 1999 & 2273 & 2876 & 1542 \\
- & Path per SUV (km) & 118.0 & 105.1 & \textbf{93.8} & 109.5 & 97.5 \\
 \addlinespace[1.5pt]
 50 m & Mean experienced current (m/s) & 0.326 & \textbf{0.374} & 0.349 & 0.327 & 0.351 \\
  & Nominal coverage (km$^2$) & \textbf{3328} & 1876 & 2200 & 2803 & 1470 \\
- & Path per SUV (km) & 116.1 & 101.7 & \textbf{91.0} & 106.6 & 95.5 \\
 \addlinespace[1.5pt]
 60 m & Mean experienced current (m/s) & 0.302 & \textbf{0.350} & 0.325 & 0.301 & 0.324 \\
  & Nominal coverage (km$^2$) & \textbf{3189} & 1799 & 2120 & 2702 & 1410 \\
- & Path per SUV (km) & 110.9 & 98.3 & \textbf{87.6} & 103.2 & 93.0 \\
 \bottomrule
 \end{tabular*}
 \end{center}
@@ -2077,8 +2054,8 @@ circular markers indicate final vehicle positions.}
 \captionof{figure}{Comparison of active control, random control, and passive drift in
 the 20 h subsurface task at seven depths from 0 to 60 m. Rows show maximum
 propulsion speeds of 2.0 and 1.5 m/s; columns report mean experienced current
-speed, nominal spatial coverage area, fleet-mean motion path length, and
-current-weighted coverage. Error bars show the sample standard deviation
+speed, nominal spatial coverage area, and current-weighted coverage. Error bars
+show the sample standard deviation
 across ten active-policy training seeds. Random control and passive drift are
 paired baselines without training-seed variability.}
 \label{fig:underwater_methods_10seed}
