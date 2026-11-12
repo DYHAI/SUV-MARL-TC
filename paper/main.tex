@@ -258,35 +258,35 @@ and target tracking provide the ocean-robotics foundations
 \citep{r32,r33,r34,r35,r36}.
 
 {\sloppy
-Three gaps remain. First, prior AUV-based TC studies have focused primarily on
-center tracking or near-surface observation planning; coordinated
-surface--subsurface observation driven by event-specific reanalysis fields
-remains less explored \citep{r26,r27}. Second, track-forecast errors require rapid, adaptive transit
-from an uncertain deployment point to the high-wind region \citep{r23,r24,r25}.
-Third, the closest multi-AUV active-observation study did not test fleet-size
-scaling \citep{r27}. We formulate stochastic policy optimization
-under partial observability
-\citep{r40,r41,r42}, extend prior AUV center-tracking and near-surface
-active-observation studies \citep{r26,r27} to event-specific
-surface--subsurface observation, and evaluate 4-, 8-, 12-, and 16-SUV fleets.
+Three gaps remain. First, a unified atmosphere--ocean reinforcement-learning
+environment for coordinated surface--subsurface TC observation has not been
+established \citep{r26,r27}. Second, it remains unclear whether
+parameter-sharing MARL can track a moving TC under deployment uncertainty,
+sample the subsurface current field, and remain effective across different
+fleet sizes \citep{r23,r24,r25,r27}. Third, learned policies have rarely been
+compared with causal planners under identical local observations, motion
+constraints, and control interfaces. We formulate stochastic policy
+optimization under partial observability \citep{r40,r41,r42}, evaluate 4-, 8-,
+12-, and 16-SUV fleets, and provide this matched comparison.
 \par}
 
 The main contributions of this study are summarized as follows.
 \begin{enumerate}
-\item We construct an event-specific learning environment for 500 TCs by
-aligning ERA5 10 m winds, HYCOM currents at seven depths from 0 to 60 m, and
-IBTrACS tracks.
-\item Using globally shared wind-speed observations, parameter-sharing IPPO
-learns inward motion from training-time center rewards and lowers the final
-tracking error, measuring how closely the surface fleet follows the TC and
-enters the high-wind region.
-\item We compare active IPPO, random control, and passive drift for subsurface
-observation with four SUVs at each depth, evaluating mean experienced current
-speed, nominal spatial coverage, and current-weighted coverage as complementary
-observation objectives.
-\item We compare MARL with four causal traditional planners: an artificial
-potential-field planner, a receding-horizon A* planner, a lawnmower coverage
-planner, and an information-greedy planner.
+\item We construct a unified atmosphere--ocean RL environment by aligning ERA5
+10 m winds, HYCOM currents at seven depths from 0 to 60 m, and IBTrACS tracks.
+The 500-TC archive yields 495 usable TCs and 7,248 event segments, with the
+train/test split made at the TC level.
+\item We evaluate a parameter-sharing IPPO controller with globally shared
+surface-wind observations and decentralized subsurface current histories for
+4-, 8-, 12-, and 16-SUV fleets. Surface policies are tested at 100--800 km
+deployment offsets, and subsurface policies are tested at seven depths and two
+propulsion limits. We report final and time-averaged tracking distance,
+experienced current, nominal coverage, and current-weighted coverage.
+\item We compare IPPO with artificial potential field, receding-horizon A*,
+lawnmower coverage, and information-greedy control under matched local
+observations, action constraints, motion constraints, control intervals, and
+paired evaluation episodes. The comparison quantifies surface tracking error
+and subsurface current--coverage trade-offs.
 \end{enumerate}
 
 \section{Problem Formulation}\label{sec:problem}
