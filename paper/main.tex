@@ -286,9 +286,10 @@ experienced current, nominal coverage, and current-weighted coverage.
 potential field, receding-horizon A*, lawnmower coverage, and
 information-greedy control, under matched local observations, action
 constraints, motion constraints, control intervals, and paired evaluation
-episodes. The comparison quantifies surface tracking error and subsurface
-current and coverage, showing that the algorithms emphasize different aspects
-and have advantages on different metrics.
+episodes. At the surface, IPPO achieves lower final and time-averaged tracking
+distance than the planners and generally uses shorter paths. Underwater,
+potential field achieves the highest mean experienced current, whereas IPPO
+achieves the largest nominal and current-weighted coverage.
 \end{enumerate}
 
 \section{Problem Formulation}\label{sec:problem}
@@ -1302,10 +1303,9 @@ comparisons. The final-error benefit is larger than the time-averaged benefit
 at both ends of the deployment range, indicating that the higher-speed policy
 continues reducing residual separation late in the episode.
 
-The two speed policies differ in emphasis. The 12 m/s policy reduces path
-length per SUV by 83.4--220.1 km across the five radii and lowers mean ground
-speed by 1.75--3.93 m/s, whereas the 20 m/s policy achieves closer final
-tracking.
+The 12 m/s policy reduces path length per SUV by 83.4--220.1 km across the five
+radii and lowers mean ground speed by 1.75--3.93 m/s, whereas the 20 m/s policy
+achieves closer final tracking.
 
 The representative trajectories clarify how the aggregate result is produced.
 Fig.~\ref{fig:surface_trajectory_evolution} follows the four-SUV, 400 km CHAMPI
@@ -1632,11 +1632,10 @@ At the surface, IPPO had the lowest final tracking error when averaged over the
 40 matched configurations; it was lower than potential field in 35 comparisons
 and lower than each other planner in all 40.
 
-The two propulsion limits differ in emphasis. Under the same 20 h horizon,
-increasing the submerged speed limit from 1.5 to 2.0 m/s expanded the sampled
-area at every depth. A faster future SUV offers greater spatial sampling
-capacity, provided that endurance, control stability, and mission recovery
-remain feasible.
+Under the same 20 h horizon, increasing the submerged speed limit from 1.5 to
+2.0 m/s expanded the sampled area at every depth. A faster future SUV offers
+greater spatial sampling capacity, provided that endurance, control stability,
+and mission recovery remain feasible.
 
 The present evidence is simulation-based and uses a mission-level horizontal
 point-mass model. Field validation, operational forecast impact, and calibrated
