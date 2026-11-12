@@ -51,7 +51,7 @@ is not a manuscript result.
   seeds.
 - Training: the same 450/50 TC split and approximately two million environment
   steps per model as the manuscript.
-- Surface comparisons: ring/line/grid formations, action filtering,
+- Surface comparisons: ring/line/grid/V formations, action filtering,
   IPPO/SAC/TD3, and four traditional planners.
 - Subsurface comparisons: active IPPO, random control, passive drift,
   IPPO/SAC/TD3, and four traditional planners.

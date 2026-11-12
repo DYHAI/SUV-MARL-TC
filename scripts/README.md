@@ -17,7 +17,7 @@ Main entries:
 - `run_uwflow_7depth_completion.sh`: seven-depth subsurface training/evaluation.
 - `run_classical_surface_matrix.sh`: traditional surface baselines.
 - `run_classical_underwater_matrix.sh`: traditional subsurface baselines.
-- `run_formation_training.sh`: line/grid formation training.
+- `run_formation_training.sh`: line/grid/V formation training.
 - `run_formation_full_matrix.sh`: formation evaluation matrix.
 - `run_algorithm_comparison_training.sh`: IPPO/SAC/TD3 representative runs.
 

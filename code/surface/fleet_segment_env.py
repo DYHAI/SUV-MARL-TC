@@ -84,6 +84,7 @@ def deploy_formation(clon, clat, n_auv, formation="scatter", spread_radius=100.0
     formation="ring": 在 ring_radius km 圆上均匀分布(4 AUV 即 90° 间隔)，整体随机旋转。
     formation="line": 随机朝向的等间距直线队形；
     formation="grid": 近似方形的等间距网格队形。
+    formation="v": 随机朝向的 V 字形队形，两翼各 n_auv/2 台且左右对称。
     返回 (lons, lats)。"""
     lons = np.zeros(n_auv); lats = np.zeros(n_auv)
     if formation == "ring":
@@ -114,6 +115,20 @@ def deploy_formation(clon, clat, n_auv, formation="scatter", spread_radius=100.0
             dy = sa * gx + ca * gy
             lons[i] = clon + dx / (D2KM * np.cos(np.deg2rad(clat)))
             lats[i] = clat + dy / D2KM
+    elif formation == "v":
+        if n_auv % 2:
+            raise ValueError("V formation requires an even number of SUVs")
+        theta = np.random.uniform(0, 2 * np.pi)
+        half_angle = np.deg2rad(35.0)
+        arm_fraction = np.linspace(0.25, 1.0, n_auv // 2)
+        for side, sign in enumerate((-1.0, 1.0)):
+            for j, fraction in enumerate(arm_fraction):
+                angle = theta + sign * half_angle
+                dx = ring_radius * fraction * np.cos(angle)
+                dy = ring_radius * fraction * np.sin(angle)
+                i = side * (n_auv // 2) + j
+                lons[i] = clon + dx / (D2KM * np.cos(np.deg2rad(clat)))
+                lats[i] = clat + dy / D2KM
     else:
         for i in range(n_auv):
             ang = np.random.uniform(0, 2 * np.pi)

@@ -20,7 +20,7 @@ Submersible Unmanned Vessels**.
 
 <img src="paper/figures/Fig2_Surface_Trajectory_Evolution.png" alt="Surface SUV tracking trajectories" width="900">
 
-Surface IPPO reaches the lowest final tracking error and time-averaged distance
+Surface IPPO reaches the lowest final tracking error and mean tracking error
 across the evaluated fleet sizes, speed limits, and deployment radii.
 
 ### Deployment-error trajectory matrix
@@ -29,6 +29,21 @@ across the evaluated fleet sizes, speed limits, and deployment radii.
 
 The trajectory matrix shows how fleet size affects the sampled approach region
 while deployment error determines the required long-range transit.
+
+### Traditional planner comparison
+
+<img src="paper/figures/Fig7_Traditional_Planner_Rendering.png" alt="Matched surface and subsurface comparison with traditional planners" width="1000">
+
+Rendered trajectories use matched initial deployments and the same CHAMPI
+segment. Surface panels are plotted over ERA5 10 m wind speed, while subsurface
+panels are plotted over HYCOM current speed at 30 m.
+
+### Formation sensitivity
+
+<img src="paper/figures/FigB1_Formation_Comparison.png" alt="Ring, line, grid, and V-shaped formation comparison" width="1000">
+
+Ring, line, grid, and V-shaped deployments are trained and evaluated under the
+same constrained surface protocol.
 
 ## Repository
 
@@ -76,10 +91,11 @@ and [`code/official_experiments/AUDIT_2026-11-09.md`](code/official_experiments/
 
 ## Key Findings
 
-- Surface IPPO minimizes final tracking error and time-averaged center distance.
+- Surface IPPO minimizes final tracking error and mean tracking error.
 - Higher surface speed improves tracking but increases path length and speed.
 - Underwater, IPPO provides the broadest current-weighted observation coverage.
-- The line formation has the lowest aggregate final tracking error; the ring is
-  retained for broader spatial coverage.
+- The line formation has the lowest aggregate final tracking error, while the
+  V formation is within 2.3 km and is best in four 12 m/s conditions. The ring
+  is retained for broader spatial coverage.
 
 Detailed methods, tables, and references are in the [manuscript](paper/main.pdf).

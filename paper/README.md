@@ -35,7 +35,7 @@ The first script requires the complete ten-seed matrix for both 12 and
 
 The complete 12/20 m/s matrix contains 400 seed-level evaluations:
 4/8/12/16 SUVs x seeds 0--9 x five deployment radii x two speed limits.
-The 20 m/s policy has the lower time-averaged distance in all 20
+The 20 m/s policy has the lower mean tracking error in all 20
 fleet-size/radius comparisons. Averaged over the four fleet sizes, its final
 tracking error is 31.9, 37.9, 63.0, 89.1, and 110.5 km lower than that of the
 12 m/s policy at 100, 200, 400, 600, and 800 km. The 12 m/s policy instead uses
@@ -45,14 +45,15 @@ intended efficiency--tracking trade-off.
 The final underwater matrix contains seven depths, two propulsion limits, ten
 active-policy seeds, and paired random-control and passive-drift baselines.
 Active IPPO improves configuration-mean experienced current speed by
-2.2--4.6%, increases nominal coverage by 3.09--5.68 times, and increases
+2.2--4.6%, increases geometric coverage by 3.09--5.68 times, and increases
 current-weighted coverage by 2.87--4.99 times relative to passive drift.
 
 ## Classical planner comparison
 
-Table 6 in the manuscript compares parameter-sharing IPPO with potential-field,
-receding-horizon A*, lawnmower-coverage, and information-greedy planners on the
-same 500-TC train/test split. Surface results cover all 40
+Appendix Table B.1 in the manuscript compares parameter-sharing IPPO with
+potential-field, receding-horizon A*, lawnmower-coverage, and
+information-greedy planners on the same 500-TC train/test split. Surface
+results cover all 40
 fleet/speed/deployment configurations and 768 test segments. Subsurface results
 cover seven depths, both propulsion limits, and 500 paired episodes per
 setting.

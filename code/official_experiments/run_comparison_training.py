@@ -47,7 +47,7 @@ def jobs() -> list[Job]:
     formation_logs.mkdir(parents=True, exist_ok=True)
     if COMPARISON_SCOPE != "underwater":
         for speed in (12.0, 20.0):
-            for formation in ("line", "grid"):
+            for formation in ("line", "grid", "v"):
                 name = f"formation_{formation}_n8_v{speed:g}_s0"
                 env = common_env()
                 env.update(

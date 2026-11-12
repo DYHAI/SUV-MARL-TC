@@ -4,7 +4,7 @@
 - `surface/`: surface environment, IPPO training, and deployment evaluation.
 - `underwater/`: subsurface environment, IPPO training, and strategy evaluation.
 - `baselines/`: traditional planning baselines and paired comparisons.
-- `formation/`: ring, line, and grid formation experiments.
+- `formation/`: ring, line, grid, and V formation experiments.
 - `algorithm_comparison/`: representative IPPO, SAC, and TD3 comparison.
 - `analysis/`: final tables, figures, and result summaries.
 - `common/`: shared constrained planar dynamics.

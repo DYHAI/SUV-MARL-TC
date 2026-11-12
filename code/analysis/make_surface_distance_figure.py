@@ -1,4 +1,4 @@
-"""Plot time-averaged and final TC-center distances for 12/20 m/s."""
+"""Plot mean and final tracking errors for 12/20 m/s."""
 
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ def main() -> None:
         1, 2, figsize=(11.0, 4.8), sharex=True, layout="constrained"
     )
     metrics = (
-        ("distance", "distance_std", "Time-averaged distance (km)"),
+        ("distance", "distance_std", "Mean tracking error (km)"),
         ("final_distance", "final_distance_std", "Final tracking error (km)"),
     )
     colors = {

@@ -330,7 +330,7 @@ def plot_underwater(summary: pd.DataFrame) -> None:
     plt.rcParams.update({"font.size": 11, "axes.titlesize": 12})
     metrics = [
         ("mean_current_ms", "Mean experienced current (m/s)"),
-        ("coverage_area_km2", "Nominal coverage ($10^3$ km$^2$)"),
+        ("coverage_area_km2", "Geometric coverage ($10^3$ km$^2$)"),
         ("path_km", "Path per SUV (km)"),
         (
             "current_weighted_coverage",
@@ -430,7 +430,7 @@ def write_summary_table(surface: pd.DataFrame, underwater: pd.DataFrame) -> None
         r"\begin{tabular}{@{}lrrrr@{}}",
         r"\toprule",
         r"\multicolumn{5}{l}{\textbf{Panel A: surface tracking}}\\",
-        r"Method & Final error (km) & Time-averaged distance (km) & "
+        r"Method & Final error (km) & Mean tracking error (km) & "
         r"\multicolumn{2}{c}{Path per SUV (km)}\\",
         r"\midrule",
     ]
@@ -445,7 +445,7 @@ def write_summary_table(surface: pd.DataFrame, underwater: pd.DataFrame) -> None
     lines += [
         r"\midrule",
         r"\multicolumn{5}{l}{\textbf{Panel B: subsurface observation}}\\",
-        r"Method & Mean current (m/s) & Nominal coverage (km$^2$) & "
+        r"Method & Mean current (m/s) & Geometric coverage (km$^2$) & "
         r"Path (km) & Current-weighted coverage "
         r"($10^3$ m\,s$^{-1}$\,km$^2$)\\",
         r"\midrule",

@@ -22,7 +22,7 @@ export NENV=${NENV:-1}
 export FLEET_MODEL_DIR="$MODEL_DIR"
 
 for speed in ${SPEEDS:-12 20}; do
-  for formation in ${FORMATIONS:-line grid}; do
+  for formation in ${FORMATIONS:-line grid v}; do
     name="surface_${formation}_n8_v${speed}_s0"
     model="$MODEL_DIR/${name}.zip"
     [ -f "$model" ] && continue

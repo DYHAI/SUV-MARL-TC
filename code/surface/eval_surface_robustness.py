@@ -241,7 +241,7 @@ def main() -> None:
     parser.add_argument("--vmax", type=float, default=20.0)
     parser.add_argument("--radius", type=float, default=400.0)
     parser.add_argument("--conditions", nargs="+", default=list(CONDITIONS))
-    parser.add_argument("--formation", choices=("ring", "line", "grid", "scatter"), default="ring")
+    parser.add_argument("--formation", choices=("ring", "line", "grid", "v", "scatter"), default="ring")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--out", type=Path, default=OUTDIR / "surface_robustness.csv")
     args = parser.parse_args()

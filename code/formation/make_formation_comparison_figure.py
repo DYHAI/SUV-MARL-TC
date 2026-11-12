@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render a representative ring/line/grid formation comparison."""
+"""Render a representative ring/line/grid/V formation comparison."""
 
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ MODELS = {
     / "ppo_fleet_seg8_ring_s005_d800_t10min_n500_dscan_mthr100_ab_windonly_noid_vmax12_s0.zip",
     "Line": RUNS_ROOT / "formation" / "models" / "surface_line_n8_v12_s0.zip",
     "Grid": RUNS_ROOT / "formation" / "models" / "surface_grid_n8_v12_s0.zip",
+    "V": RUNS_ROOT / "formation" / "models" / "surface_v_n8_v12_s0.zip",
 }
 WIND_CMAP = plt.get_cmap("YlGnBu")
 
@@ -147,7 +148,7 @@ def main() -> None:
             "legend.fontsize": 8.5,
         }
     )
-    fig, axes = plt.subplots(3, 1, figsize=(9.0, 8.6), constrained_layout=True)
+    fig, axes = plt.subplots(4, 1, figsize=(9.0, 11.4), constrained_layout=True)
     colors = (
         "#4E79A7", "#F28E2B", "#59A14F", "#E15759",
         "#B07AA1", "#76B7B2", "#EDC948", "#9C755F",
@@ -155,7 +156,7 @@ def main() -> None:
     metric_rows = []
     results = {
         formation: simulate(formation, MODELS[formation])
-        for formation in ("Ring", "Line", "Grid")
+        for formation in ("Ring", "Line", "Grid", "V")
     }
     all_traj = np.concatenate(
         [results[key][0].reshape(-1, 2) for key in results],
@@ -168,7 +169,7 @@ def main() -> None:
     xlim = (xmin - xpad, xmax + xpad)
     ylim = (ymin - ypad, ymax + ypad)
     mesh = None
-    for ax, formation in zip(axes, ("Ring", "Line", "Grid")):
+    for ax, formation in zip(axes, ("Ring", "Line", "Grid", "V")):
         traj, _row, d, final_t = results[formation]
         mesh = draw_wind_background(ax, d, final_t, xlim, ylim)
         for i in range(traj.shape[1]):

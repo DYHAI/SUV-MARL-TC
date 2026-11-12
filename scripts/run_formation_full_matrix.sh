@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Complete the surface formation study:
-#   3 formations x 2 speed limits x 5 fixed deployment radii
+#   4 formations x 2 speed limits x 5 fixed deployment radii
 # Every condition uses a policy trained with deployment offsets sampled inside
 # an 800 km radius and is evaluated on the same 768 held-out TC segments.
 set -uo pipefail
@@ -27,10 +27,10 @@ model_path() {
     ring:20)
       echo "$SURFACE_MODEL_DIR/ppo_fleet_seg8_ring_s005_d800_t10min_n500_dscan_mthr100_ab_windonly_noid.zip"
       ;;
-    line:12|grid:12)
+    line:12|grid:12|v:12)
       echo "$FORMATION_MODEL_DIR/surface_${formation}_n8_v12_s0.zip"
       ;;
-    line:20|grid:20)
+    line:20|grid:20|v:20)
       echo "$FORMATION_MODEL_DIR/surface_${formation}_n8_v20_s0.zip"
       ;;
     *)
@@ -82,7 +82,7 @@ launch_eval() {
 }
 
 for speed in 12 20; do
-  for formation in ring line grid; do
+  for formation in ring line grid v; do
     model=$(model_path "$formation" "$speed")
     wait_for_model "$model"
     for radius in 100 200 400 600 800; do
@@ -94,7 +94,7 @@ done
 wait
 
 for speed in 12 20; do
-  for formation in ring line grid; do
+  for formation in ring line grid v; do
     for radius in 100 200 400 600 800; do
       out="${OUTDIR}/formation_${formation}_v${speed}_d${radius}.csv"
       rows=$(wc -l < "$out" 2>/dev/null || echo 0)

@@ -24,7 +24,7 @@ SUMMARY = (
     / "formation_full_matrix_summary.csv"
 )
 SPEEDS = (12, 20)
-FORMATIONS = ("ring", "line", "grid")
+FORMATIONS = ("ring", "line", "grid", "v")
 RADII = (100, 200, 400, 600, 800)
 METRICS = (
     "final_distance_km",
@@ -107,12 +107,15 @@ def write_table(summary: pd.DataFrame) -> None:
         r"\label{tab:formation_comparison}",
         r"\small",
         r"\setlength{\tabcolsep}{2.7pt}",
-        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}ccccccccc@{}}",
+        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}ccccccccccc@{}}",
         r"\toprule",
         r"Speed & Train radius & Eval radius & \multicolumn{2}{c}{Ring} & "
-        r"\multicolumn{2}{c}{Line} & \multicolumn{2}{c}{Grid} \\",
-        r"\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}",
-        r"(m/s) & (km) & (km) & Error & Path & Error & Path & Error & Path \\",
+        r"\multicolumn{2}{c}{Line} & \multicolumn{2}{c}{Grid} & "
+        r"\multicolumn{2}{c}{V} \\",
+        r"\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}"
+        r"\cmidrule(lr){10-11}",
+        r"(m/s) & (km) & (km) & Error & Path & Error & Path & "
+        r"Error & Path & Error & Path \\",
         r"\midrule",
     ]
     for speed in SPEEDS:

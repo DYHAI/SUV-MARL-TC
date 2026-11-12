@@ -117,7 +117,7 @@ def make_table(s: pd.DataFrame) -> None:
         r"\begin{tabular}{@{}rrlrrrrr@{}}",
         r"\toprule",
         r"Depth (m) & $V_{\max}$ (m/s) & Method & "
-        r"Mean current (m/s) & Nominal coverage (km$^2$) & "
+        r"Mean current (m/s) & Geometric coverage (km$^2$) & "
         r"Current-weighted coverage ($10^3$ m s$^{-1}$ km$^2$) & "
         r"Mean ground speed (m/s) & Normalized action magnitude \\",
         r"\midrule",
@@ -172,8 +172,8 @@ def make_figure(s: pd.DataFrame) -> None:
         (
             "coverage_area_km2",
             1.0e3,
-            "Nominal spatial coverage",
-            r"Nominal coverage ($10^3$ km$^2$)",
+            "Geometric spatial coverage",
+            r"Geometric coverage ($10^3$ km$^2$)",
         ),
         (
             "current_weighted_coverage",
