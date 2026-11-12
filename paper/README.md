@@ -26,6 +26,7 @@ python -m code.analysis.aggregate_surface_vmax_comparison
 python -m code.analysis.aggregate_underwater_method_ablation
 python -m code.analysis.make_surface_control_ablation_table
 python -m code.analysis.make_fig2_surface_subsurface_observation
+python -m code.analysis.make_traditional_planner_renderings
 ```
 
 The first script requires the complete ten-seed matrix for both 12 and

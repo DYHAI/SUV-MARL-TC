@@ -9,6 +9,13 @@ from pathlib import Path
 os.environ.setdefault("DEPLOY_OCEAN_ONLY", "1")
 os.environ.setdefault("DEPLOY_MIN_COAST_KM", "100")
 os.environ.setdefault("SAFETY_MARGIN_KM", "100")
+os.environ.setdefault("DYNAMICS_MODE", "constrained")
+os.environ.setdefault("DYN_SURFACE_CURRENT", "0")
+os.environ.setdefault("OBS_HEADING", "1")
+os.environ.setdefault("DYN_SURFACE_ACC_MS2", "0.02")
+os.environ.setdefault("DYN_SURFACE_DEC_MS2", "0.03")
+os.environ.setdefault("DYN_SURFACE_YAW_DEG_S", "1.0")
+os.environ.setdefault("DYN_SURFACE_MIN_TURN_RADIUS_M", "200")
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,20 +25,20 @@ from matplotlib.lines import Line2D
 from scipy.interpolate import RegularGridInterpolator
 from stable_baselines3 import PPO
 
+from code.paths import PAPER_ROOT, REPO_ROOT, RESULTS_ROOT, RUNS_ROOT
 from code.surface.eval_surface_robustness import deploy_fixed
 from code.surface.fleet_segment_env import D2KM, FleetSegmentEnv, seg_idx
-from code.paths import PAPER_ROOT, REPO_ROOT, RESULTS_ROOT, RUNS_ROOT
 
 
 ROOT = REPO_ROOT
 OUT = PAPER_ROOT / "figures"
-STORM = "CHAMPI_2015_2015286"
+METRICS_OUT = RESULTS_ROOT / "formation" / "representative_metrics.csv"
+STORM = "KHANUN_2023"
+STORM_T0 = 815
 SEED = 917
 MODELS = {
-    "Ring": RUNS_ROOT
-    / "surface"
-    / "models"
-    / "ppo_fleet_seg8_ring_s005_d800_t10min_n500_dscan_mthr100_ab_windonly_noid_vmax12_s0.zip",
+    "Ring": RUNS_ROOT / "official" / "models" / "surface_main"
+    / "surface_n8_v12_s0.zip",
     "Line": RUNS_ROOT / "formation" / "models" / "surface_line_n8_v12_s0.zip",
     "Grid": RUNS_ROOT / "formation" / "models" / "surface_grid_n8_v12_s0.zip",
     "V": RUNS_ROOT / "formation" / "models" / "surface_v_n8_v12_s0.zip",
@@ -41,7 +48,7 @@ WIND_CMAP = plt.get_cmap("YlGnBu")
 
 def simulate(formation: str, model_path: Path):
     seg = pd.read_csv(ROOT / "data" / "segments_500.csv")
-    row = seg[seg.storm == STORM].iloc[0]
+    row = seg[(seg.storm == STORM) & (seg.t0 == STORM_T0)].iloc[0]
     env = FleetSegmentEnv(
         storms=[STORM],
         segments_df=pd.DataFrame([row]),
@@ -62,6 +69,8 @@ def simulate(formation: str, model_path: Path):
     env.t0 = seg_idx(row["t0"])
     env.t1 = seg_idx(row["t1"])
     env.t = env.t0
+    if env.dynamics is not None:
+        env.dynamics.reset(seed=SEED)
     env.vxs = np.zeros(env.n_auv, dtype=np.float32)
     env.vys = np.zeros(env.n_auv, dtype=np.float32)
     env.lons, env.lats = deploy_fixed(
@@ -130,8 +139,8 @@ def draw_wind_background(ax, d: dict, t: int, xlim, ylim):
         speed,
         levels=np.arange(5.0, 31.0, 5.0),
         colors="white",
-        linewidths=0.45,
-        alpha=0.55,
+        linewidths=0.35,
+        alpha=0.32,
         zorder=1,
     )
     return mesh
@@ -148,11 +157,16 @@ def main() -> None:
             "legend.fontsize": 8.5,
         }
     )
-    fig, axes = plt.subplots(4, 1, figsize=(9.0, 11.4), constrained_layout=True)
-    colors = (
-        "#4E79A7", "#F28E2B", "#59A14F", "#E15759",
-        "#B07AA1", "#76B7B2", "#EDC948", "#9C755F",
+    fig, axes = plt.subplots(
+        2, 2, figsize=(11.5, 9.2), constrained_layout=True
     )
+    axes = axes.reshape(-1)
+    formation_colors = {
+        "Ring": "#2B6CB0",
+        "Line": "#C05621",
+        "Grid": "#2F855A",
+        "V": "#6B46C1",
+    }
     metric_rows = []
     results = {
         formation: simulate(formation, MODELS[formation])
@@ -169,68 +183,109 @@ def main() -> None:
     xlim = (xmin - xpad, xmax + xpad)
     ylim = (ymin - ypad, ymax + ypad)
     mesh = None
-    for ax, formation in zip(axes, ("Ring", "Line", "Grid", "V")):
+    for index, (ax, formation) in enumerate(
+        zip(axes, ("Ring", "Line", "Grid", "V"))
+    ):
         traj, _row, d, final_t = results[formation]
         mesh = draw_wind_background(ax, d, final_t, xlim, ylim)
+        mesh.set_alpha(0.80)
+        line_color = formation_colors[formation]
         for i in range(traj.shape[1]):
             ax.plot(
                 traj[:, i, 0], traj[:, i, 1],
-                color="white", lw=2.4, alpha=0.55, zorder=4,
+                color="white", lw=2.2, alpha=0.72, zorder=4,
             )
             ax.plot(
                 traj[:, i, 0], traj[:, i, 1],
-                color=colors[i], lw=1.35, alpha=0.85,
+                color=line_color, lw=1.15, alpha=0.82, zorder=5,
             )
             ax.scatter(
                 traj[0, i, 0], traj[0, i, 1],
-                facecolors="none", edgecolors=colors[i], marker="o", s=36,
+                facecolors="white", edgecolors=line_color,
+                marker="o", s=42, linewidth=1.15, zorder=7,
             )
             ax.scatter(
                 traj[-1, i, 0], traj[-1, i, 1],
-                color=colors[i], marker="^", s=36,
+                facecolors=line_color, edgecolors="white",
+                marker="^", s=46, linewidth=0.8, zorder=7,
             )
-        ax.scatter([0], [0], marker="*", s=130, color="#E63946", zorder=5)
-        ax.axhline(0, color="0.8", lw=0.6)
-        ax.axvline(0, color="0.8", lw=0.6)
+        ax.scatter(
+            [0], [0], marker="*", s=175, color="#E63946",
+            edgecolors="white", linewidths=0.8, zorder=9,
+        )
+        ax.axhline(0, color="white", lw=0.55, alpha=0.55, zorder=2)
+        ax.axvline(0, color="white", lw=0.55, alpha=0.55, zorder=2)
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
         ax.set_aspect("equal", adjustable="box")
-        ax.set_xlabel("TC-relative east (km)")
-        ax.set_title(f"{formation} formation")
-        ax.grid(alpha=0.2)
+        if index < 2:
+            ax.tick_params(labelbottom=False)
+        ax.tick_params(direction="out", length=2.8, width=0.7, labelsize=9.5)
+        ax.grid(color="white", alpha=0.16, lw=0.45)
         centroid = traj[:, :, :].mean(axis=1)
         radius = np.linalg.norm(traj - centroid[:, None, :], axis=2).mean()
+        final_distance = float(np.linalg.norm(centroid[-1]))
+        ax.set_title(
+            f"{formation} formation\n"
+            f"mean radius {radius:.1f} km, final offset {final_distance:.1f} km",
+            loc="left", fontsize=11, fontweight="bold", pad=5,
+        )
         metric_rows.append(
             {
                 "formation": formation,
                 "mean_formation_radius_km": float(radius),
-                "final_centroid_distance_km": float(np.linalg.norm(centroid[-1])),
+                "final_centroid_distance_km": final_distance,
             }
         )
         print(formation, metric_rows[-1], flush=True)
     for ax in axes:
         ax.set_ylabel("TC-relative north (km)")
     handles = [
-        Line2D([0], [0], marker="o", color="0.4", linestyle="None",
-               markerfacecolor="none", label="initial"),
-        Line2D([0], [0], marker="^", color="0.4", linestyle="None",
-               label="final"),
+        Line2D(
+            [0], [0], marker="o", color="0.25", linestyle="None",
+            markerfacecolor="white", markeredgewidth=1.1,
+            markersize=6.5, label="Initial position",
+        ),
+        Line2D(
+            [0], [0], marker="^", color="0.25", linestyle="None",
+            markerfacecolor="0.35", markeredgecolor="white",
+            markeredgewidth=0.8, markersize=6.5, label="Final position",
+        ),
+        Line2D(
+            [0], [0], marker="*", color="#E63946", linestyle="None",
+            markeredgecolor="white", markeredgewidth=0.7,
+            markersize=12, label="TC center",
+        ),
     ]
-    axes[0].legend(handles=handles, frameon=False, loc="best", fontsize=8.5)
-    cbar = fig.colorbar(mesh, ax=axes, shrink=0.72, pad=0.018)
-    cbar.set_label("10 m wind speed (m s$^{-1}$)")
-    cbar.ax.tick_params(labelsize=9.5)
-    fig.suptitle(
-        "Eight-SUV surface formation comparison (CHAMPI 2015, 12 m/s)",
-        fontsize=12,
+    axes[-2].set_xlabel("TC-relative east (km)")
+    axes[-1].set_xlabel("TC-relative east (km)")
+    fig.legend(
+        handles=handles,
+        frameon=False,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.015),
+        ncol=3,
+        fontsize=9.5,
+        handletextpad=0.35,
+        columnspacing=1.4,
     )
+    cbar = fig.colorbar(
+        mesh,
+        ax=axes,
+        orientation="horizontal",
+        fraction=0.035,
+        pad=0.035,
+        aspect=55,
+    )
+    cbar.set_label("10 m wind speed (m s$^{-1}$)")
+    cbar.set_ticks(np.arange(0.0, 31.0, 10.0))
+    cbar.ax.tick_params(labelsize=9.5, length=2.5, width=0.7)
     OUT.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / "FigB1_Formation_Comparison.pdf", bbox_inches="tight")
     fig.savefig(OUT / "FigB1_Formation_Comparison.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
-    pd.DataFrame(metric_rows).to_csv(
-        RESULTS_ROOT / "formation" / "formation_representative.csv", index=False
-    )
+    METRICS_OUT.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(metric_rows).to_csv(METRICS_OUT, index=False)
     print(OUT / "FigB1_Formation_Comparison.pdf")
 
 
