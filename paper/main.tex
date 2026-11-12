@@ -274,8 +274,10 @@ The main contributions of this study are summarized as follows.
 \begin{enumerate}
 \item We construct a unified atmosphere--ocean RL environment by aligning ERA5
 10 m winds, HYCOM currents at seven depths from 0 to 60 m, and IBTrACS tracks.
-The 500-TC archive yields 495 usable TCs and 7,248 event segments, with the
-train/test split made at the TC level.
+The 500-TC archive is divided at the TC level into 450 training TCs and 50
+held-out evaluation TCs. After alignment, 495 TCs are usable: the 445 usable
+training TCs provide 6,480 event segments, and the 50 evaluation TCs provide
+768 segments.
 \item We evaluate a parameter-sharing IPPO controller with globally shared
 surface-wind observations and decentralized subsurface current histories for
 4-, 8-, 12-, and 16-SUV fleets. Surface policies are tested at 100--800 km
