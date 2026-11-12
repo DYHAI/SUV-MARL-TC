@@ -1304,20 +1304,6 @@ their separation from the center; by 19.5 h they have entered the high-wind
 branch. Individual trajectories differ because each SUV has its own state, but
 the fleet-level motion follows a consistent inward correction.
 
-\begin{figure*}[p]
-\centering
-\includegraphics[width=\textwidth]
-  {figures/Fig4_Surface_Trajectory_Matrix.pdf}
-\caption{Representative KHANUN (2023) trajectories for the final 20 m/s
-surface policy. Columns show 4-, 8-, 12-, and 16-SUV formations, while rows
-show nominal formation-center deployment radii of 100, 200, 400, 600, and
-800 km. The color background is the spatially interpolated final-time ERA5
-10 m wind-speed field. Thin colored lines are vehicle trajectories, open
-circles mark initial positions, small red dots mark final vehicle positions,
-and the yellow star marks the TC center at the end of the episode.}
-\label{fig:surface_trajectory_matrix}
-\end{figure*}
-
 Figure~\ref{fig:surface_trajectory_matrix} separates the effects of fleet size
 and deployment error. At 100--200 km, the formations converge rapidly and stay
 concentrated near the TC core. At 600--800 km, trajectories lengthen and fan
@@ -1418,10 +1404,23 @@ Speed & Train radius & Eval radius & \multicolumn{2}{c}{Ring} & \multicolumn{2}{
 \end{tabular*}
 \end{table*}
 
+\begin{figure*}[p]
+\centering
+\includegraphics[width=\textwidth]{figures/FigB1_Formation_Comparison.pdf}
+\caption{Representative surface trajectory comparison for ring, line, and grid
+formations with eight SUVs at 12 m/s. Open circles denote initial positions,
+triangles denote final positions, and the red star denotes the TC center. The
+color background and contours show the spatially interpolated ERA5 10 m
+wind-speed field at the final simulation step. Axes are relative to the
+instantaneous TC center.}
+\label{fig:formation_comparison}
+\end{figure*}
+
 \subsection{Execution-Layer Action Filtering}
 
-Table~\ref{tab:surface_control_ablations} reports the low-pass filtering
-ablation over the same trained actor, validation dataset, and 10 min
+Fig.~\ref{fig:filter_path_comparison} illustrates the effect of smoothing on
+representative surface paths. Table~\ref{tab:surface_control_ablations} reports
+the low-pass filtering ablation over the same trained actor, validation dataset, and 10 min
 decision interval. Without filtering, the 4-, 8-, 12-, and 16-SUV
 configurations travel 1019.2--1160.0 km per vehicle, with mean speeds of
 14.85--16.45 m/s and maximum speeds of 19.46--19.47 m/s. With the
@@ -1438,6 +1437,18 @@ decreases by 651.7, 614.9, 521.9, and 459.1 km for 4, 8, 12, and 16 SUVs,
 respectively, while maximum speed decreases by 5.22, 4.14, 3.50, and 1.49 m/s.
 The execution filter improves final tracking while substantially shortening
 trajectories and reducing mean and peak speed.
+
+\begin{figure*}[p]
+\centering
+\includegraphics[width=\textwidth]{figures/FigB2_Filter_Path_Comparison.pdf}
+\caption{Representative effect of execution-layer filtering on surface paths
+for four SUVs under the same trained policy, initial positions, deployment
+radius, and KHANUN (2023) segment. The left panel uses the raw policy command,
+whereas the right panel applies the low-pass filter with $\beta=0.8$. Open
+circles and triangles mark initial and final positions, respectively, and the
+red star marks the TC center.}
+\label{fig:filter_path_comparison}
+\end{figure*}
 
 \begin{table*}[htbp]
 \centering
@@ -1923,31 +1934,21 @@ All reported IPPO experiments were trained on CPU. \\
 \end{minipage}
 
 \clearpage
-\section{Supplementary Surface Formation Trajectory}
+\section{Surface Trajectory Matrix}
 \setcounter{figure}{0}
-\renewcommand{\thefigure}{B.\arabic{figure}}
-\renewcommand{\theHfigure}{B.\arabic{figure}}
+\renewcommand{\thefigure}{A.\arabic{figure}}
+\renewcommand{\theHfigure}{A.\arabic{figure}}
 
 \begin{center}
-\includegraphics[width=\textwidth]{figures/FigB1_Formation_Comparison.pdf}
-\captionof{figure}{Representative surface trajectory comparison for ring, line,
-and grid formations with eight SUVs at 12 m/s. Open circles denote initial
-positions, triangles denote final positions, and the red star denotes the TC
-center. The color background and contours show the spatially interpolated ERA5
-10 m wind-speed field at the final simulation step. Axes are relative to the
-instantaneous TC center.}
-\label{fig:formation_comparison}
-\end{center}
-
-\begin{center}
-\includegraphics[width=\textwidth]{figures/FigB2_Filter_Path_Comparison.pdf}
-\captionof{figure}{Representative effect of execution-layer filtering on surface
-paths for four SUVs under the same trained policy, initial positions,
-deployment radius, and KHANUN (2023) segment. The left panel uses the raw policy
-command, whereas the right panel applies the low-pass filter with $\beta=0.8$.
-Open circles and triangles mark initial and final positions, respectively, and
-the red star marks the TC center.}
-\label{fig:filter_path_comparison}
+\includegraphics[width=\textwidth]{figures/Fig4_Surface_Trajectory_Matrix.pdf}
+\captionof{figure}{Representative KHANUN (2023) trajectories for the final
+20 m/s surface policy. Columns show 4-, 8-, 12-, and 16-SUV formations, while
+rows show nominal formation-center deployment radii of 100, 200, 400, 600, and
+800 km. The color background is the spatially interpolated final-time ERA5
+10 m wind-speed field. Thin colored lines are vehicle trajectories, open
+circles mark initial positions, small red dots mark final vehicle positions,
+and the yellow star marks the TC center at the end of the episode.}
+\label{fig:surface_trajectory_matrix}
 \end{center}
 
 \clearpage
