@@ -566,7 +566,7 @@ During training, the reward function can access the distance between each SUV
 and the best-track TC center. This distance supervises the association between
 local 10 m wind patterns and proximity to the TC center/high-wind region; the
 center coordinate itself is not an actor input. During validation, rewards do
-not influence actions. The frozen policy receives only the shared fleet-level
+not influence actions. The trained policy receives only the shared fleet-level
 wind samples and must track an unseen TC, thereby testing whether the learned
 wind-to-center relation generalizes.
 
@@ -1065,7 +1065,7 @@ package availability section.
 \label{subsec:evaluation}
 
 The center-distance reward is used only during training and is absent from
-validation. Validation tests whether a frozen policy can infer the TC direction
+validation. Validation tests whether a trained policy can infer the TC direction
 from wind observations in unseen events. The primary surface
 metric is the final fleet-averaged SUV-to-TC-center distance. A smaller value
 indicates closer core entry and higher observation benefit. Time-averaged
@@ -1141,7 +1141,7 @@ simulated ground speed.
 
 Surface evaluation covers 4/8/12/16 SUVs on a 100 km ring with equal angular
 spacing. Training samples formation-center offsets within an 800 km radius;
-the frozen policies are evaluated at 100, 200, 400, 600, and 800 km. These are
+the trained policies are evaluated at 100, 200, 400, 600, and 800 km. These are
 mission-scale test conditions, not tuned deployment optima. Metrics are first
 averaged over validation segments within each seed, then summarized over ten
 seeds. Paired 12-versus-20 m/s tests are two-sided and uncorrected across the
@@ -1248,7 +1248,7 @@ deployment seeds each.
 \subsection{Surface Active Tracking}\label{subsec:surface_results}
 
 Using the evaluation protocol in Section~\ref{subsec:evaluation}, we evaluate
-the frozen surface policies across four fleet sizes, two speed limits, five
+the trained surface policies across four fleet sizes, two speed limits, five
 deployment radii, and ten independent training seeds. Final tracking error in
 Eq.~\eqref{eq:final_tracking_error} is the primary metric. Time-averaged
 distance is a secondary diagnostic of how closely the fleet remains to the
