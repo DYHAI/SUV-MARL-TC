@@ -1642,7 +1642,6 @@ Speed & Train radius & Eval radius & \multicolumn{2}{c}{Ring} & \multicolumn{2}{
 \end{tabular*}
 \end{center}
 
-\clearpage
 \begin{center}
 \captionof{table}{IPPO subsurface observation performance at seven depths and
 two propulsion limits. Values are ten-seed means over the held-out TC
@@ -1702,7 +1701,7 @@ and the yellow star marks the TC center at the end of the episode.}
 \renewcommand{\theHtable}{B.\arabic{table}}
 
 \begin{center}
-\includegraphics[width=\textwidth,height=0.88\textheight,keepaspectratio]
+\includegraphics[width=\textwidth,height=0.78\textheight,keepaspectratio]
   {figures/Fig7_Traditional_Planner_Rendering.pdf}
 \captionof{figure}{Comparison between IPPO and the four traditional planners on
 the same CHAMPI segment. The upper two rows show 12 m/s surface trajectories
@@ -1715,10 +1714,6 @@ star marks the TC center.}
 \label{fig:planner_rendering}
 \end{center}
 
-\clearpage
-Table~\ref{tab:planner_stratified} reports the traditional-planning comparison
-with the two surface distance metrics separated by deployment radius and the
-three subsurface observation metrics separated by depth.
 \begin{center}
 \captionof{table}{Distance and observation metrics for the traditional planner comparison on the held-out TC segments. Panel A reports the two surface distance metrics by deployment radius, averaged over the four fleet sizes and both speed limits. Panel B reports mean experienced current speed, geometric coverage, and current-weighted coverage at each depth, averaged over the two propulsion limits. Current-weighted coverage is reported in \(10^3\) m\,s\(^{-1}\)\,km\(^2\). For surface tracking, lower errors and paths are better. For subsurface observation, higher current and coverage are better.}
 \label{tab:planner_stratified}
