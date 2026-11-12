@@ -1247,14 +1247,12 @@ deployment seeds each.
 
 \subsection{Surface Active Tracking}\label{subsec:surface_results}
 
-Using the evaluation protocol in Section~\ref{subsec:evaluation}, we
-evaluate the extent to which the trained policies reduce forecast-induced
-deployment errors and approach the moving TC center and high-wind region.
-
-Figure~\ref{fig:surface_vmax_comparison} reports the primary
-final tracking error from Eq.~\eqref{eq:final_tracking_error}, for which
-smaller values are better, and the secondary time-averaged distance. Each value
-summarizes the validation dataset over ten independent training seeds.
+Using the evaluation protocol in Section~\ref{subsec:evaluation}, we evaluate
+the frozen surface policies across four fleet sizes, two speed limits, five
+deployment radii, and ten independent training seeds. Final tracking error in
+Eq.~\eqref{eq:final_tracking_error} is the primary metric. Time-averaged
+distance is a secondary diagnostic of how closely the fleet remains to the
+moving TC, while path length and mean ground speed characterize motion demand.
 
 \begin{figure*}[t]
 \centering
@@ -1283,90 +1281,37 @@ show the sample standard deviation.}
 \label{fig:surface_vmax_comparison}
 \end{figure*}
 
-Using the final tracking error as the operational observation benefit, the right
-panel of Fig.~\ref{fig:surface_vmax_comparison} reports the primary
-speed-limit comparison. Averaged over the four fleet sizes and ten training
-seeds, the 20 m/s policy obtains final tracking errors of 204.8, 217.2, 272.5,
-379.3, and 540.8 km at deployment radii of 100, 200, 400, 600, and 800 km,
-respectively. The corresponding 12 m/s values are 236.7, 255.1, 335.5, 468.4,
-and 651.3 km. The 20 m/s setting yields a lower final tracking error in all 20
-matched fleet-size/radius comparisons, corresponding to a higher operational
-observation benefit. Its fleet-averaged advantage increases from 31.9 km at
-100 km to 110.5 km at 800 km.
+Figure~\ref{fig:surface_vmax_comparison} reports the population-level
+speed-limit comparison. Averaged over fleet sizes and training seeds, the
+20 m/s policy obtains final errors of 204.8, 217.2, 272.5, 379.3, and 540.8 km
+at deployment radii of 100, 200, 400, 600, and 800 km. The corresponding
+12 m/s values are 236.7, 255.1, 335.5, 468.4, and 651.3 km. Thus, 20 m/s gives
+the lower final error in all 20 matched fleet-size/radius comparisons, and its
+fleet-averaged advantage grows from 31.9 km at 100 km to 110.5 km at 800 km.
+Both policies remain farther from the center as deployment error increases,
+because finite speed and episode duration cannot remove every initial
+displacement.
 
-The absolute distances still increase with deployment radius for both speed
-limits, which is expected because a finite propulsion speed cannot eliminate a
-larger initial displacement within every segment duration. The objective is to
-reduce the final tracking error at each deployment level; deployment error
-itself cannot be eliminated. The final-tracking-error advantage of 20 m/s is
-larger than the corresponding time-averaged advantage: 31.9 versus 13.9 km at
-100 km and 110.5 versus 83.2 km at 800 km. The higher-speed policy continues
-correcting residual separation late in the episode.
+The time-averaged distance shows the same ordering: 20 m/s has the smaller
+distance in all 20 matched comparisons, with a median 12-minus-20 m/s paired
+difference of 49.7 km. The two-sided paired tests give $p<0.05$ in every case;
+these tests are exploratory because they are not corrected across the 20
+comparisons. The final-error benefit is larger than the time-averaged benefit
+at both ends of the deployment range, indicating that the higher-speed policy
+continues reducing residual separation late in the episode.
 
-Relative to 20 m/s, the 12 m/s policy reduces path length per SUV by 83.4,
-99.1, 145.7, 190.2, and 220.1 km at the five radii and lowers mean ground
-speed by 1.75--3.93 m/s.
-The 20 m/s setting provides the higher final observation benefit, whereas
-12 m/s is preferable when shorter trajectories and lower speed are prioritized.
+The speed comparison also exposes an efficiency trade-off. The 12 m/s policy
+reduces path length per SUV by 83.4--220.1 km across the five radii and lowers
+mean ground speed by 1.75--3.93 m/s. The 20 m/s policy is therefore preferable
+when final proximity is prioritized, whereas 12 m/s is preferable when shorter
+motion and lower speed are required.
 
-Time-averaged distance provides a secondary process-level diagnostic of
-whether proximity is maintained throughout an episode. Across the twenty
-matched fleet-size/radius comparisons, the 20 m/s policy has the smaller mean
-time-averaged distance in all 20 cases. The median paired difference
-$d_{12}-d_{20}$ is +49.7 km. Two-sided paired tests indicate lower distance at
-20 m/s in all 20 cases at $p<0.05$. We interpret these tests as exploratory
-because no multiplicity adjustment was applied.
-
-The relative final-tracking-error penalty of the 12 m/s policy is
-+15.6\% at 100 km, +17.5\% at 200 km, +23.1\% at 400 km, +23.5\% at 600 km,
-and +20.4\% at 800 km. The non-monotonic relative pattern, together with the
-monotonic increase in absolute final-tracking-error benefit, is consistent with the
-finite time available to remove forecast-induced displacement. The surface
-policy removes more final separation as the initial displacement grows when the
-20 m/s envelope is available. The 12 m/s envelope remains the lower-speed,
-shorter-path alternative.
-
-Figs.~\ref{fig:surface_vmax_comparison}--\ref{fig:surface_trajectory_matrix}
-show the same inward-correction behavior in population statistics and
-representative trajectories.
-The right panel of Fig.~\ref{fig:surface_vmax_comparison} is the primary
-benefit comparison: for each deployment radius, the preferred configuration is
-the one with the smallest final tracking error. Figure~\ref{fig:surface_trajectory_evolution}
-shows the mechanism in the four-SUV, 400 km case, where the formation first
-turns along the observed wind structure and then reduces its separation from
-the TC center. Figure~\ref{fig:surface_trajectory_matrix} shows that this
-inward correction persists from 100 to 800 km, although the final marker
-remains farther from the center as the initial deployment error increases.
-These representative paths explain why an effective controller can reduce
-error without making the final tracking error independent of deployment radius.
-
-Table~\ref{tab:surface_control_ablations} gives a same-policy check of the
-benefit interpretation. Applying the execution filter lowers the fleet-mean
-final tracking error from 313.1 to 266.0 km, a 47.1 km improvement, while also
-shortening trajectories and reducing mean and peak speed. Smoother commands
-improve final placement without increasing propulsion demand. The trajectory
-figures and the ablation table show that this improvement comes from smoother
-closed-loop correction of the observed wind pattern.
-
-To provide an internally consistent visual comparison,
-Figs.~\ref{fig:surface_trajectory_evolution}--\ref{fig:underwater_strategy_trajectories}
-use the same held-out CHAMPI (2015) segment. The surface figures show motion
-from the segment start to its endpoint, while the subsurface rollout starts
-from the segment-end anchor, representing the sequential transition from
-surface delivery to underwater observation.
-
-Figure~\ref{fig:surface_trajectory_evolution} resolves the temporal evolution
-for the four-SUV, 400 km case. At deployment, the four vehicles are dispersed
-around the formation center far from the TC. During the first several hours,
-the vehicles turn toward the strengthening wind region and begin to reduce the
-initial displacement. By 6.5 h, all four vehicles have initiated the inward
-turn; by 13.0 h they have entered the outer high-wind region; and by 19.5 h all
-four trajectories have turned into the
-high-wind branch and substantially reduced their initial displacement. The
-individual paths differ because each vehicle has its own state and position
-within the shared fleet-level wind observation; nevertheless, the fleet-level
-motion follows the wind pattern toward the TC core and illustrates long-range
-error correction in this representative episode.
+The representative trajectories clarify how the aggregate result is produced.
+Fig.~\ref{fig:surface_trajectory_evolution} follows the four-SUV, 400 km CHAMPI
+case. The vehicles first turn along the observed wind structure and then reduce
+their separation from the center; by 19.5 h they have entered the high-wind
+branch. Individual trajectories differ because each SUV has its own state, but
+the fleet-level motion follows a consistent inward correction.
 
 \begin{figure*}[p]
 \centering
@@ -1382,30 +1327,16 @@ and the yellow star marks the TC center at the end of the episode.}
 \label{fig:surface_trajectory_matrix}
 \end{figure*}
 
-Figure~\ref{fig:surface_trajectory_matrix} shows how initial forecast error
-changes the surface search process. At 100--200 km, the formations converge
-rapidly and remain concentrated around the TC core. As the deployment radius
-increases to 600--800 km, the trajectories lengthen and fan out over a wider
-region before turning toward the TC. Increasing the fleet from 4 to 16 SUVs
-produces a denser set of sampled branches and broader spatial coverage, but it
-does not remove the need for long-range transit. In the 12- and 16-SUV cases,
-many paths overlap near the core because the shared wind observations guide
-the vehicles toward the same high-wind region. In these representative cases,
-fleet size mainly broadens the sampled approach region, whereas deployment
-error primarily determines the required transit distance.
-
-The 600 and 800 km rows also reveal two coupled failure mechanisms at large
-initial displacement. At 600 km, the representative fleet can still recover a
-usable inward direction from the observed wind-speed field and its spatial
-gradient, so the vehicles continue toward the TC despite the longer transit.
-At 800 km, the vehicles must first overcome a larger geometric separation with
-finite speed and a finite episode duration; in addition, the TC-induced wind
-speed and its local gradient become weaker and less distinctive at that range.
-The reduced signal quality makes the approximate bearing toward the TC more
-ambiguous, so the policy may approach more slowly, change direction repeatedly,
-or fail to recover the TC within the episode. These two effects are coupled:
-longer travel time increases the consequence of even a small directional error,
-while the weaker remote wind signature makes such an error more likely.
+Figure~\ref{fig:surface_trajectory_matrix} separates the effects of fleet size
+and deployment error. At 100--200 km, the formations converge rapidly and stay
+concentrated near the TC core. At 600--800 km, trajectories lengthen and fan
+out before turning inward, and final positions remain farther from the center.
+Increasing the fleet from 4 to 16 SUVs adds sample branches and broadens the
+approach region, but it does not replace the long-range transit. In the
+representative 12- and 16-SUV cases, paths overlap near the core once the
+shared wind observations guide the fleet toward the same high-wind region.
+Deployment error therefore controls the required transit distance, whereas
+fleet size mainly controls how broadly the approach is sampled.
 
 \subsection{Surface Formation Comparison}
 \label{subsec:formation_comparison}
@@ -1748,9 +1679,9 @@ Southern Marine Science and Engineering Guangdong Laboratory (Zhuhai)
 
 Table~\ref{tab:planner_stratified} reports the traditional-planning comparison
 with the two surface distance metrics separated by deployment radius and the
-two subsurface observation metrics separated by depth.
+three subsurface observation metrics separated by depth.
 \begin{center}
-\captionof{table}{Distance and observation metrics for the traditional planner comparison on the held-out TC segments. Panel A reports the two surface distance metrics by deployment radius, averaged over the four fleet sizes and both speed limits. Panel B reports mean experienced current speed and nominal coverage at each depth, averaged over the two propulsion limits.}
+\captionof{table}{Distance and observation metrics for the traditional planner comparison on the held-out TC segments. Panel A reports the two surface distance metrics by deployment radius, averaged over the four fleet sizes and both speed limits. Panel B reports mean experienced current speed, nominal coverage, and current-weighted coverage at each depth, averaged over the two propulsion limits. Current-weighted coverage is reported in \(10^3\) m\,s\(^{-1}\)\,km\(^2\).}
 \label{tab:planner_stratified}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
@@ -1781,24 +1712,31 @@ Depth & Metric & IPPO & PF & A* & Lawn & Greedy\\
 \midrule
 0 m & Mean experienced current (m/s) & 0.534 & \textbf{0.577} & 0.548 & 0.536 & 0.551 \\
  & Nominal coverage (km$^2$) & \textbf{3672} & 2214 & 2445 & 3067 & 1579 \\
+ & Current-weighted coverage & \textbf{2.165} & 1.431 & 1.469 & 1.760 & 0.949 \\
 \addlinespace[1.5pt]
 10 m & Mean experienced current (m/s) & 0.474 & \textbf{0.515} & 0.489 & 0.472 & 0.492 \\
  & Nominal coverage (km$^2$) & \textbf{3729} & 2189 & 2414 & 3020 & 1620 \\
+ & Current-weighted coverage & \textbf{1.926} & 1.252 & 1.290 & 1.518 & 0.872 \\
 \addlinespace[1.5pt]
 20 m & Mean experienced current (m/s) & 0.444 & \textbf{0.486} & 0.462 & 0.444 & 0.464 \\
  & Nominal coverage (km$^2$) & \textbf{3720} & 2152 & 2388 & 2987 & 1632 \\
+ & Current-weighted coverage & \textbf{1.808} & 1.169 & 1.211 & 1.418 & 0.838 \\
 \addlinespace[1.5pt]
 30 m & Mean experienced current (m/s) & 0.409 & \textbf{0.452} & 0.429 & 0.410 & 0.431 \\
  & Nominal coverage (km$^2$) & \textbf{3574} & 2105 & 2329 & 2939 & 1588 \\
+ & Current-weighted coverage & \textbf{1.616} & 1.067 & 1.110 & 1.297 & 0.758 \\
 \addlinespace[1.5pt]
 40 m & Mean experienced current (m/s) & 0.366 & \textbf{0.412} & 0.386 & 0.368 & 0.391 \\
  & Nominal coverage (km$^2$) & \textbf{3330} & 1999 & 2273 & 2876 & 1542 \\
+ & Current-weighted coverage & \textbf{1.373} & 0.924 & 0.977 & 1.144 & 0.669 \\
 \addlinespace[1.5pt]
 50 m & Mean experienced current (m/s) & 0.326 & \textbf{0.374} & 0.349 & 0.327 & 0.351 \\
  & Nominal coverage (km$^2$) & \textbf{3328} & 1876 & 2200 & 2803 & 1470 \\
+ & Current-weighted coverage & \textbf{1.222} & 0.792 & 0.858 & 0.989 & 0.575 \\
 \addlinespace[1.5pt]
 60 m & Mean experienced current (m/s) & 0.302 & \textbf{0.350} & 0.325 & 0.301 & 0.324 \\
  & Nominal coverage (km$^2$) & \textbf{3189} & 1799 & 2120 & 2702 & 1410 \\
+ & Current-weighted coverage & \textbf{1.083} & 0.714 & 0.767 & 0.879 & 0.515 \\
 \bottomrule
 \end{tabular*}
 \end{center}
