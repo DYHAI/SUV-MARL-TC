@@ -1,7 +1,7 @@
 PYTHON ?= python
 PYTHON_BIN ?= $(PYTHON)
 
-.PHONY: check validate-dynamics paper data-audit cache surface-train surface-eval underwater-train classical classical-results formation formation-results planner-rendering
+.PHONY: check validate-dynamics paper data-audit cache surface-train surface-eval underwater-train classical classical-results formation formation-results planner-rendering loop-figure
 
 check:
 	$(PYTHON) -m compileall -q code scripts/check_runtime.py
@@ -46,3 +46,6 @@ formation-results:
 
 planner-rendering:
 	$(PYTHON) -m code.analysis.make_traditional_planner_renderings
+
+loop-figure:
+	$(PYTHON) -m code.analysis.make_rl_loop_diagram

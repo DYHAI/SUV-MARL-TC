@@ -855,6 +855,98 @@ only 3.7\% and 7.8%; the subsurface task is local adaptive sampling within the
 200 km initialization region and does not attempt to overtake and follow the
 TC center.
 
+\subsection{Parameter-Sharing Independent PPO}
+\label{subsec:ippo}
+
+All SUVs contribute to the same observation and tracking objective, and the
+training return is defined as the team-average reward. This return defines a
+fully cooperative task. Its reward structure motivates the
+use of IPPO, in which decentralized vehicle actions are optimized against a
+common team objective while policy parameters are shared across vehicles.
+
+In this paper, IPPO denotes the cooperative and parameter-sharing implementation
+of independent PPO. All SUVs use the same actor and critic weights, while their
+observations and action samples remain vehicle-specific. Actions are sampled
+independently, and the per-agent values are summed for training without a
+global-state centralized critic. The main surface model uses a memoryless
+multilayer perceptron, whereas the active underwater controller uses a
+five-frame current history. The shared cooperative return is the team-average
+reward, with value estimate
+\(V_\phi(\mathbf{o}_t)=\sum_{i\in\mathcal{I}}
+v_\phi(\mathbf{o}_{i,t})\), and a single clipped PPO objective is optimized
+over the factorized multi-agent action vector:
+\begin{equation}
+\begin{aligned}
+L^{\mathrm{CLIP}}(\theta)
+={}&\mathbb{E}_t\Bigl[
+\min\Bigl(
+\rho_t(\theta)\hat A_t,\\
+&\qquad
+\operatorname{clip}
+\left(\rho_t(\theta),1-\epsilon,1+\epsilon\right)
+\hat A_t
+\Bigr)\Bigr],
+\end{aligned}
+\label{eq:ppo}
+\end{equation}
+where
+\begin{equation}
+\rho_t(\theta)=
+\prod_{i\in\mathcal{I}}
+\frac{\pi_\theta(a_{i,t}\mid o_{i,t})}
+{\pi_{\theta_{\mathrm{old}}}(a_{i,t}\mid o_{i,t})},
+\label{eq:ratio}
+\end{equation}
+and $\hat A_t$ is estimated by generalized advantage estimation from the
+team-average reward. The actor objective is complemented by a clipped value
+loss and an entropy bonus. During execution, each SUV computes its action from
+its own observation and the shared policy network. The complete training and
+deployment procedure is summarized in Algorithm~\ref{alg:ippo_training}.
+
+\begin{algorithm*}[t]
+\caption{Training and deployment of parameter-sharing IPPO}
+\label{alg:ippo_training}
+\begin{algorithmic}[1]
+\REQUIRE Training TC split, stage-specific environment, fleet size $N$,
+speed limit $V_{\max}$, reward coefficients, and random seed
+\ENSURE Shared actor and critic parameters
+\STATE Initialize the actor, critic, and parallel environment workers
+\FOR{training iteration $m=1,\ldots,M$}
+  \STATE Reset the stage-specific environment and obtain
+  $\mathbf{o}_{i,t}$ for all $i=1,\ldots,N$
+  \FOR{rollout step $t$}
+    \STATE Sample or select an action for each SUV from
+    $\pi_\theta(\cdot\mid\mathbf{o}_{i,t})$
+\STATE Apply the stage-specific action filter, project each agent's action
+onto the unit disk, and apply the safety filter
+    \STATE Advance all SUVs and collect the team-average reward
+  \ENDFOR
+  \STATE Compute GAE advantages and returns for the team-average reward
+  \STATE Update the shared actor and critic with the clipped PPO objective
+\ENDFOR
+\STATE Freeze the actor and load the same parameters on every SUV
+\FOR{each deployment episode}
+  \STATE Observe local or shared data according to the stage communication model
+  \STATE Compute $\mathbf{a}_{i,t}$ from the shared actor
+\STATE Apply action smoothing, circular projection, and safety filtering
+  \STATE Execute the action and observe the next state
+\ENDFOR
+\end{algorithmic}
+\end{algorithm*}
+
+To compare reinforcement-learning algorithm choices, IPPO, SAC, and TD3 were
+trained for the same \(2\times10^6\) environment steps on representative
+surface and subsurface cases. In the surface comparison, IPPO achieved a final
+error of 312.0 km, compared with 510.0 km for SAC and 526.2 km for TD3. In the
+subsurface comparison, IPPO obtained an episode-level current-weighted coverage
+\(\mathcal C_w\) of 1532.7, compared with 1211.6 for SAC and 1239.8 for TD3.
+IPPO also required no replay buffer in these representative runs. We use IPPO
+for the main, formation, and planner comparisons and treat this algorithm
+comparison as bounded evidence without claiming a universal ranking.
+
+The complete reward coefficients, safety parameters, network dimensions, and
+PPO hyperparameters are summarized in Appendix~\ref{app:parameters}.
+
 \subsection{Surface and Subsurface Reward Design}
 
 The surface objective is to follow the translating TC as closely as possible
@@ -967,98 +1059,6 @@ uses only the current and previous actions, which prevents future-information
 leakage. The filtered command
 $\mathbf{a}^{\mathrm{filt}}_k$ is then passed through the unit-disk projection
 and speed mapping in Eq.~\eqref{eq:normalized_action}.
-
-\subsection{Parameter-Sharing Independent PPO}
-\label{subsec:ippo}
-
-All SUVs contribute to the same observation and tracking objective, and the
-training return is defined as the team-average reward. This return defines a
-fully cooperative task. Its reward structure motivates the
-use of IPPO, in which decentralized vehicle actions are optimized against a
-common team objective while policy parameters are shared across vehicles.
-
-In this paper, IPPO denotes the cooperative and parameter-sharing implementation
-of independent PPO. All SUVs use the same actor and critic weights, while their
-observations and action samples remain vehicle-specific. Actions are sampled
-independently, and the per-agent values are summed for training without a
-global-state centralized critic. The main surface model uses a memoryless
-multilayer perceptron, whereas the active underwater controller uses a
-five-frame current history. The shared cooperative return is the team-average
-reward, with value estimate
-\(V_\phi(\mathbf{o}_t)=\sum_{i\in\mathcal{I}}
-v_\phi(\mathbf{o}_{i,t})\), and a single clipped PPO objective is optimized
-over the factorized multi-agent action vector:
-\begin{equation}
-\begin{aligned}
-L^{\mathrm{CLIP}}(\theta)
-={}&\mathbb{E}_t\Bigl[
-\min\Bigl(
-\rho_t(\theta)\hat A_t,\\
-&\qquad
-\operatorname{clip}
-\left(\rho_t(\theta),1-\epsilon,1+\epsilon\right)
-\hat A_t
-\Bigr)\Bigr],
-\end{aligned}
-\label{eq:ppo}
-\end{equation}
-where
-\begin{equation}
-\rho_t(\theta)=
-\prod_{i\in\mathcal{I}}
-\frac{\pi_\theta(a_{i,t}\mid o_{i,t})}
-{\pi_{\theta_{\mathrm{old}}}(a_{i,t}\mid o_{i,t})},
-\label{eq:ratio}
-\end{equation}
-and $\hat A_t$ is estimated by generalized advantage estimation from the
-team-average reward. The actor objective is complemented by a clipped value
-loss and an entropy bonus. During execution, each SUV computes its action from
-its own observation and the shared policy network. The complete training and
-deployment procedure is summarized in Algorithm~\ref{alg:ippo_training}.
-
-\begin{algorithm*}[t]
-\caption{Training and deployment of parameter-sharing IPPO}
-\label{alg:ippo_training}
-\begin{algorithmic}[1]
-\REQUIRE Training TC split, stage-specific environment, fleet size $N$,
-speed limit $V_{\max}$, reward coefficients, and random seed
-\ENSURE Shared actor and critic parameters
-\STATE Initialize the actor, critic, and parallel environment workers
-\FOR{training iteration $m=1,\ldots,M$}
-  \STATE Reset the stage-specific environment and obtain
-  $\mathbf{o}_{i,t}$ for all $i=1,\ldots,N$
-  \FOR{rollout step $t$}
-    \STATE Sample or select an action for each SUV from
-    $\pi_\theta(\cdot\mid\mathbf{o}_{i,t})$
-\STATE Apply the stage-specific action filter, project each agent's action
-onto the unit disk, and apply the safety filter
-    \STATE Advance all SUVs and collect the team-average reward
-  \ENDFOR
-  \STATE Compute GAE advantages and returns for the team-average reward
-  \STATE Update the shared actor and critic with the clipped PPO objective
-\ENDFOR
-\STATE Freeze the actor and load the same parameters on every SUV
-\FOR{each deployment episode}
-  \STATE Observe local or shared data according to the stage communication model
-  \STATE Compute $\mathbf{a}_{i,t}$ from the shared actor
-\STATE Apply action smoothing, circular projection, and safety filtering
-  \STATE Execute the action and observe the next state
-\ENDFOR
-\end{algorithmic}
-\end{algorithm*}
-
-To compare reinforcement-learning algorithm choices, IPPO, SAC, and TD3 were
-trained for the same \(2\times10^6\) environment steps on representative
-surface and subsurface cases. In the surface comparison, IPPO achieved a final
-error of 312.0 km, compared with 510.0 km for SAC and 526.2 km for TD3. In the
-subsurface comparison, IPPO obtained an episode-level current-weighted coverage
-\(\mathcal C_w\) of 1532.7, compared with 1211.6 for SAC and 1239.8 for TD3.
-IPPO also required no replay buffer in these representative runs. We use IPPO
-for the main, formation, and planner comparisons and treat this algorithm
-comparison as bounded evidence without claiming a universal ranking.
-
-The complete reward coefficients, safety parameters, network dimensions, and
-PPO hyperparameters are summarized in Appendix~\ref{app:parameters}.
 
 \subsection{Surface and Subsurface Evaluation}
 \label{subsec:evaluation}
@@ -1685,10 +1685,12 @@ Geometric coverage (km\(^2\)) & Current-weighted coverage \\
 \captionof{figure}{Representative KHANUN (2023) trajectories for the final
 20 m/s surface policy. Columns show 4-, 8-, 12-, and 16-SUV formations, while
 rows show nominal formation-center deployment radii of 100, 200, 400, 600, and
-800 km. The color background is the spatially interpolated final-time ERA5
-10 m wind-speed field. Thin colored lines are vehicle trajectories, open
-circles mark initial positions, small red dots mark final vehicle positions,
-and the yellow star marks the TC center at the end of the episode.}
+800 km. For each radius, the formation center is placed at a randomly selected
+bearing relative to the TC center. The color background is the spatially
+interpolated final-time ERA5 10 m wind-speed field. Thin colored lines are
+vehicle trajectories, open circles mark initial positions, small red dots mark
+final vehicle positions, and the yellow star marks the TC center at the end of
+the episode.}
 \label{fig:surface_trajectory_matrix}
 \end{center}
 
