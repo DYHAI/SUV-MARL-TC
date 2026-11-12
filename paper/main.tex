@@ -1132,34 +1132,6 @@ where \(K_e\) indexes the post-transition decision intervals. Distance is
 averaged over SUVs, episode time, and validation segments, then over training
 seeds.
 
-For the execution-filter comparison, let \(L_{i,e}\) be the path length of
-SUV \(i\) in validation segment \(e\), computed from consecutive recorded
-positions, and let \(T_e\) be the corresponding episode duration. The reported
-fleet-mean ground speed is
-\begin{equation}
-\bar v^{(s)}
-=
-\frac{1}{M_s}\sum_{e=1}^{M_s}
-\left[
-\frac{1000}{N\,T_e}\sum_{i=1}^{N}L_{i,e}
-\right],
-\label{eq:mean_ground_speed}
-\end{equation}
-where \(L_{i,e}\) is expressed in km, \(T_e\) in seconds, and the factor 1000
-converts km to m. The reported maximum speed is the mean over validation
-segments of each segment's maximum simulated propulsion speed:
-\begin{equation}
-V_{\mathrm{peak}}^{(s)}
-=
-\frac{1}{M_s}\sum_{e=1}^{M_s}
-\max_{k=0,\ldots,K_e-1}
-\max_{i=1,\ldots,N}s_{i,e,k},
-\label{eq:max_ground_speed}
-\end{equation}
-where \(s_{i,e,k}\) is the effective propulsion speed. Because the final
-surface configuration applies no ocean-current term, this speed is also the
-simulated ground speed.
-
 Surface evaluation covers 4/8/12/16 SUVs on a 100 km ring with equal angular
 spacing. Training samples formation-center offsets within an 800 km radius;
 the trained policies are evaluated at 100, 200, 400, 600, and 800 km. These are
