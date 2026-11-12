@@ -12,6 +12,10 @@ Submersible Unmanned Vessels**.
 
 <img src="paper/figures/Fig1_Surface_Subsurface_Observation.png" alt="Surface and subsurface TC observation" width="900">
 
+### Agent-environment interaction
+
+<img src="paper/figures/Fig2_RL_Agent_Environment_Loop.png" alt="Closed-loop SUV fleet and atmosphere-ocean environment" width="900">
+
 ### Surface tracking
 
 <img src="paper/figures/Fig2_Surface_Trajectory_Evolution.png" alt="Surface SUV tracking trajectories" width="900">
@@ -19,19 +23,12 @@ Submersible Unmanned Vessels**.
 Surface IPPO reaches the lowest final tracking error and time-averaged distance
 across the evaluated fleet sizes, speed limits, and deployment radii.
 
-### Subsurface tracking
+### Deployment-error trajectory matrix
 
-<img src="paper/figures/FigC1_Underwater_Strategy_Trajectories.png" alt="Subsurface SUV tracking trajectories" width="900">
+<img src="paper/figures/Fig4_Surface_Trajectory_Matrix.png" alt="Surface trajectory matrix across fleet sizes and deployment radii" width="900">
 
-At depth, potential field gives the highest mean experienced current, while
-IPPO gives the largest nominal and current-weighted observation coverage.
-
-### Seven-depth comparison
-
-<img src="paper/figures/FigC2_Underwater_Methods_7Depth.png" alt="Seven-depth subsurface strategy comparison" width="900">
-
-Active IPPO samples faster currents and broader areas than random control and
-passive drift. No single subsurface method is best on every metric.
+The trajectory matrix shows how fleet size affects the sampled approach region
+while deployment error determines the required long-range transit.
 
 ## Repository
 
