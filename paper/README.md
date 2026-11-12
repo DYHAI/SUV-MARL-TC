@@ -50,10 +50,9 @@ current-weighted coverage by 2.87--4.99 times relative to passive drift.
 
 ## Classical planner comparison
 
-Appendix Table B.1 in the manuscript compares parameter-sharing IPPO with
-potential-field, receding-horizon A*, lawnmower-coverage, and
-information-greedy planners on the same 500-TC train/test split. Surface
-results cover all 40
+Table 4 in the manuscript compares parameter-sharing IPPO with potential-field,
+receding-horizon A*, lawnmower-coverage, and information-greedy planners on the
+same 500-TC train/test split. Surface results cover all 40
 fleet/speed/deployment configurations and 768 test segments. Subsurface results
 cover seven depths, both propulsion limits, and 500 paired episodes per
 setting.

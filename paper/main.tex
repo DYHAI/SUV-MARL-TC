@@ -1430,22 +1430,43 @@ current. The faster envelope mainly expands the sampled region: relative to
 1.5 m/s, geometric coverage is 1.18--1.34 times larger and current-weighted
 coverage is 1.15--1.30 times larger.
 
-\begin{figure*}[p]
+\begin{table*}[t]
 \centering
-\includegraphics[width=\textwidth,height=0.92\textheight,keepaspectratio]
-  {figures/Fig7_Traditional_Planner_Rendering.pdf}
-\caption{Matched rendered comparison between IPPO and the four traditional
-planners on the same CHAMPI segment. The upper two rows show 12 m/s surface
-trajectories over the ERA5 10 m wind-speed field. The lower two rows show
-1.5 m/s subsurface trajectories at 30 m over the HYCOM current-speed field.
-All methods use the same initial deployment. Panel titles report final and mean
-tracking error for the surface task and mean experienced current for the
-subsurface task. Open circles mark initial positions, triangles mark final
-positions, and the red star marks the TC center.}
-\label{fig:planner_rendering}
-\end{figure*}
+\caption{Comparison with four traditional planning baselines on the held-out
+TC segments from the same 500-TC train/test split. Surface values are means
+over the 4/8/12/16-SUV fleets, both speed limits, and all five deployment
+radii. Subsurface values are means over all seven depths and both propulsion
+limits. For surface tracking, lower errors and paths are better. For
+subsurface observation, higher current and coverage are better.}
+\label{tab:classical_planners}
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\multicolumn{4}{l}{\textbf{Panel A: surface tracking}}\\
+Method & Final error (km) & Mean tracking error (km) & Path per SUV (km)\\
+\midrule
+Parameter-sharing IPPO & \textbf{356.2} & \textbf{356.6} & \textbf{462.3} \\
+Potential field & 413.4 & 404.2 & 728.8 \\
+Receding-horizon A* & 457.2 & 429.4 & 823.9 \\
+Lawnmower coverage & 554.7 & 478.4 & 509.1 \\
+Information greedy & 466.2 & 429.4 & 528.7 \\
+\midrule
+\multicolumn{4}{l}{\textbf{Panel B: subsurface observation}}\\
+Method & Mean current (m/s) & Geometric coverage (km$^2$) & Current-weighted coverage ($10^3$ m\,s$^{-1}$\,km$^2$)\\
+\midrule
+Parameter-sharing IPPO & 0.408 & \textbf{3506} & \textbf{1.599} \\
+Potential field & \textbf{0.452} & 2048 & 1.050 \\
+Receding-horizon A* & 0.427 & 2310 & 1.097 \\
+Lawnmower coverage & 0.408 & 2914 & 1.286 \\
+Information greedy & 0.429 & 1549 & 0.739 \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}
 
-Appendix Table~\ref{tab:classical_planners} compares IPPO with four traditional
+Appendix Figure~\ref{fig:planner_rendering} shows one matched trajectory
+example. Table~\ref{tab:classical_planners} compares IPPO with four traditional
 planners. Its surface panel provides matched context, whereas the subsurface
 panel is the focus of this section. Across all 40 surface configurations,
 IPPO has the lowest final tracking error, mean tracking error, and path length.
@@ -1670,44 +1691,25 @@ Geometric coverage (km\(^2\)) & Current-weighted coverage \\
 
 \clearpage
 \section{Traditional Planner Comparison}
+\setcounter{figure}{0}
+\renewcommand{\thefigure}{B.\arabic{figure}}
+\renewcommand{\theHfigure}{B.\arabic{figure}}
 \setcounter{table}{0}
 \renewcommand{\thetable}{B.\arabic{table}}
 \renewcommand{\theHtable}{B.\arabic{table}}
 
-Table~\ref{tab:classical_planners} gives the aggregate comparison with the four
-traditional planning baselines.
 \begin{center}
-\captionof{table}{Comparison with four traditional planning baselines on the
-held-out TC segments from the same 500-TC train/test split. Surface values are
-means over the 4/8/12/16-SUV fleets, both speed limits, and all five deployment
-radii. Subsurface values are means over all seven depths and both propulsion
-limits. For surface tracking, lower errors and paths are better. For subsurface
-observation, higher current and coverage are better.}
-\label{tab:classical_planners}
-\small
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{@{}lrrr@{}}
-\toprule
-\multicolumn{4}{l}{\textbf{Panel A: surface tracking}}\\
-Method & Final error (km) & Mean tracking error (km) & Path per SUV (km)\\
-\midrule
-Parameter-sharing IPPO & \textbf{356.2} & \textbf{356.6} & \textbf{462.3} \\
-Potential field & 413.4 & 404.2 & 728.8 \\
-Receding-horizon A* & 457.2 & 429.4 & 823.9 \\
-Lawnmower coverage & 554.7 & 478.4 & 509.1 \\
-Information greedy & 466.2 & 429.4 & 528.7 \\
-\midrule
-\multicolumn{4}{l}{\textbf{Panel B: subsurface observation}}\\
-Method & Mean current (m/s) & Geometric coverage (km$^2$) & Current-weighted coverage ($10^3$ m\,s$^{-1}$\,km$^2$)\\
-\midrule
-Parameter-sharing IPPO & 0.408 & \textbf{3506} & \textbf{1.599} \\
-Potential field & \textbf{0.452} & 2048 & 1.050 \\
-Receding-horizon A* & 0.427 & 2310 & 1.097 \\
-Lawnmower coverage & 0.408 & 2914 & 1.286 \\
-Information greedy & 0.429 & 1549 & 0.739 \\
-\bottomrule
-\end{tabular}
-}
+\includegraphics[width=\textwidth,height=0.88\textheight,keepaspectratio]
+  {figures/Fig7_Traditional_Planner_Rendering.pdf}
+\captionof{figure}{Matched rendered comparison between IPPO and the four
+traditional planners on the same CHAMPI segment. The upper two rows show
+12 m/s surface trajectories over the ERA5 10 m wind-speed field. The lower two
+rows show 1.5 m/s subsurface trajectories at 30 m over the HYCOM current-speed
+field. All methods use the same initial deployment. Panel titles report final
+and mean tracking error for the surface task and mean experienced current for
+the subsurface task. Open circles mark initial positions, triangles mark final
+positions, and the red star marks the TC center.}
+\label{fig:planner_rendering}
 \end{center}
 
 \clearpage
