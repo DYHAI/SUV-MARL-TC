@@ -138,7 +138,7 @@ subsurface policies use only local current histories. We compare
 12 m/s surface and 1.5 m/s submerged limits, close to current Blue Whale
 design speeds, with 20 m/s and 2.0 m/s as future upgrades. Compared with four
 traditional planners at surface experiments, the IPPO policy achieves the
-smallest final fleet-to-center distance, which means that the SUVs can reach
+lowest final fleet-to-center distance, which means that the SUVs can reach
 the TC core region more readily and obtain more valuable observations. For the
 surface IPPO policy, we further evaluate ring,
 line, grid, and V-shaped formations. After reaching the TC core region, the
@@ -289,7 +289,7 @@ experienced current, geometric coverage, and current-weighted coverage.
 \item We compare IPPO with four traditional planners, including artificial
 potential field, receding-horizon A*, lawnmower coverage, and
 information-greedy control, under matched local observations, action
-constraints, motion constraints, control intervals, and paired evaluation
+constraints, motion constraints, control intervals, and identical evaluation
 episodes.
 \end{enumerate}
 
@@ -329,7 +329,7 @@ four operational requirements:
 
 \begin{enumerate}
 \item rapid correction of initial deployment errors using surface propulsion;
-\item decentralized tracking of the moving TC using onboard wind observations
+\item tracking of the moving TC using onboard wind observations
 and inter-vehicle observation sharing;
 \item subsurface observation at ocean depths of 0, 10, 20, 30, 40, 50, and
 60 m below the sea surface;
@@ -688,10 +688,9 @@ metadata at mostly 3 or 6 h intervals
 \footnote{IBTrACS download portal:
 \url{https://www.ncei.noaa.gov/products/international-best-track-archive}.}
 \citep{r39}. The dataset-selection domain used to identify candidate systems is
-$98.7^\circ$E--$171.6^\circ$E and $6.8^\circ$N--$56.7^\circ$N. Individual event
-fields are stored on individual TC crops, so a track may extend beyond this
-screening box. The overall event set spans 19 November 2007 to 3 December 2025
-UTC. The surface observation variable is the 10 m wind speed and
+$98.7^\circ$E--$171.6^\circ$E and $6.8^\circ$N--$56.7^\circ$N. The overall
+event set spans 19 November 2007 to 3 December 2025 UTC. The surface observation
+variable is the 10 m wind speed and
 direction, whereas the subsurface observation variables are the horizontal
 current velocity, represented by \texttt{water\_u} and \texttt{water\_v}, and
 the derived current speed over the 0--60 m layer.
@@ -735,9 +734,7 @@ environmental trajectories are precomputed and do not respond to vehicle
 motion; this one-way forcing assumption is appropriate for planning at the
 scale of a TC. The policy receives only local reconstructed
 values at the current time, not future fields or the complete reanalysis map.
-Invalid interpolated values are replaced by a neutral value, and all policy
-observations are checked for finiteness. The best-track center is used only for
-training rewards and evaluation.
+The best-track center is used only for training rewards and evaluation.
 
 Commands are held constant within each decision interval:
 \begin{equation}
@@ -747,7 +744,7 @@ Commands are held constant within each decision interval:
 \label{eq:zero_order_hold}
 \end{equation}
 The environmental fields, TC track, action, and position update use the same
-causal time grid. The 10 min step balances control responsiveness against
+time grid. The 10 min step balances control responsiveness against
 the hourly and three-hourly resolution of the source products; a shorter step
 would add samples without adding resolved information. The same interval is
 used for IPPO and all traditional planners.
@@ -779,7 +776,7 @@ contributes 6,480 segments from 445 usable TCs, whereas the 50 held-out TCs
 contribute 768 segments. The split is made at the TC level, so no TC appears in
 both sets. Segment durations range from 2.2 to 103 h. The median duration was
 16.5 h and the mean was 20.0 h. These segments provide mission-scale
-evaluation windows; battery depletion is not simulated. The platform can carry
+evaluation windows. The platform can carry
 current, CTD, pH,
 chlorophyll, and turbidity sensors \citep{r28}, while the control experiments
 use current velocity as the decision-making observation.
@@ -812,8 +809,7 @@ specifications.
 The second simulation column is a simple parameterization of the present-day
 reference platform, whereas the third represents a possible future-upgrade
 configuration with higher surface and subsurface speeds for comparison. These
-scenarios are modeling assumptions, not certified vehicle data. The 20 h value
-is a common simulation horizon, not a platform-endurance claim.}
+scenarios are modeling assumptions, not certified vehicle data.}
 \label{tab:platform}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{@{}p{0.22\textwidth}p{0.22\textwidth}p{0.22\textwidth}p{0.22\textwidth}@{}}
@@ -851,9 +847,10 @@ Across 32,352 IBTrACS track samples, the median, 95th-percentile, and
 99th-percentile TC translation speeds are 5.14, 13.38, and 20.06 m/s
 (Table~\ref{tab:tc_speed_envelope}). The 12 and 20 m/s surface limits cover
 93.8\% and 98.9\% of these samples, respectively. The submerged limits cover
-only 3.7\% and 7.8%; the subsurface task is local adaptive sampling within the
-200 km initialization region and does not attempt to overtake and follow the
-TC center.
+only 3.7\% and 7.8\% of the samples. For the subsurface task, the SUVs are
+initialized randomly within a 200 km radius of the TC center and perform local
+adaptive sampling; the task does not attempt to overtake or continuously follow
+the moving TC center.
 
 \subsection{Parameter-Sharing Independent PPO}
 \label{subsec:ippo}
@@ -940,9 +937,8 @@ surface and subsurface cases. In the surface comparison, IPPO achieved a final
 error of 312.0 km, compared with 510.0 km for SAC and 526.2 km for TD3. In the
 subsurface comparison, IPPO obtained an episode-level current-weighted coverage
 \(\mathcal C_w\) of 1532.7, compared with 1211.6 for SAC and 1239.8 for TD3.
-IPPO also required no replay buffer in these representative runs. We use IPPO
-for the main, formation, and planner comparisons and treat this algorithm
-comparison as bounded evidence without claiming a universal ranking.
+IPPO also required no replay buffer in these representative runs. We therefore
+use IPPO for the main, formation, and planner comparisons.
 
 The complete reward coefficients, safety parameters, network dimensions, and
 PPO hyperparameters are summarized in Appendix~\ref{app:parameters}.
@@ -1115,8 +1111,9 @@ spacing. Training samples formation-center offsets within an 800 km radius;
 the trained policies are evaluated at 100, 200, 400, 600, and 800 km. These are
 mission-scale test conditions, not tuned deployment optima. Metrics are first
 averaged over validation segments within each seed, then summarized over ten
-seeds. Paired 12-versus-20 m/s tests are two-sided and uncorrected across the
-twenty fleet-size/radius comparisons, so their $p$-values are exploratory.
+seeds. Two-sided 12-versus-20 m/s comparisons on identical evaluation episodes
+are uncorrected across the twenty fleet-size/radius comparisons, so their
+$p$-values are exploratory.
 
 For the subsurface evaluation, each depth from 0, 10, 20, 30, 40, 50, and
 60 m is tested as a separate 20 h configuration with four SUVs and 1.5 or
@@ -1164,7 +1161,7 @@ also report the episode-level current-weighted coverage
 \right]C_e(z),
 \label{eq:current_weighted_coverage}
 \end{equation}
-where \(M\) is the number of paired validation episodes. This quantity assigns
+where \(M\) is the number of identical validation episodes. This quantity assigns
 a higher value to covering a broad region while encountering a strong current
 within that region, without assuming that either objective dominates in every
 episode.
@@ -1188,9 +1185,9 @@ vehicle maintains a private map because communication is disabled. All four
 use the same 10 min interval, speed envelope, circular projection, surface
 safety filter, and subsurface landfall termination. They require no training
 and have no training-seed variance. Surface planners are evaluated
-on all 768 held-out segments. Underwater planners use the same 500 paired
-episodes per depth-speed setting. These episodes comprise 50 test TCs with ten
-deployment seeds each.
+on all 768 held-out segments. Underwater planners use identical sets of 500
+evaluation episodes per depth-speed setting. These episodes comprise 50 test
+TCs with ten deployment seeds each.
 
 \section{Simulation and Results}
 
@@ -1242,11 +1239,12 @@ because finite speed and episode duration cannot remove every initial
 displacement.
 
 The mean tracking error shows the same ordering: 20 m/s has the smaller
-distance in all 20 matched comparisons, with a median 12-minus-20 m/s paired
-difference of 49.7 km. The two-sided paired tests give $p<0.05$ in every case;
-these tests are exploratory because they are not corrected across the 20
-comparisons. The final-error benefit is larger than the mean tracking-error benefit
-at both ends of the deployment range, indicating that the higher-speed policy
+distance in all 20 matched comparisons, with a median 12-minus-20 m/s difference
+of 49.7 km on identical evaluation episodes. The two-sided tests on identical
+evaluation episodes give $p<0.05$ in every case; these tests are exploratory
+because they are not corrected across the 20 comparisons. The final-error
+benefit is larger than the mean tracking-error benefit at both ends of the
+deployment range, indicating that the higher-speed policy
 continues reducing residual separation late in the episode.
 
 The 12 m/s policy reduces path length per SUV by 83.4--220.1 km across the five
@@ -1704,8 +1702,9 @@ the episode.}
 \renewcommand{\theHtable}{B.\arabic{table}}
 
 \begin{center}
-\includegraphics[width=\textwidth,height=0.78\textheight,keepaspectratio]
+\includegraphics[width=\textwidth,height=0.87\textheight,keepaspectratio]
   {figures/Fig7_Traditional_Planner_Rendering.pdf}
+\small
 \captionof{figure}{Comparison between IPPO and the four traditional planners on
 the same CHAMPI segment. The upper two rows show 12 m/s surface trajectories
 over the ERA5 10 m wind-speed field. The lower two rows show 1.5 m/s subsurface
