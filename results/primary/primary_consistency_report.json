@@ -1,0 +1,55 @@
+{
+  "data_and_config": {
+    "tc_count": 400,
+    "train_tcs": 360,
+    "validation_tcs": 40,
+    "segments": 3392,
+    "train_segments": 3130,
+    "validation_segments": 262,
+    "minimum_land_distance_km": 200.4417572021483
+  },
+  "default_paths": {
+    "train_fleet_segment_actfilter.py": true,
+    "train_uwflow_sb3.py": true,
+    "eval_deploy_xfer.py": true,
+    "eval_uwflow_info.py": true,
+    "eval_classical_surface.py": true,
+    "eval_classical_underwater.py": true
+  },
+  "manuscript": {
+    "required_phrases": true,
+    "legacy_phrases_absent": true
+  },
+  "environment_smoke": {
+    "surface_observation_shape": [
+      28
+    ],
+    "surface_action_shape": [
+      2
+    ],
+    "surface_offset_drift_km": 2.469136006766348e-13,
+    "underwater_observation_shape": [
+      4,
+      19
+    ],
+    "underwater_action_shape": [
+      4,
+      2
+    ],
+    "underwater_current_norm_error": 0.0,
+    "coverage_cell_area_km2": 770.0625
+  },
+  "aggregation": {
+    "surface_seed_medians": [
+      2.0,
+      4.0
+    ],
+    "subsurface_seed_means": [
+      4.0,
+      5.0
+    ],
+    "surface_cross_seed_mean": 3.0,
+    "subsurface_cross_seed_mean": 4.5
+  },
+  "status": "pass"
+}

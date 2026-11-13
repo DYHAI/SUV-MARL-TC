@@ -1,0 +1,118 @@
+{
+  "status": "primary_configuration_active_training",
+  "name": "Primary open-ocean single-PPO rigid-formation configuration",
+  "adopted_on": "2026-11-13",
+  "updated_on": "2026-11-14",
+  "open_ocean_definition": {
+    "criterion": "Every 10 min TC-track point in a retained segment is at least 200 km from land.",
+    "exclude_formation_start": true,
+    "exclude_track_tail_freeze": true,
+    "minimum_realized_land_distance_km": 200.4417572021483
+  },
+  "evaluation_aggregation": {
+    "training_seeds": 10,
+    "surface_episode_statistic": "median over validation episodes within each training seed",
+    "surface_seed_statistic": "arithmetic mean of the ten seed-level episode medians",
+    "subsurface_episode_statistic": "arithmetic mean over validation episodes within each training seed",
+    "subsurface_seed_statistic": "arithmetic mean of the ten seed-level episode means",
+    "uncertainty": "sample standard deviation across the ten seed-level values",
+    "applies_to": ["main surface IPPO matrix", "surface execution filtering", "main subsurface IPPO matrix"]
+  },
+  "underwater_observation_metrics": {
+    "coverage_grid_deg": 0.25,
+    "coverage_cell_area_km2": 770.0625,
+    "experienced_current": "time mean of interpolated current speed along each SUV trajectory, averaged over the fleet",
+    "geometric_coverage": "unique 0.25-degree grid cells visited by the fleet union times cell area",
+    "current_weighted_coverage": "episode fleet-mean experienced current multiplied by episode geometric coverage"
+  },
+  "surface_training": {
+    "split_json": "data/typhoon_split_400.json",
+    "segments_csv": "data/segments_primary_400.csv",
+    "segments": 3130,
+    "training_tcs": 360,
+    "total_tcs": 400,
+    "offshore_criterion_km": 200,
+    "exclude_formation_start": true,
+    "exclude_track_tail_freeze": true
+  },
+  "surface_validation": {
+    "split_json": "data/typhoon_split_400.json",
+    "segments_csv": "data/segments_primary_400.csv",
+    "segments": 262,
+    "validation_tcs": 40,
+    "total_tcs": 400,
+    "offshore_criterion_km": 200,
+    "exclude_formation_start": true,
+    "exclude_track_tail_freeze": true
+  },
+  "surface_policy_and_formation": {
+    "algorithm": "PPO",
+    "policy": "single MLP policy for the whole SUV formation",
+    "network_count": 1,
+    "observation": "common formation observation",
+    "action": "one joint 2-D formation action broadcast to every SUV",
+    "formation_mode": "rigid",
+    "formation_geometries": ["ring", "line", "grid", "V"],
+    "main_geometry": "ring",
+    "mean_formation_radius_km": 100.0,
+    "formation_radius_normalization": "Ring, Line, Grid, and V are all normalized to the same mean formation radius of 100 km.",
+    "formation_radius_audit": "constrained_dynamics_experiments/results/formation_radius_audit.json"
+  },
+  "formation_comparison": {
+    "purpose": "matched single-seed sensitivity study",
+    "training_seeds": [0],
+    "fleets": [8],
+    "speeds_ms": [12, 20],
+    "evaluation_radii_km": [100, 200, 400, 600, 800],
+    "formation_radius_km": 100,
+    "metric_aggregation": "median over validation episodes for training seed 0",
+    "claim_limit": "No statistical claim of a universally best formation."
+  },
+  "algorithm_comparison": {
+    "algorithms": ["IPPO", "SAC", "TD3"],
+    "training_steps": 2000000,
+    "seeds": [0, 1],
+    "surface_case": {
+      "fleet_size": 8,
+      "vmax_ms": 12,
+      "formation": "ring",
+      "formation_radius_km": 100,
+      "action_filter_beta": 0.8,
+      "evaluation_radius_km": 400
+    },
+    "underwater_case": {
+      "fleet_size": 4,
+      "vmax_ms": 1.5,
+      "depth_m": 30,
+      "duration_h": 20,
+      "initialization_radius_km": 200
+    },
+    "model_dir": "constrained_dynamics_experiments/models/algorithms_primary",
+    "status": "queued_after_current_training_resources_are_released"
+  },
+  "traditional_algorithms": {
+    "methods": ["potential field", "receding-horizon A*", "lawnmower coverage", "information greedy"],
+    "dataset": "same 400-TC open-ocean train/test split",
+    "surface_evaluation": "all 262 held-out segments",
+    "underwater_evaluation": "40 held-out TCs x 10 deployment seeds per depth-speed setting",
+    "surface_metric_aggregation": "episode median; deterministic planners have no training-seed variance",
+    "subsurface_metric_aggregation": "episode arithmetic mean; deployment seeds are validation realizations"
+  },
+  "recent_comparison": {
+    "result_dir": "constrained_dynamics_experiments/results/no_genesis_comparison",
+    "main_metrics": [
+      "mean_tracking_error_km",
+      "final_tracking_error_km"
+    ],
+    "nearest_tc_metrics_enabled": false
+  },
+  "track_coverage_issue": {
+    "summary_json": "constrained_dynamics_experiments/results/track_coverage_diagnostics/track_coverage_issue_summary.json",
+    "affected_segments_csv": "constrained_dynamics_experiments/results/track_coverage_diagnostics/open_ocean_track_coverage_affected_segments.csv",
+    "non_formation_validation_invalid_segments": 0,
+    "training_invalid_segments": 0,
+    "historical_pre_400_validation_invalid_segments": 2,
+    "historical_pre_400_training_invalid_segments": 36,
+    "status_note": "All segments in data/segments_primary_400.csv satisfy t0 > 0 and remain within the final valid IBTrACS record. Pre-400 checkpoints are not primary; the current rigid-formation training uses the corrected 400-TC data."
+  }
+}

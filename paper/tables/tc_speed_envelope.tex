@@ -1,0 +1,22 @@
+\begin{table*}[t]
+\centering
+\caption{IBTrACS TC translation speeds for the 400-TC dataset.
+The percentages denote the fraction of main- or provisional-track samples not exceeding
+each platform speed. These values describe the speed envelope only;
+tracking also depends on bearing error and remaining segment duration.}
+\label{tab:tc_speed_envelope}
+\small
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+Quantity & P50 & P90 & P95 & P99 & Samples & TCs \\
+\midrule
+TC translation speed (m s$^{-1}$) & 5.14 & 10.29 & 13.89 & 20.58 & 28,506 & 400 \\
+\midrule
+Envelope & \multicolumn{2}{c}{Samples within speed} & \multicolumn{2}{c}{Samples above speed} & \multicolumn{2}{c}{Interpretation} \\
+1.5 m/s submerged & \multicolumn{2}{c}{3.3\%} & \multicolumn{2}{c}{96.7\%} & \multicolumn{2}{l}{local sampling, not TC chasing} \\
+2.0 m/s submerged & \multicolumn{2}{c}{7.0\%} & \multicolumn{2}{c}{93.0\%} & \multicolumn{2}{l}{local sampling, not TC chasing} \\
+12 m/s surface & \multicolumn{2}{c}{93.0\%} & \multicolumn{2}{c}{7.0\%} & \multicolumn{2}{l}{current-platform scenario} \\
+20 m/s surface & \multicolumn{2}{c}{98.8\%} & \multicolumn{2}{c}{1.2\%} & \multicolumn{2}{l}{future-upgrade scenario} \\
+\bottomrule
+\end{tabular}
+\end{table*}

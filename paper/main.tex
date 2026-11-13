@@ -130,15 +130,16 @@ transit rapidly at the surface to TC cores, then dive to observe temperature,
 salinity, currents, and biogeochemical variables. We use simulation-based
 multi-agent reinforcement learning for autonomous observation and
 navigation. The environments combine ERA5 10 m winds and HYCOM currents from 0 to
-60 m with IBTrACS tracks for 500 western North Pacific TCs. A parameter-sharing
-independent proximal policy optimization (IPPO) policy maps shared
-surface-wind observations or local current histories to continuous control
-commands at 10 min intervals. Surface policies use shared wind observations;
-subsurface policies use only local current histories. We compare
+60 m with IBTrACS tracks for 400 western North Pacific TCs. A
+shared-observation independent proximal policy optimization (IPPO) policy
+outputs one joint formation action for all surface SUVs and maps local current
+histories to in-vehicle commands underwater at 10 min intervals. Surface
+SUVs therefore share observations and preserve their initial relative
+positions exactly; subsurface SUVs use only local current histories. We compare
 12 m/s surface and 1.5 m/s submerged limits, close to current Blue Whale
 design speeds, with 20 m/s and 2.0 m/s as future upgrades. Compared with four
 traditional planners at surface experiments, the IPPO policy achieves the
-lowest final fleet-to-center distance, which means that the SUVs can reach
+lowest final tracking error, which means that the SUVs can reach
 the TC core region more readily and obtain more valuable observations. For the
 surface IPPO policy, we further evaluate ring,
 line, grid, and V-shaped formations. After reaching the TC core region, the
@@ -157,7 +158,7 @@ work.
 
 \begin{highlights}
 \item Dual-mode SUVs track surface winds and sample subsurface variables.
-\item Historical atmosphere--ocean environments cover 500 TCs in the western
+\item Historical atmosphere--ocean environments cover 400 TCs in the western
 North Pacific.
 \item Parameter-sharing IPPO is trained for TC observation with 4--16 SUVs.
 \item Comparison between MARL and traditional path-planning algorithms at both
@@ -226,12 +227,14 @@ This study uses the current Blue Whale's surface--subsurface motion capabilities
 as the reference parameterization and evaluates a possible future-upgrade
 configuration as a comparison case. The vehicles are simplified as point
 masses for path planning. In the proposed mission, the surface fleet observes
-10 m winds and follows the moving TC center. Final tracking error measures the
-remaining fleet-to-center separation. At the subsurface, four SUVs are assigned
+10 m winds and follows the moving TC core. Final tracking error measures the
+fleet-center-to-TC-core distance remaining at the end of each surface episode;
+validation values are summarized by the median across episodes. At the
+subsurface, four SUVs are assigned
 to each prescribed layer and seek the strongest observable current.
 Figure~\ref{fig:system_architecture} illustrates this surface-to-subsurface task
 switch; four vehicles are shown at the surface as an example, and the same
-parameter-sharing policy is later evaluated with 4, 8, 12, and 16 SUVs.
+shared-action surface policy is later evaluated with 4, 8, 12, and 16 SUVs.
 
 \begin{figure*}[htbp]
 \centering
@@ -278,14 +281,14 @@ The main contributions of this study are summarized as follows.
 \begin{enumerate}
 \item We construct a unified atmosphere--ocean RL environment by aligning ERA5
 10 m winds, HYCOM currents at seven depths from 0 to 60 m, and IBTrACS tracks.
-The 500-TC archive is divided at the TC level into 450 training TCs and 50
-held-out evaluation TCs.
-\item We evaluate a parameter-sharing IPPO policy with globally shared
-surface-wind observations and decentralized subsurface current histories for
-4-, 8-, 12-, and 16-SUV fleets. Surface policies are tested at 100--800 km
+The final 400-TC dataset is divided at the TC level into 360 training TCs and
+40 held-out evaluation TCs.
+\item We evaluate an IPPO policy with globally shared surface-wind observations
+and one joint formation action for 4-, 8-, 12-, and 16-SUV fleets. Subsurface
+controllers retain decentralized current histories. Surface policies are tested at 100--800 km
 deployment offsets, and subsurface policies are tested at seven depths and two
-propulsion limits. We report final and mean tracking error,
-experienced current, geometric coverage, and current-weighted coverage.
+propulsion limits. Surface tracking statistics use episode medians, whereas
+subsurface current and coverage statistics use episode means.
 \item We compare IPPO with four traditional planners, including artificial
 potential field, receding-horizon A*, lawnmower coverage, and
 information-greedy control, under matched local observations, action
@@ -300,8 +303,10 @@ episodes.
 \caption{Closed-loop interaction between the SUV fleet agent and the
 tropical-cyclone atmosphere--ocean environment. At each 10 min interval, the
 SUV fleet agent perceives environmental information as observations. Its shared
-policy $\pi_\theta$ maps these observations to actions and sends them to the
-environment, which returns a reward and the next state to the agent. In the
+policy $\pi_\theta$ maps the common surface observation to a joint formation
+action. Underwater, each SUV maps its local current-history observation to an
+independent action. The environment returns a reward and the next state to the
+agent. In the
 right panel, the rightmost surface SUV senses the local wind speed and moves
 toward the TC core region. After reaching a more central position, represented
 by the left surface SUV, the first-stage task is completed. The SUV then dives
@@ -317,9 +322,10 @@ adjusting its motion based on the local current information.}
 
 The objective is to coordinate a fleet of submersible unmanned vessels
 (SUVs) to observe a moving tropical cyclone (TC) across the sea surface and
-upper ocean. At the surface, each SUV navigates toward the moving TC center.
-Final tracking error measures the remaining fleet-to-center separation and
-serves as a proxy for access to the near-core high-wind regime. In the
+upper ocean. At the surface, the SUV fleet navigates as a rigid formation toward
+the moving TC core.
+Final tracking error measures the fleet-center-to-TC-core distance remaining at
+the end of the episode and serves as a proxy for access to the near-core high-wind regime. In the
 operational concept, the fleet would descend after entering a predefined
 terminal tracking region. The
 learning experiments evaluate this mission as two separate episodes: a surface
@@ -339,8 +345,8 @@ and inter-vehicle observation sharing;
 The surface maximum speed is varied between 12 and 20 m/s, while the submerged
 maximum propulsion speed is 1.5 or 2.0 m/s. This difference creates an
 asymmetric decision problem: surface propulsion is used to follow the TC and
-reduce the fleet-to-center distance, quantified primarily by the final tracking
-error. At the subsurface, the primary learning objective changes to
+reduce the fleet-center-to-TC-core distance, quantified primarily by the final
+tracking error. At the subsurface, the primary learning objective changes to
 finding and sampling higher-current water, while geometric and current-weighted
 spatial coverage characterize how broadly and how valuably the fleet samples
 the dynamically active region. The four SUVs must balance active propulsion
@@ -424,7 +430,7 @@ desired propulsion velocity before current advection is applied:
 \begin{equation}
 \begin{aligned}
 \mathbf{p}_{i,k}^{\mathrm{des}}
-&=V_{\max}^{m_i}\bar{\mathbf{a}}_{i,k},
+&=V_{\max}^{m_i}\tilde{\mathbf{a}}_{i,k},
 \qquad
 s_{i,k}^{\mathrm{des}}
 =\left\|\mathbf{p}_{i,k}^{\mathrm{des}}\right\|_2,\\
@@ -516,7 +522,7 @@ we assume that descent begins after the surface fleet enters the terminal
 region defined by a final tracking error of at most 200 km. The simulation
 uses this 200 km value as the upper bound on the tracking error at the
 surface-to-subsurface transition and initializes the subsurface vehicles
-within the corresponding 200 km disk around the TC center at the end time of
+within the corresponding 200 km disk around the TC core at the end time of
 the surface segment. Because the present simulation does not model descent
 dynamics, the surface and subsurface stages are represented as two
 time-aligned but state-independent episodes. The descent duration is
@@ -574,8 +580,8 @@ favorable satellite or radio-connected operating mode, which makes it an
 upper-bound assumption. The no-communication underwater case is the
 conservative opposite bound: shared policy parameters are loaded separately on
 each vehicle, but no observation, position, or action is exchanged at runtime.
-The surface payload is $3N$ scalar wind values per vehicle per decision,
-whereas the underwater inter-vehicle message payload is zero.
+The surface payload is one shared vector of $3N$ scalar wind values per fleet
+decision, whereas the underwater inter-vehicle message payload is zero.
 The reported experiments do not model bandwidth, packet loss, acoustic latency,
 or intermittent surfacing. We do not present either the ideal surface link or
 the fully decentralized subsurface case as a validated communication system.
@@ -586,8 +592,8 @@ the heading representation $[\cos\psi_i,\sin\psi_i]$ gives
 $d_o^{\mathrm{u}}=19$.
 
 During training, the reward function can access the distance between each SUV
-and the best-track TC center. This distance supervises the association between
-local 10 m wind patterns and proximity to the TC center/high-wind region; the
+and the best-track TC core. This distance supervises the association between
+local 10 m wind patterns and proximity to the TC core/high-wind region; the
 center coordinate itself is not an actor input. During validation, rewards do
 not influence actions. The trained policy receives only the shared fleet-level
 wind samples and must track an unseen TC, thereby testing whether the learned
@@ -604,9 +610,26 @@ command in both modes:
 \frac{\mathbf{a}_i(t)}
 {\max\left(1,\|\mathbf{a}_i(t)\|_2\right)},\qquad
 \mathbf{p}_i(t)=
-V_{\max}^{m_i(t)}\bar{\mathbf{a}}_i(t).
+V_{\max}^{m_i(t)}\tilde{\mathbf{a}}_i(t).
 \label{eq:normalized_action}
 \end{equation}
+For the surface task, the hard formation constraint is imposed by sharing both
+the observation and the action:
+\begin{equation}
+\mathbf{o}_{i,t}=\mathbf{o}_t,\qquad
+\mathbf{a}_{i,t}=\mathbf{a}_t,
+\qquad i=1,\ldots,N.
+\label{eq:rigid_formation_action}
+\end{equation}
+The formation center is
+$\bar{\mathbf{x}}_{e,t}=N^{-1}\sum_i\mathbf{x}_{i,e,t}$, and the initial
+relative offsets
+$\mathbf{r}_i=\mathbf{x}_{i,e,0}-\bar{\mathbf{x}}_{e,0}$ are held constant.
+Because the surface model excludes water currents and all SUVs receive the same
+dynamic command, each vehicle undergoes the same translation while preserving
+its initial ring, line, grid, or V-shaped geometry. For the subsurface task,
+the action remains vehicle-specific because each SUV observes only its own
+current history.
 This mapping ensures that the desired and effective speeds never exceed the
 mode-specific speed limit. Here \(\bar{\mathbf{a}}_i(t)\) is the executed
 normalized command after action smoothing, unit-disk projection, and any
@@ -617,10 +640,11 @@ underwater stage, the same unit-disk command specifies a desired propulsion
 speed and course. In both stages, the effective speed and heading evolve
 according to the dynamics defined above.
 
-\subsection{Cooperative Dec-POMDP Formulation}\label{subsec:decpomdp}
+\subsection{Cooperative Action Formulation}\label{subsec:decpomdp}
 
-The cooperative task is formulated as a decentralized partially observable
-Markov decision process (Dec-POMDP):
+The cooperative task uses a shared-action partially observable Markov decision
+process at the surface and a decentralized partially observable Markov decision
+process (Dec-POMDP) at the subsurface:
 \begin{equation}
 \mathcal{M}=
 \left\langle
@@ -645,17 +669,30 @@ function. The shared team reward before clipping is
 $\bar r_t=N^{-1}\sum_{i=1}^{N}r_{i,t}$, where
 $r_{i,t}$ is the $i$th element of
 $R(s_t,\mathbf{a}_t,s_{t+1})$, and $\gamma$ is the discount factor.
+For the surface stage, $\mathcal{A}_i=\mathcal{A}$ and
+$\Omega_i=\Omega$ for every SUV, and the joint action is constrained to
+$\mathbf{a}_{1,t}=\cdots=\mathbf{a}_{N,t}=\mathbf{a}_t$. The resulting process
+is a centralized partially observable control problem for the rigid formation.
+For the subsurface stage, the action and observation spaces remain
+vehicle-specific as in a conventional Dec-POMDP.
 
 At each 10 min interval, the policy forms a closed
 perception--decision--action loop and does not follow a precomputed route:
 \begin{equation}
 \begin{aligned}
-\mathbf{o}_{i,t}
-&\longrightarrow
-\mathbf{a}_{i,t}=\pi_\theta(\mathbf{o}_{i,t})\\
-&\longrightarrow
+\text{surface: }&
+\mathbf{o}_{t}\rightarrow
+\mathbf{a}_{t}=\pi_\theta(\mathbf{o}_{t})
+\rightarrow
+\{\mathbf{x}_{i,t+1}\}_{i=1}^{N}
+\rightarrow
+\mathbf{o}_{t+1},\\
+\text{subsurface: }&
+\mathbf{o}_{i,t}\rightarrow
+\mathbf{a}_{i,t}=\pi_\theta(\mathbf{o}_{i,t})
+\rightarrow
 \mathbf{x}_{i,t+1}
-\longrightarrow
+\rightarrow
 \mathbf{o}_{i,t+1}.
 \end{aligned}
 \label{eq:closed_loop}
@@ -688,8 +725,8 @@ metadata at mostly 3 or 6 h intervals
 \footnote{IBTrACS download portal:
 \url{https://www.ncei.noaa.gov/products/international-best-track-archive}.}
 \citep{r39}. The dataset-selection domain used to identify candidate systems is
-$98.7^\circ$E--$171.6^\circ$E and $6.8^\circ$N--$56.7^\circ$N. The overall
-event set spans 19 November 2007 to 3 December 2025 UTC. The surface observation
+$98.7^\circ$E--$171.6^\circ$E and $6.8^\circ$N--$56.7^\circ$N. The TC events
+span October 2007 to December 2025 UTC. The surface observation
 variable is the 10 m wind speed and
 direction, whereas the subsurface observation variables are the horizontal
 current velocity, represented by \texttt{water\_u} and \texttt{water\_v}, and
@@ -699,7 +736,7 @@ temporal resolutions used to construct the simulation environments.
 
 \begin{table*}[htbp]
 \centering
-\caption{Environmental datasets used to construct the 500-TC observation
+\caption{Environmental datasets used to construct the 400-TC observation
 environments. The dataset integrates ERA5 surface winds, HYCOM currents at
 seven depths, and IBTrACS best tracks.}
 \label{tab:data}
@@ -768,14 +805,20 @@ increments in degrees, and 111 km is the mean meridional arc length per degree.
 Target segment lengths are sampled uniformly from 300--500 km, with a fixed
 250 km stride, 50--250 km overlap, and an average overlap of about 150 km.
 Residual track shorter than 300 km is discarded. After assignment to 10 min
-track samples, realized lengths range from 292.1 to 507.1 km, with a median of
-396.4 km.
+track samples, the final realized lengths range from 292.1 to 505.5 km, with a
+median of 396.1 km.
 
-The 500-TC dataset yields 7,248 segments from 495 TCs. The 450-TC training split
-contributes 6,480 segments from 445 usable TCs, whereas the 50 held-out TCs
-contribute 768 segments. The split is made at the TC level, so no TC appears in
-both sets. Segment durations range from 2.2 to 103 h. The median duration was
-16.5 h and the mean was 20.0 h. These segments provide mission-scale
+The IBTrACS archive contains 540 tropical cyclones in the study domain between
+October 2007 and December 2025 UTC. We retain TCs with aligned ERA5 and HYCOM
+products and apply two data-quality screens. First, for each candidate segment,
+every 10 min TC position must remain at least 200 km from land. Second, we
+remove segments that start at the TC formation boundary (\(t_0=0\)) and
+segments that extend beyond the final valid IBTrACS timestamp; the latter
+prevents constant-position extrapolation at the end of a track. The resulting
+400-TC dataset contains 3,392 segments. The 360 training TCs contribute 3,130
+segments, whereas the 40 held-out TCs contribute 262 segments. The split is made
+at the TC level, so no TC appears in both sets. Segment durations range from 2.2
+to 97.5 h. The median duration was 15.3 h and the mean was 17.7 h. These segments provide mission-scale
 evaluation windows. The platform can carry
 current, CTD, pH,
 chlorophyll, and turbidity sensors \citep{r28}, while the control experiments
@@ -788,9 +831,9 @@ use current velocity as the decision-making observation.
 Each SUV is represented by a horizontal point mass model with mode-dependent speed
 bounds and position updates from
 Eqs.~\eqref{eq:speed_constraint}--\eqref{eq:platform_motion}. The surface actor
-uses globally shared 10 m wind observations and its normalized velocity,
-whereas the underwater actor uses a causal five-frame history of its local
-current and normalized velocity. The surface control variable is defined in the
+uses globally shared 10 m wind observations and outputs one common velocity
+command for the rigid formation, whereas the underwater actor uses a causal
+five-frame history of its local current and normalized velocity. The surface control variable is defined in the
 Earth-fixed frame as a desired ground velocity. Therefore, ocean-current
 compensation is not included as a separate term in the surface position update.
 Underwater motion retains advection because 1.5--2.0 m/s propulsion is
@@ -843,35 +886,35 @@ Surface formation & -- & 100 km ring, $360^\circ/N$ &
 \end{tabular}}
 \end{table*}
 
-Across 32,352 IBTrACS track samples, the median, 95th-percentile, and
-99th-percentile TC translation speeds are 5.14, 13.38, and 20.06 m/s
+Across 28,506 IBTrACS track samples, the median, 95th-percentile, and
+99th-percentile TC translation speeds are 5.14, 13.89, and 20.58 m/s
 (Table~\ref{tab:tc_speed_envelope}). The 12 and 20 m/s surface limits cover
-93.8\% and 98.9\% of these samples, respectively. The submerged limits cover
-only 3.7\% and 7.8\% of the samples. For the subsurface task, the SUVs are
-initialized randomly within a 200 km radius of the TC center and perform local
+93.0\% and 98.8\% of these samples, respectively. The submerged limits cover
+only 3.3\% and 7.0\% of the samples. For the subsurface task, the SUVs are
+initialized randomly within a 200 km radius of the TC core and perform local
 adaptive sampling; the task does not attempt to overtake or continuously follow
-the moving TC center.
+the moving TC core.
 
 \subsection{Parameter-Sharing Independent PPO}
 \label{subsec:ippo}
 
-All SUVs contribute to the same observation and tracking objective, and the
-training return is defined as the team-average reward. This return defines a
-fully cooperative task. Its reward structure motivates the
-use of IPPO, in which decentralized vehicle actions are optimized against a
-common team objective while policy parameters are shared across vehicles.
+All SUVs contribute to the same tracking objective, and the training return is
+defined as the team-average reward. At the surface, the cooperative task is
+represented by a single joint formation action for the whole fleet. At the
+subsurface, each SUV retains an independent action and local observation.
 
-In this paper, IPPO denotes the cooperative and parameter-sharing implementation
-of independent PPO. All SUVs use the same actor and critic weights, while their
-observations and action samples remain vehicle-specific. Actions are sampled
-independently, and the per-agent values are summed for training without a
-global-state centralized critic. The main surface model uses a memoryless
-multilayer perceptron, whereas the active underwater controller uses a
-five-frame current history. The shared cooperative return is the team-average
-reward, with value estimate
-\(V_\phi(\mathbf{o}_t)=\sum_{i\in\mathcal{I}}
-v_\phi(\mathbf{o}_{i,t})\), and a single clipped PPO objective is optimized
-over the factorized multi-agent action vector:
+For the surface task, IPPO optimizes one two-dimensional joint formation action
+from the shared fleet observation, and every SUV executes this same action.
+The fixed relative offsets in Eq.~\eqref{eq:rigid_formation_action} constitute
+a hard constraint rather than a reward penalty. For the subsurface task, IPPO
+uses parameter sharing with vehicle-specific observations and action samples.
+The main surface model uses a memoryless multilayer perceptron, whereas the
+active underwater controller uses a five-frame current history. The shared
+cooperative return is the team-average reward. The surface value estimate is
+\(V_\phi(\mathbf{o}_t)=v_\phi(\mathbf{o}_t)\), whereas the subsurface estimate
+sums the local values, \(V_\phi(\mathbf{o}_t)=\sum_{i\in\mathcal{I}}
+v_\phi(\mathbf{o}_{i,t})\). A single clipped PPO objective is optimized over
+the surface formation action or the factorized multi-agent subsurface action:
 \begin{equation}
 \begin{aligned}
 L^{\mathrm{CLIP}}(\theta)
@@ -896,12 +939,16 @@ where
 \end{equation}
 and $\hat A_t$ is estimated by generalized advantage estimation from the
 team-average reward. The actor objective is complemented by a clipped value
-loss and an entropy bonus. During execution, each SUV computes its action from
-its own observation and the shared policy network. The complete training and
+loss and an entropy bonus. For the surface stage, the product in
+Eq.~\eqref{eq:ratio} reduces to the single shared-action likelihood. For the
+subsurface stage, it retains the vehicle-specific likelihoods. During surface
+execution, one policy query produces $\mathbf{a}_t$, which is transmitted
+unchanged to every SUV. Underwater, each SUV computes its own action from its
+local observation and the shared policy network. The complete training and
 deployment procedure is summarized in Algorithm~\ref{alg:ippo_training}.
 
 \begin{algorithm*}[t]
-\caption{Training and deployment of parameter-sharing IPPO}
+\caption{Training and deployment of shared-action surface IPPO and independent subsurface IPPO}
 \label{alg:ippo_training}
 \begin{algorithmic}[1]
 \REQUIRE Training TC split, stage-specific environment, fleet size $N$,
@@ -909,13 +956,20 @@ speed limit $V_{\max}$, reward coefficients, and random seed
 \ENSURE Shared actor and critic parameters
 \STATE Initialize the actor, critic, and parallel environment workers
 \FOR{training iteration $m=1,\ldots,M$}
-  \STATE Reset the stage-specific environment and obtain
-  $\mathbf{o}_{i,t}$ for all $i=1,\ldots,N$
+  \STATE Reset the stage-specific environment and obtain the common surface
+  observation $\mathbf{o}_t$, or the local observations
+  $\mathbf{o}_{i,t}$ for all $i=1,\ldots,N$ underwater
   \FOR{rollout step $t$}
-    \STATE Sample or select an action for each SUV from
-    $\pi_\theta(\cdot\mid\mathbf{o}_{i,t})$
-\STATE Apply the stage-specific action filter, project each agent's action
-onto the unit disk, and apply the safety filter
+    \IF{surface stage}
+      \STATE Sample or select one joint formation action
+      $\mathbf{a}_t\sim\pi_\theta(\cdot\mid\mathbf{o}_t)$ as the joint
+      formation action for all SUVs
+    \ELSE
+      \STATE Sample or select a local action for each SUV from
+      $\pi_\theta(\cdot\mid\mathbf{o}_{i,t})$
+    \ENDIF
+    \STATE Apply the stage-specific action filter, unit-disk projection, and
+    common formation safety filtering
     \STATE Advance all SUVs and collect the team-average reward
   \ENDFOR
   \STATE Compute GAE advantages and returns for the team-average reward
@@ -924,8 +978,9 @@ onto the unit disk, and apply the safety filter
 \STATE Freeze the actor and load the same parameters on every SUV
 \FOR{each deployment episode}
   \STATE Observe local or shared data according to the stage communication model
-  \STATE Compute $\mathbf{a}_{i,t}$ from the shared actor
-\STATE Apply action smoothing, circular projection, and safety filtering
+  \STATE Compute the shared surface action, or the local subsurface action,
+  from the policy
+  \STATE Apply action smoothing, circular projection, and safety filtering
   \STATE Execute the action and observe the next state
 \ENDFOR
 \end{algorithmic}
@@ -933,12 +988,11 @@ onto the unit disk, and apply the safety filter
 
 To compare reinforcement-learning algorithm choices, IPPO, SAC, and TD3 were
 trained for the same \(2\times10^6\) environment steps on representative
-surface and subsurface cases. In the surface comparison, IPPO achieved a final
-error of 312.0 km, compared with 510.0 km for SAC and 526.2 km for TD3. In the
-subsurface comparison, IPPO obtained an episode-level current-weighted coverage
-\(\mathcal C_w\) of 1532.7, compared with 1211.6 for SAC and 1239.8 for TD3.
-IPPO also required no replay buffer in these representative runs. We therefore
-use IPPO for the main, formation, and planner comparisons.
+surface and subsurface cases with two independent training seeds. Surface
+metrics are summarized by episode medians and underwater metrics by episode
+means before averaging across the two seeds. This comparison is used only as
+bounded algorithm-choice evidence. IPPO requires no replay buffer and is
+therefore used for the main, formation, and planner comparisons.
 
 The complete reward coefficients, safety parameters, network dimensions, and
 PPO hyperparameters are summarized in Appendix~\ref{app:parameters}.
@@ -948,8 +1002,10 @@ PPO hyperparameters are summarized in Appendix~\ref{app:parameters}.
 The surface objective is to follow the translating TC as closely as possible
 and reach the high-wind region, with the final tracking error as the
 primary operational metric. Let $d_{i,k+1}$ denote the post-transition
-distance from SUV $i$ to the TC center after executing the command at decision
-step $k$. The surface reward used in the implementation is
+distance from SUV $i$ to the TC core after executing the command at decision
+step $k$, and let $\bar{\mathbf{a}}_{i,k}$ denote the executed command after
+filtering and unit-disk projection. The surface reward used in the
+implementation is
 \begin{equation}
 \begin{aligned}
 r_i^{\mathrm{surf}}={}&
@@ -976,7 +1032,7 @@ premature policy collapse during early training. After aggregation over SUVs,
 the team average reward is clipped to $[-5,2]$.
 
 For subsurface observation, four SUVs are assigned to each prescribed depth.
-Their primary objective is not to follow the surface TC center directly, but to
+Their primary objective is not to follow the surface TC core directly, but to
 observe the highest possible current speed. Geometric and current-weighted
 spatial coverage are then evaluated as complementary measures of observation
 extent and observation value. Low-speed SUVs cannot generally overtake a
@@ -999,8 +1055,7 @@ R_{\max}
 where $V_{\mathrm{norm}}=1.0$ m/s, $R_{\max}=2.0$,
 $\lambda_a=0.05$, and $\beta_{\parallel}=0.5$. The term
 $-\lambda_a\|\tilde{\mathbf{a}}_{i,k}\|_2^2$ penalizes large normalized
-propulsion commands and regularizes the action magnitude. It is not a
-calibrated battery-energy or power-consumption model. The angle $\theta_i$
+propulsion commands and regularizes the action magnitude. The angle $\theta_i$
 denotes the direction difference between the effective propulsion velocity and
 the pre-move current
 $\mathbf{u}_{i,k}$, so the positive-alignment term is activated only when the
@@ -1039,11 +1094,10 @@ reward discourages trajectories near land, and the safety filter removes the
 onshore action component when an SUV approaches the shoreline. For the
 subsurface stage, the nearshore penalty is retained and an episode is truncated
 at landfall, but offshore-only initialization and action-level safety filtering
-are not applied. These mechanisms reduce land exposure in the surface results
-but do not guarantee offshore operation for every vehicle position.
+are not applied.
 
-To reduce oscillatory control, the main surface experiments use an exponential
-action filter:
+To reduce control oscillations and thereby lower mean speed and shorten path
+length, the main surface experiments use an exponential action filter:
 \begin{equation}
 \mathbf{a}^{\mathrm{filt}}_k=
 (1-\beta)\mathbf{a}^{\mathrm{raw}}_k+
@@ -1061,112 +1115,171 @@ and speed mapping in Eq.~\eqref{eq:normalized_action}.
 
 The center-distance reward is used only during training and is absent from
 validation. Validation tests whether a trained policy can infer the TC direction
-from wind observations in unseen events. The primary surface
-metric is the final fleet-averaged SUV-to-TC-center distance. A smaller value
-places the fleet closer to the TC center, where near-core winds are generally
-stronger. Mean tracking error is reported as a secondary process diagnostic.
+from wind observations in unseen events. The primary surface metric is the
+final tracking error, defined for each validation episode as the
+fleet-center-to-TC-core distance at the final time step. A smaller value places
+the fleet closer to the TC core, where near-core winds are generally stronger.
+The mean tracking error is the episode-level time average of the
+fleet-center-to-TC-core distance and is reported as a secondary process
+diagnostic. For both indicators, the reported validation statistic is the
+median across validation episodes rather than the arithmetic mean.
+Subsurface metrics instead use the arithmetic mean over validation episodes
+within each trained policy seed; the reported uncertainty is the sample
+standard deviation of those seed-level means.
 
-For training seed \(s\) and its validation dataset, the seed-level value is
+For episode \(e\) at decision step \(k\), the formation center is
+\begin{equation}
+\bar{\mathbf{x}}_{e,k}
+=
+\frac{1}{N}\sum_{i=1}^{N}\mathbf{x}_{i,e,k}.
+\label{eq:surface_formation_center}
+\end{equation}
+For episode \(e\), the episode-level mean tracking error is
+\begin{equation}
+d_{e}^{\mathrm{avg}}
+=
+\frac{1}{K_e}
+\sum_{k=1}^{K_e}
+\left\|
+\bar{\mathbf{x}}_{e,k}
+-
+\mathbf{x}_{\mathrm{TC},e,k}
+\right\|_2,
+\label{eq:episode_time_average_distance}
+\end{equation}
+where \(K_e\) is the number of post-transition decision intervals. For training
+seed \(s\), the reported final and mean tracking errors are the medians over
+validation episodes:
 \begin{equation}
 D_{\mathrm{final}}^{(s)}
 =
-\frac{1}{M_s}
-\sum_{e=1}^{M_s}
-\frac{1}{N}
-\sum_{i=1}^{N}
+\operatorname*{median}_{e=1,\ldots,M_s}
 \left\|
-\mathbf{x}_{i,e}(T_e)
+\bar{\mathbf{x}}_{e}(T_e)
 -
 \mathbf{x}_{\mathrm{TC},e}(T_e)
 \right\|_2,
 \label{eq:final_tracking_error}
 \end{equation}
-where \(T_e\) is the final decision time of validation segment \(e\), and
-\(M_s\) is the number of validation segments. Results are averaged over ten
-training seeds and reported with the sample standard deviation.
-
-The process-level fleet-mean tracking error for the same seed is
 \begin{equation}
-D_{\mathrm{avg}}^{(s)}
+D_{\mathrm{mean}}^{(s)}
 =
-\frac{1}{M_s}
-\sum_{e=1}^{M_s}
-\frac{1}{K_e}
-\sum_{k=1}^{K_e}
-\frac{1}{N}
-\sum_{i=1}^{N}
-\left\|
-\mathbf{x}_{i,e,k}
--
-\mathbf{x}_{\mathrm{TC},e,k}
-\right\|_2,
+\operatorname*{median}_{e=1,\ldots,M_s}
+d_{e}^{\mathrm{avg}},
 \label{eq:time_averaged_distance}
 \end{equation}
-where \(K_e\) indexes the post-transition decision intervals. Distance is
-averaged over SUVs, episode time, and validation segments, then over training
-seeds.
+where \(T_e\) is the final decision time of validation episode \(e\), \(M_s\)
+is the number of validation episodes, and distance is computed from the
+formation center rather than from each SUV independently. The reported value
+is the arithmetic mean of the seed-level medians.
+The traditional planners are deterministic and have no training seed. Their
+reported statistics are therefore medians over all paired validation
+episodes; different deployment realizations are treated as validation
+episodes, not as trained-model seeds.
+
+The median is used because episode-level tracking errors are strongly
+right-skewed. A small number of episodes can produce terminal errors far above
+the typical case, particularly when another active TC produces a competing
+wind signature or when the local wind field provides a weak and unstable
+centre-directed gradient. An arithmetic mean would let these rare cases
+dominate the reported central tendency even though they do not represent
+nominal operation. These cases remain in the evaluation and are discussed
+explicitly in Section~\ref{subsec:surface_results} and in the limitations,
+rather than being silently removed from the evaluation set.
 
 Surface evaluation covers 4/8/12/16 SUVs on a 100 km ring with equal angular
-spacing. Training samples formation-center offsets within an 800 km radius;
-the trained policies are evaluated at 100, 200, 400, 600, and 800 km. These are
-mission-scale test conditions, not tuned deployment optima. Metrics are first
-averaged over validation segments within each seed, then summarized over ten
-seeds. Two-sided 12-versus-20 m/s comparisons on identical evaluation episodes
-are uncorrected across the twenty fleet-size/radius comparisons, so their
-$p$-values are exploratory.
+spacing. The formation-center offset represents the random position error of a
+TC track forecast: it is equivalent to deploying the fleet at the corresponding
+distance from the true TC core with a randomly selected bearing, after which
+the SUVs move toward the TC. During training, formation-center offsets are
+sampled uniformly within an 800 km radius, covering deployment-error scenarios
+from 0 to 800 km. During evaluation, the trained policies are tested at fixed
+radii of 100, 200, 400, 600, and 800 km to quantify how the magnitude of the
+forecast-induced deployment error affects tracking performance. Metrics are
+first summarized by the median over validation episodes within each seed and
+then averaged across independent training seeds.
 
 For the subsurface evaluation, each depth from 0, 10, 20, 30, 40, 50, and
 60 m is tested as a separate 20 h configuration with four SUVs and 1.5 or
-2.0 m/s speed limits. The 200 km terminal surface tracking error marks the
-assumed start of descent and is used as the upper bound of the subsurface
-initialization radius at the corresponding surface-segment end time. The
-descent time is neglected: each SUV is initialized directly at its assigned
-depth. The surface endpoint positions themselves are not transferred. There
-is no inter-vehicle communication, so each SUV uses only its own five-frame
-current history and propulsion state.
+2.0 m/s speed limits. We assume that, after tracking under the 0--800 km random
+surface deployment errors, the fleet reaches a core region within 200 km of the
+TC core and begins descent. Underwater performance is evaluated under this
+condition. Because descent time and vehicle-by-vehicle endpoint transfer are
+not modeled, each SUV is initialized directly at its assigned depth, with the
+formation center sampled uniformly within a 0--200 km radius of the TC core.
+Thus, 200 km represents the current upper bound of the residual random position
+error of the formation center relative to the TC core at the
+surface-to-subsurface transition, rather than a fixed operating limit. As SUV
+performance improves, this core-region threshold could be tightened to 100 or
+50 km; the present experiments use 200 km. There is no inter-vehicle
+communication, so each SUV uses only its own five-frame current history and
+propulsion state.
 IPPO and the traditional planners are evaluated on the same episodes,
 deployment seeds, motion model, and speed bound. The IPPO policy uses its
 deterministic mean action during evaluation.
 
-For evaluation reporting, let \(K\) be the number of recorded position
-increments and let \(k=0,\ldots,K\) index the archived positions. The mean
-experienced current speed and geometric coverage are
+For underwater evaluation, we consider three metrics: mean experienced current
+speed, geometric coverage, and current-weighted coverage. The first metric
+measures the current intensity encountered along each SUV's trajectory. Let
+\(K\) be the number of recorded position increments, let \(k=0,\ldots,K\)
+index the archived positions, and let \(z\) denote the observation depth. The
+time-averaged experienced current speed of SUV \(i\) in episode \(e\) is
 \begin{equation}
-\bar V_i(z)=\frac{1}{K+1}\sum_{k=0}^{K}
+\bar V_{i,e}(z)=\frac{1}{K_e+1}\sum_{k=0}^{K_e}
 \left\|\mathbf{u}_{\mathrm{ocean}}
 (\mathbf{x}_{i,k},z,t_k)\right\|_2.
 \label{eq:experienced_current}
 \end{equation}
+where only valid ocean positions are included; a terminal on-land position is
+excluded from the current and coverage statistics.
+The reported fleet value is the average
+\(N^{-1}\sum_{i=1}^{N}\bar V_{i,e}(z)\). A higher value indicates that the SUVs
+spent more of their trajectories in stronger-current regions, but this metric
+does not quantify how broadly the fleet sampled the surrounding area.
+
+Geometric coverage measures the unique ocean area sampled by the fleet in
+episode \(e\):
 \begin{equation}
-C(z)=A_{\mathrm{cell}}
+C_e(z)=A_{\mathrm{cell}}
 \left|
-\bigcup_{i=1}^{N}\bigcup_{k=0}^{K}
+\bigcup_{i=1}^{N}\bigcup_{k=0}^{K_e}
 \mathcal{G}(\mathbf{x}_{i,k})
 \right|,
 \label{eq:underwater_coverage}
 \end{equation}
 where \(\mathcal{G}(\mathbf{x})\) is the \(0.25^\circ\) grid cell containing
-position \(\mathbf{x}\), \(|\cdot|\) counts unique cells, and
-\(A_{\mathrm{cell}}\approx(0.25^\circ\times111\ \mathrm{km})^2\) is the nominal
-grid-cell area used for cross-method comparison.
-The figures report the fleet means
-\(N^{-1}\sum_{i=1}^{N}\bar V_i(z)\) and the geometric coverage \(C(z)\). Because
-neither current intensity nor coverage alone captures observation value, we
-also report the episode-level current-weighted coverage
+position \(\mathbf{x}\), using the lower-left corner of the aligned event
+domain as the grid origin; \(|\cdot|\) counts unique cells, and
+\(A_{\mathrm{cell}}\approx(0.25^\circ\times111\ \mathrm{km})^2\approx770.06\
+\mathrm{km}^2\) is the nominal grid-cell area used for cross-method comparison.
+A larger \(C_e(z)\) indicates a
+broader spatial sampling footprint, while repeatedly visiting the same cell
+does not increase this metric. Coverage alone, however, does not distinguish
+whether the sampled cells contain strong or weak currents.
+
+To represent both current intensity and spatial extent, we define the
+episode-level current-weighted coverage
 \begin{equation}
-\mathcal{C}_{\mathrm{w}}(z)=
-\frac{1}{M}\sum_{e=1}^{M}
+\mathcal{C}_{\mathrm{w},e}(z)=
 \left[
 \frac{1}{N}\sum_{i=1}^{N}\bar V_{i,e}(z)
 \right]C_e(z),
 \label{eq:current_weighted_coverage}
 \end{equation}
-where \(M\) is the number of identical validation episodes. This quantity assigns
-a higher value to covering a broad region while encountering a strong current
-within that region, without assuming that either objective dominates in every
-episode.
+and aggregate it by taking the arithmetic mean over validation episodes within
+each training seed, followed by the mean and sample standard deviation of the
+seed-level means. This quantity assigns a higher value when strong-current
+observations are combined with a broad sampling footprint. It therefore
+captures observation value more directly than either the mean experienced
+current or geometric coverage alone.
+
+For all three underwater metrics, values are first averaged over the validation
+episodes within each training seed and then averaged across the ten independent
+seeds.
 \subsection{Traditional Planning Baselines}\label{subsec:classical_planning}
 
+To provide a non-learned reference for the learned cooperative policy, we next
+introduce four traditional planning baselines.
 We include four non-learned planners as secondary references
 \citep{r44,r46,r48}. The artificial-potential-field planner moves along the
 local gradient of observed wind or current speed and adds an offshore
@@ -1178,15 +1291,15 @@ between vehicles and uses no environmental value map. The information-greedy
 planner evaluates eight candidate unit actions and selects the one with the
 largest predicted local wind or current value plus the coastal preference.
 
-None of the planners receives the TC center, the complete reanalysis field,
+None of the planners receives the TC core, the complete reanalysis field,
 future frames, or the learned policy state. Surface planners use the same
 shared wind samples and fleet navigation state as IPPO. Underwater, each
 vehicle maintains a private map because communication is disabled. All four
 use the same 10 min interval, speed envelope, circular projection, surface
-safety filter, and subsurface landfall termination. They require no training
-and have no training-seed variance. Surface planners are evaluated
-on all 768 held-out segments. Underwater planners use identical sets of 500
-evaluation episodes per depth-speed setting. These episodes comprise 50 test
+safety filter. They require no training and have no training-seed variance.
+Surface planners are evaluated
+on all 262 held-out segments. Underwater planners use identical sets of 400
+evaluation episodes per depth-speed setting. These episodes comprise 40 test
 TCs with ten deployment seeds each.
 
 \section{Simulation and Results}
@@ -1195,8 +1308,8 @@ TCs with ten deployment seeds each.
 
 Using the evaluation protocol in Section~\ref{subsec:evaluation}, we evaluate
 the trained surface policies across four fleet sizes, two speed limits, five
-deployment radii, and ten independent training seeds. Final tracking error in
-Eq.~\eqref{eq:final_tracking_error} is the primary metric. Mean tracking error
+deployment radii, and ten independent training seeds. Final tracking error
+in Eq.~\eqref{eq:final_tracking_error} is the primary metric. Mean tracking error
 is a secondary diagnostic of how closely the fleet remains to the
 moving TC, while path length and mean ground speed characterize motion demand.
 
@@ -1207,8 +1320,12 @@ moving TC, while path length and mean ground speed characterize motion demand.
 \caption{Four-SUV surface-tracking process for KHANUN (2023) at the 20 m/s
 speed limit. The four panels show the initial deployment and subsequent
 states at approximately 6.5, 13.0, and 19.5 h. The color background is the
-spatially interpolated ERA5 10 m wind-speed field at each time. Small red dots
-mark vehicle positions, and the yellow star marks the TC center.}
+spatially interpolated ERA5 10 m wind-speed field at each time. The formation
+center is deployed at a fixed distance of 400 km from the TC core using a
+randomly selected bearing. The fleet continually adjusts its trajectory toward
+the TC core, and the displayed fleet-center-to-TC-core distance decreases
+from 400.0 km at deployment to 44.8 km at the end of the episode. Small red
+dots mark vehicle positions, and the yellow star marks the TC core.}
 \label{fig:surface_trajectory_evolution}
 \end{figure*}
 
@@ -1217,10 +1334,10 @@ mark vehicle positions, and the yellow star marks the TC center.}
 \includegraphics[width=\textwidth]
   {figures/Fig3_Surface_Vmax_Distance_Comparison.pdf}
 \caption{SUV surface tracking performance across deployment errors. The left panel
-shows the fleet-mean tracking error to the TC center, representing whether
-the fleet remains close to the moving TC throughout an episode. The right
-panel shows the final tracking error to the TC center at the end of the episode;
-smaller values indicate a closer final position relative to the TC center. Colors denote
+shows the mean tracking error, defined as the mean fleet-center-to-TC-core
+distance throughout an episode. The right panel shows the final tracking error,
+defined as the fleet-center-to-TC-core distance at the end of the episode;
+smaller values indicate a closer fleet center to the TC core. Colors denote
 fleet sizes and line styles denote the 20 and 12 m/s speed limits. Each point
 summarizes ten independent training runs using ten random seeds. Error bars
 show the sample standard deviation.}
@@ -1229,10 +1346,10 @@ show the sample standard deviation.}
 
 Figure~\ref{fig:surface_vmax_comparison} reports the population-level
 speed-limit comparison. Averaged over fleet sizes and training seeds, the
-20 m/s policy obtains final errors of 204.8, 217.2, 272.5, 379.3, and 540.8 km
+20 m/s policy obtains final tracking errors of 204.8, 217.2, 272.5, 379.3, and 540.8 km
 at deployment radii of 100, 200, 400, 600, and 800 km. The corresponding
 12 m/s values are 236.7, 255.1, 335.5, 468.4, and 651.3 km. Thus, 20 m/s gives
-the lower final error in all 20 matched fleet-size/radius comparisons, and its
+the lower final tracking error in all 20 matched fleet-size/radius comparisons, and its
 fleet-averaged advantage grows from 31.9 km at 100 km to 110.5 km at 800 km.
 Both policies remain farther from the center as deployment error increases,
 because finite speed and episode duration cannot remove every initial
@@ -1242,8 +1359,8 @@ The mean tracking error shows the same ordering: 20 m/s has the smaller
 distance in all 20 matched comparisons, with a median 12-minus-20 m/s difference
 of 49.7 km on identical evaluation episodes. The two-sided tests on identical
 evaluation episodes give $p<0.05$ in every case; these tests are exploratory
-because they are not corrected across the 20 comparisons. The final-error
-benefit is larger than the mean tracking-error benefit at both ends of the
+because they are not corrected across the 20 comparisons. The final-tracking-error
+benefit is larger than the mean-tracking-error benefit at both ends of the
 deployment range, indicating that the higher-speed policy
 continues reducing residual separation late in the episode.
 
@@ -1255,8 +1372,8 @@ The representative trajectories clarify how the aggregate result is produced.
 Fig.~\ref{fig:surface_trajectory_evolution} follows the four-SUV, 400 km
 KHANUN case. The vehicles first turn along the observed wind structure and then
 reduce their separation from the center; by 19.5 h they have entered the
-high-wind branch. Individual trajectories differ because each SUV has its own
-state, but the fleet-level motion follows a consistent inward correction.
+high-wind branch. The hard formation constraint keeps the relative offsets fixed, so the
+individual paths are parallel translations of the same formation trajectory.
 
 Figure~\ref{fig:surface_trajectory_matrix} separates the effects of fleet size
 and deployment error. At 100--200 km, the formations converge rapidly and stay
@@ -1264,22 +1381,42 @@ concentrated near the TC core. At 600--800 km, trajectories lengthen and fan
 out before turning inward, and final positions remain farther from the center.
 Increasing the fleet from 4 to 16 SUVs adds sample branches and broadens the
 approach region, but it does not replace the long-range transit. In the
-representative 12- and 16-SUV cases, paths overlap near the core once the
+representative 12- and 16-SUV cases, paths overlap near the TC core once the
 shared wind observations guide the fleet toward the same high-wind region.
 Deployment error therefore controls the required transit distance, whereas
 fleet size mainly controls how broadly the approach is sampled.
+
+Two retained long-tail episodes illustrate why the median is preferred for the
+main statistics. The first is the 2012 MARIA--PRAPIROON dual-TC case. Although
+MARIA is the designated target, PRAPIROON is simultaneously present in the
+same ERA5 wind field. The competing TC produces a stronger and more coherent
+local wind signature along part of the route, and the shared-observation policy
+moves into the corresponding branch, ending farther from the designated MARIA
+centre. This
+case reflects ambiguity in a multi-TC environment rather than the nominal
+single-target behaviour. The second is a 2021 OMAIS episode at a 200 km
+deployment radius. Around the fleet centre, the mean local wind speed is only
+about 4.2 m/s and the mean horizontal wind-speed gradient is approximately
+\(0.008\ \mathrm{m\,s^{-1}\,km^{-1}}\). Such a weak gradient does not provide a
+persistent centre-directed signal, so the policy can maintain an incorrect
+heading for a prolonged period. These episodes are retained in the evaluation
+and are revisited as limitations below; because they occupy the far tail, the
+median better represents typical performance than the arithmetic mean.
 
 \subsection{Surface Formation Comparison}
 \label{subsec:formation_comparison}
 
 The ring, line, grid, and V-shaped formations provide four different ways to
 allocate spatial observations across eight SUVs. The V formation places four
-SUVs on each arm, with the two arms separated by \(70^\circ\) and extending
-from 25 to 100 km along the arm. Each policy was trained with the same
-2-million-step protocol, deployment distribution, and safety layer at both
-12 and 20 m/s, then evaluated without retraining at 100--800 km
+SUVs symmetrically on each arm. To make the comparison independent of total
+formation size, all four layouts are normalized to the same mean radius of
+100 km. This common mean radius keeps the fleet spatially spread out and allows
+it to acquire broader and more numerous coverage observations. This experiment
+is a matched single-seed sensitivity study: all four policies use training seed
+0, the same 2-million-step protocol, deployment distribution, and safety layer
+at both 12 and 20 m/s, and are evaluated without retraining at 100--800 km
 (Table~\ref{tab:formation_comparison}). Averaged over the ten speed--radius
-conditions, the line gives the lowest mean final error of 320.8 km, followed by
+conditions, the line gives the lowest mean final tracking error of 320.8 km, followed by
 the V formation at 323.1 km, the ring at 341.2 km, and the grid at 396.0 km.
 The line is best in six speed--radius conditions, and the V formation is best
 in the remaining four conditions at 100--600 km under 12 m/s. The ring is best
@@ -1287,66 +1424,45 @@ at 800 km under 12 m/s. The V formation also lowers the mean tracking error to
 330.8 km, compared with 332.5 km for the line, 348.4 km for the ring, and
 377.4 km for the grid.
 
-Formation geometry is summarized at each post-transition state
-\(\mathbf{x}_{i,e,k}\). With centroid
-\(\bar{\mathbf{x}}_{e,k}=N^{-1}\sum_i\mathbf{x}_{i,e,k}\), the episode means
-are
-\begin{equation}
-R_{\mathrm{form},e}
-=
-\frac{1}{K_e}\sum_{k=1}^{K_e}
-\frac{1}{N}\sum_{i=1}^{N}
-\left\|
-\mathbf{x}_{i,e,k}-\bar{\mathbf{x}}_{e,k}
-\right\|_2,
-\label{eq:formation_radius}
-\end{equation}
-\begin{equation}
-S_{\mathrm{pair},e}
-=
-\frac{1}{K_e}\sum_{k=1}^{K_e}
-\frac{2}{N(N-1)}
-\sum_{1\leq i<j\leq N}
-\left\|
-\mathbf{x}_{i,e,k}-\mathbf{x}_{j,e,k}
-\right\|_2.
-\label{eq:pairwise_spacing}
-\end{equation}
-Reported formation radii and pairwise spacings are means of
-\(R_{\mathrm{form},e}\) and \(S_{\mathrm{pair},e}\) over the 768 validation
-segments at each speed--radius condition.
+The mean radius is 100 km for every formation. It is a prescribed geometric
+property of the initial layout and does not change during an episode under the
+hard formation constraint.
 
 The grid produces the shortest per-vehicle path, averaging 392.7 km, followed
 by the ring at 416.5 km, the line at 482.6 km, and the V formation at 499.8 km.
-The V formation gives the most compact geometry, with a mean formation radius
-of 44.4 km and pairwise spacing of 63.9 km. The line gives a 57.9 km radius
-and 86.3 km spacing. The ring retains a 99.3 km radius and 142.6 km spacing,
-whereas the grid preserves the widest footprint, with a 103.1 km radius and
-156.1 km spacing and the largest final tracking error. The compact V geometry
-therefore provides the closest tracking under 12 m/s, but its longer paths
-show that this benefit comes with greater transit effort.
+The path differences show that the initial arrangement changes the transit
+effort even though each formation remains rigid after deployment.
 
 Figure~\ref{fig:formation_comparison} visualizes one matched KHANUN segment.
-The formation geometry is not rigidly preserved because each policy moves
-under the same shared wind observation but with its own state. This
-representative episode illustrates how the compact V and line formations
-remain spatially concentrated, whereas the ring and grid retain a broader
-sampling footprint. The choice of formation is based on the aggregate
-768-segment results, not on this episode. We use the ring for the main
-experiments. The V and line formations track more closely in several
-conditions, and the grid gives shorter paths with wider spacing. The
-alternatives are reported as sensitivity cases; no formation is universally
-best.
+Each policy issues one joint formation action, so the initial geometry is preserved
+throughout the episode. This representative episode visualizes how the same
+joint formation action produces different spatial trajectories from the four
+initial arrangements. Because the deployment bearing relative to the TC core is
+random, the policy cannot assume that the cyclone lies in a fixed direction.
+The ring formation uses \(360^\circ/N\) equal angular spacing and provides
+direction-independent, approximately isotropic spatial sampling around the
+formation center. At the same mean radius, the line and V formations concentrate
+observations along limited directions, whereas the grid concentrates them at a
+discrete set of locations, especially its corners. We therefore use the ring as
+the robust default for the main experiments, without claiming that it is
+optimal for every tracking or path metric. The line, V, and grid formations are
+reported as sensitivity cases and reflect different emphasis on tracking error
+and path length. Because only training seed 0 is used, these formation-specific
+differences are not interpreted as statistically resolved population effects;
+the ten-seed analysis is reserved for the main ring configuration.
 
 \begin{figure*}[p]
 \centering
 \includegraphics[width=\textwidth]{figures/FigB1_Formation_Comparison.pdf}
 \caption{Representative surface trajectory comparison for ring, line, grid,
-and V-shaped formations with eight SUVs at 12 m/s. Open circles denote initial positions,
-triangles denote final positions, and the red star denotes the TC center. The
+and V-shaped formations with eight SUVs at 12 m/s. All layouts use the same
+mean radius of 100 km. The formation center is deployed at a distance of 400 km
+from the TC core using a randomly
+selected bearing. Open circles denote initial positions,
+triangles denote final positions, and the red star denotes the TC core. The
 color background and contours show the spatially interpolated ERA5 10 m
 wind-speed field at the final simulation step. Axes are relative to the
-instantaneous TC center.}
+instantaneous TC core.}
 \label{fig:formation_comparison}
 \end{figure*}
 
@@ -1382,16 +1498,17 @@ respectively, while maximum speed decreases by 5.22, 4.14, 3.50, and 1.49 m/s.
 \includegraphics[width=\textwidth]{figures/FigB2_Filter_Path_Comparison.pdf}
 \caption{Representative effect of execution-layer filtering on surface paths
 for four SUVs under the same trained policy, initial positions, deployment
-radius, and KHANUN (2023) segment. The left panel uses the raw policy command,
-whereas the right panel applies the low-pass filter with $\beta=0.8$. Open
-circles and triangles mark initial and final positions, respectively, and the
-red star marks the TC center.}
+radius, and KHANUN (2023) segment. The formation center is deployed at a fixed
+distance of 400 km from the TC core using a randomly selected bearing. The
+left panel uses the raw policy command, whereas the right panel applies the
+low-pass filter with $\beta=0.8$. Open circles and triangles mark initial and
+final positions, respectively, and the red star marks the TC core.}
 \label{fig:filter_path_comparison}
 \end{figure*}
 
 \begin{table*}[htbp]
 \centering
-\caption{Execution-layer low-pass filtering for 4/8/12/16 surface SUVs on 768 held-out segments from 50 unseen TCs in the 500-TC dataset. Each trained actor is evaluated with the filter off and on ($\beta=0.8$) on the same validation episodes.}
+\caption{Execution-layer low-pass filtering for 4/8/12/16 surface SUVs on 262 held-out segments from 40 unseen TCs in the 400-TC dataset. Each trained actor is evaluated with the filter off and on ($\beta=0.8$) on the same validation episodes. Each entry is the median over validation episodes within a seed, averaged across seeds.}
 \label{tab:surface_control_ablations}
 \scriptsize
 \setlength{\tabcolsep}{2.5pt}
@@ -1411,7 +1528,7 @@ Fleet & Filter & Final tracking error (km) & Path per SUV (km) & Mean speed (m/s
 \bottomrule
 \end{tabular*}
 \par\smallskip
-\parbox{\textwidth}{\footnotesize Final tracking error is the fleet average of the individual SUV-to-best-track-center distances at the final time step. Off and on use the same trained actor.}
+\parbox{\textwidth}{\footnotesize Final tracking error is the fleet-center-to-TC-core distance at the final time step. Off and on use the same trained actor.}
 \end{table*}
 
 
@@ -1422,8 +1539,9 @@ Fleet & Filter & Final tracking error (km) & Path per SUV (km) & Mean speed (m/s
 
 Before comparing IPPO with non-learned planners, we first isolate its
 subsurface performance at each observation depth and propulsion limit.
-Appendix Table~\ref{tab:underwater_ippo_main} reports ten-seed mean experienced
-current speed, geometric coverage, and current-weighted coverage.
+Appendix Table~\ref{tab:underwater_ippo_main} reports experienced current
+speed, geometric coverage, and current-weighted coverage after averaging over
+episodes within each training seed and then over ten seeds.
 
 Mean experienced current decreases from 0.534 m/s at the surface to
 approximately 0.30 m/s at 60 m under both speed limits. At a fixed depth, the
@@ -1435,20 +1553,22 @@ coverage is 1.15--1.30 times larger.
 \begin{table*}[t]
 \centering
 \caption{Comparison with four traditional planning baselines on the held-out
-TC segments from the same 500-TC train/test split. Surface values are means
+TC segments from the same 400-TC train/test split. Surface values are means
 over the 4/8/12/16-SUV fleets, both speed limits, and all five deployment
-radii. Subsurface values are means over all seven depths and both propulsion
-limits. For surface tracking, lower errors and paths are better. For
-subsurface observation, higher current and coverage are better.}
+radii after computing condition medians over validation episodes. Subsurface
+values use arithmetic means over all seven depths and both propulsion limits.
+Final and mean tracking errors are measured from the fleet center to the TC
+core. For surface tracking, lower errors and paths are better. For subsurface
+observation, higher current and coverage are better.}
 \label{tab:classical_planners}
 \small
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{@{}lrrr@{}}
 \toprule
 \multicolumn{4}{l}{\textbf{Panel A: surface tracking}}\\
-Method & Final error (km) & Mean tracking error (km) & Path per SUV (km)\\
+Method & Final tracking error (km) & Mean tracking error (km) & Path per SUV (km)\\
 \midrule
-Parameter-sharing IPPO & \textbf{356.2} & \textbf{356.6} & \textbf{462.3} \\
+IPPO & \textbf{356.2} & \textbf{356.6} & \textbf{462.3} \\
 Potential field & 413.4 & 404.2 & 728.8 \\
 Receding-horizon A* & 457.2 & 429.4 & 823.9 \\
 Lawnmower coverage & 554.7 & 478.4 & 509.1 \\
@@ -1457,7 +1577,7 @@ Information greedy & 466.2 & 429.4 & 528.7 \\
 \multicolumn{4}{l}{\textbf{Panel B: subsurface observation}}\\
 Method & Mean current (m/s) & Geometric coverage (km$^2$) & Current-weighted coverage ($10^3$ m\,s$^{-1}$\,km$^2$)\\
 \midrule
-Parameter-sharing IPPO & 0.408 & \textbf{3506} & \textbf{1.599} \\
+IPPO & 0.408 & \textbf{3506} & \textbf{1.599} \\
 Potential field & \textbf{0.452} & 2048 & 1.050 \\
 Receding-horizon A* & 0.427 & 2310 & 1.097 \\
 Lawnmower coverage & 0.408 & 2914 & 1.286 \\
@@ -1472,12 +1592,12 @@ example. Table~\ref{tab:classical_planners} compares IPPO with four traditional
 planners. Its surface panel provides matched context, whereas the subsurface
 panel is the focus of this section. Across all 40 surface configurations,
 IPPO has the lowest final tracking error, mean tracking error, and path length.
-It produces a lower final error than potential field in 35 of 40 comparisons
+It produces a lower final tracking error than potential field in 35 of 40 comparisons
 and than each remaining planner in all 40. Its path is shorter than those of
 potential field and A* in every comparison and shorter than those of the
 lawnmower and information-greedy planners in 26 and 34 of 40 comparisons.
 The path advantage over the latter two planners is therefore less uniform than
-the final-error advantage.
+the final-tracking-error advantage.
 
 For the subsurface task, no planner leads all three metrics. Potential field
 has the highest mean experienced current at 0.452 m/s. IPPO has the largest
@@ -1491,34 +1611,35 @@ experienced current, whereas IPPO performs better on geometric and
 current-weighted coverage; no method leads all three metrics.
 
 Appendix Table~\ref{tab:planner_stratified} confirms the same pattern after
-stratification. IPPO retains the lowest final error and mean tracking error
+stratification. IPPO retains the lowest final tracking error and mean tracking error
 at every surface deployment radius. Underwater, potential field has the
 highest mean current at every depth and IPPO has the largest geometric coverage.
 
 \section{Conclusion}
 
-This study developed and evaluated a parameter-sharing IPPO policy for
+This study developed and evaluated a shared-action surface IPPO policy and a
+parameter-sharing subsurface IPPO policy for
 coordinated surface--subsurface tropical-cyclone observation with Blue
 Whale-class SUVs. Current and future-upgrade speed settings were evaluated
 separately for the surface and subsurface fixed-depth tasks.
 Historical atmosphere--ocean reanalysis data, including ERA5 and HYCOM, were
 used to construct the simulation environments for SUV reinforcement-learning
 training.
-Training used 450 TCs, and evaluation used 50 unseen TCs.
+Training used 360 TCs, and evaluation used 40 unseen TCs.
 
 At the surface, globally shared wind observations allowed the fleet to approach
 the moving TC despite uncertain deployment. The 20 m/s maximum-speed
 configuration produced smaller final and mean tracking errors at
-every deployment radius, and its final-error advantage grew with deployment
+every deployment radius, and its final-tracking-error advantage grew with deployment
 error. The 12 m/s maximum-speed configuration produced shorter paths and lower
-speeds. Action filtering reduced mean final tracking error at every fleet size
+speeds. Action filtering reduced the mean final tracking error at every fleet size
 and shortened paths and peak speed. In the eight-SUV formation comparison, the
-line formation had the lowest mean final error, the grid had the shortest paths
+line formation had the lowest mean final tracking error, the grid had the shortest paths
 and widest spacing, and the ring provided a broad sampling footprint and was
 retained as the main configuration because no formation was uniformly best. In
 the matched surface comparison with four traditional planners, IPPO had the
 lowest final and mean tracking errors and generally shorter paths.
-It had a lower final error than potential field in most matched cases and
+It had a lower final tracking error than potential field in most matched cases and
 consistently lower error than the other three planners.
 
 At the subsurface, four SUVs sampled one of seven fixed layers using only their local
@@ -1534,6 +1655,14 @@ Nevertheless, several limitations remain. The SUV dynamics are represented by
 a simplified horizontal point mass model, and calibrated six-degree-of-freedom
 dynamics are not included. The study targets autonomous environmental sensing
 and path planning, whereas detailed low-level vehicle control is not modeled.
+The retained tail cases also expose two scene-level failure modes. In a
+multi-TC environment, another active cyclone can generate a more coherent
+local wind signature and divert the fleet from its designated target, as in
+the 2012 MARIA--PRAPIROON case. In other cases, weak TC winds and a deployment
+far from the core produce insufficient wind-speed contrast for a stable
+gradient direction, as in the 2021 OMAIS example. These cases motivate
+subsequent work on explicit target encoding, active target disambiguation, and
+wind-observation uncertainty.
 The main experiments were trained and validated in simulation, and real-vehicle
 field experiments were not conducted. Future work can incorporate
 six-degree-of-freedom dynamics and low-level control and validate the
@@ -1583,32 +1712,32 @@ Southern Marine Science and Engineering Guangdong Laboratory (Zhuhai)
 
 \begin{center}
 \centering
-\captionof{table}{IBTrACS TC translation speeds for the 500-TC dataset.
+\captionof{table}{IBTrACS TC translation speeds for the 400-TC dataset.
 The percentages denote the fraction of main-track samples not exceeding
 each platform speed. These values describe the speed envelope only;
-tracking also depends on bearing error and remaining segment duration.}
+tracking also depends on deployment offset and tracking duration.}
 \label{tab:tc_speed_envelope}
 \small
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrrrrrr@{}}
 \toprule
 Quantity & P50 & P90 & P95 & P99 & Samples & TCs \\
 \midrule
-TC translation speed (m s$^{-1}$) & 5.14 & 9.77 & 13.38 & 20.06 & 32,352 & 500 \\
+TC translation speed (m s$^{-1}$) & 5.14 & 10.29 & 13.89 & 20.58 & 28,506 & 400 \\
 \midrule
 Envelope & \multicolumn{2}{c}{Samples within speed} &
 \multicolumn{2}{c}{Samples above speed} &
 \multicolumn{2}{c}{Interpretation} \\
-1.5 m/s submerged & \multicolumn{2}{c}{3.7\%} &
-\multicolumn{2}{c}{96.3\%} &
+1.5 m/s submerged & \multicolumn{2}{c}{3.3\%} &
+\multicolumn{2}{c}{96.7\%} &
 \multicolumn{2}{l}{local sampling, not TC chasing} \\
-2.0 m/s submerged & \multicolumn{2}{c}{7.8\%} &
-\multicolumn{2}{c}{92.2\%} &
+2.0 m/s submerged & \multicolumn{2}{c}{7.0\%} &
+\multicolumn{2}{c}{93.0\%} &
 \multicolumn{2}{l}{local sampling, not TC chasing} \\
-12 m/s surface & \multicolumn{2}{c}{93.8\%} &
-\multicolumn{2}{c}{6.2\%} &
+12 m/s surface & \multicolumn{2}{c}{93.0\%} &
+\multicolumn{2}{c}{7.0\%} &
 \multicolumn{2}{l}{current-platform scenario} \\
-20 m/s surface & \multicolumn{2}{c}{98.9\%} &
-\multicolumn{2}{c}{1.1\%} &
+20 m/s surface & \multicolumn{2}{c}{98.8\%} &
+\multicolumn{2}{c}{1.2\%} &
 \multicolumn{2}{l}{future-upgrade scenario} \\
 \bottomrule
 \end{tabular*}
@@ -1616,7 +1745,7 @@ Envelope & \multicolumn{2}{c}{Samples within speed} &
 
 \begin{center}
 \centering
-\captionof{table}{Surface initial-formation comparison for eight SUVs. Each policy was trained with formation-center offsets sampled inside an 800 km radius and evaluated without retraining at fixed offsets of 100, 200, 400, 600, and 800 km on the same 768 held-out TC segments. Error is the final SUV-to-best-track-center distance and path is the per-vehicle trajectory length. Bold entries are the best value in each speed/radius row; error and path are assessed separately. All distances are in km.}
+\captionof{table}{Surface initial-formation comparison for eight SUVs. All four layouts use a mean radius of 100 km. This is a matched single-seed sensitivity study using training seed 0, with formation-center offsets sampled inside an 800 km radius and evaluation without retraining at fixed offsets of 100, 200, 400, 600, and 800 km on the same 262 held-out TC segments. Final tracking error is the fleet-center-to-TC-core distance at the end of the episode, and path is the per-vehicle trajectory length. Entries are medians over validation episodes. Bold entries are the best value in each speed/radius row; error and path are assessed separately. All distances are in km.}
 \label{tab:formation_comparison}
 \scriptsize
 \setlength{\tabcolsep}{1.4pt}
@@ -1624,7 +1753,7 @@ Envelope & \multicolumn{2}{c}{Samples within speed} &
 \toprule
 Speed & Train radius & Eval radius & \multicolumn{2}{c}{Ring} & \multicolumn{2}{c}{Line} & \multicolumn{2}{c}{Grid} & \multicolumn{2}{c}{V} \\
 \cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}\cmidrule(lr){10-11}
-(m/s) & (km) & (km) & Error & Path & Error & Path & Error & Path & Error & Path \\
+(m/s) & (km) & (km) & \makecell{Final tracking\\error} & Path & \makecell{Final tracking\\error} & Path & \makecell{Final tracking\\error} & Path & \makecell{Final tracking\\error} & Path \\
 \midrule
 12 & 800 & 100 & 210.4 & 284.4 & 184.8 & 330.4 & 295.8 & \textbf{219.3} & \textbf{165.0} & 366.2 \\
 12 & 800 & 200 & 228.6 & 317.2 & 202.4 & 364.5 & 317.7 & \textbf{241.2} & \textbf{183.9} & 406.9 \\
@@ -1643,9 +1772,11 @@ Speed & Train radius & Eval radius & \multicolumn{2}{c}{Ring} & \multicolumn{2}{
 
 \begin{center}
 \captionof{table}{IPPO subsurface observation performance at seven depths and
-two propulsion limits. Values are ten-seed means over the held-out TC
-segments. Current-weighted coverage is reported in \(10^3\)
-m\,s\(^{-1}\)\,km\(^2\).}
+two propulsion limits. For every depth--speed setting, values are means over
+validation episodes within each seed and are then averaged over ten training
+seeds. Current-weighted coverage is reported in \(10^3\)
+m\,s\(^{-1}\)\,km\(^2\). Bold entries denote the larger value within each
+depth and metric; equal values remain unbolded.}
 \label{tab:underwater_ippo_main}
 \small
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}rrrrr@{}}
@@ -1654,25 +1785,25 @@ Depth (m) & \(V_{\max}\) (m/s) & Mean current (m/s) &
 Geometric coverage (km\(^2\)) & Current-weighted coverage \\
 \midrule
 0  & 1.5 & 0.534 & 3376 & 2.012 \\
-0  & 2.0 & 0.534 & 3968 & 2.319 \\
+0  & 2.0 & 0.534 & \textbf{3968} & \textbf{2.319} \\
 \addlinespace[1.5pt]
 10 & 1.5 & 0.472 & 3385 & 1.744 \\
-10 & 2.0 & 0.476 & 4073 & 2.107 \\
+10 & 2.0 & \textbf{0.476} & \textbf{4073} & \textbf{2.107} \\
 \addlinespace[1.5pt]
 20 & 1.5 & 0.444 & 3402 & 1.660 \\
-20 & 2.0 & 0.445 & 4037 & 1.956 \\
+20 & 2.0 & \textbf{0.445} & \textbf{4037} & \textbf{1.956} \\
 \addlinespace[1.5pt]
-30 & 1.5 & 0.409 & 3253 & 1.481 \\
-30 & 2.0 & 0.408 & 3895 & 1.750 \\
+30 & 1.5 & \textbf{0.409} & 3253 & 1.481 \\
+30 & 2.0 & 0.408 & \textbf{3895} & \textbf{1.750} \\
 \addlinespace[1.5pt]
 40 & 1.5 & 0.364 & 2851 & 1.191 \\
-40 & 2.0 & 0.368 & 3808 & 1.555 \\
+40 & 2.0 & \textbf{0.368} & \textbf{3808} & \textbf{1.555} \\
 \addlinespace[1.5pt]
 50 & 1.5 & 0.324 & 2907 & 1.069 \\
-50 & 2.0 & 0.328 & 3749 & 1.374 \\
+50 & 2.0 & \textbf{0.328} & \textbf{3749} & \textbf{1.374} \\
 \addlinespace[1.5pt]
 60 & 1.5 & 0.300 & 2818 & 0.959 \\
-60 & 2.0 & 0.305 & 3559 & 1.207 \\
+60 & 2.0 & \textbf{0.305} & \textbf{3559} & \textbf{1.207} \\
 \bottomrule
 \end{tabular*}
 \end{center}
@@ -1682,12 +1813,12 @@ Geometric coverage (km\(^2\)) & Current-weighted coverage \\
 \includegraphics[width=\textwidth]{figures/Fig4_Surface_Trajectory_Matrix.pdf}
 \captionof{figure}{Representative KHANUN (2023) trajectories for the final
 20 m/s surface policy. Columns show 4-, 8-, 12-, and 16-SUV formations, while
-rows show nominal formation-center deployment radii of 100, 200, 400, 600, and
+rows show different formation-center deployment radii of 100, 200, 400, 600, and
 800 km. For each radius, the formation center is placed at a randomly selected
-bearing relative to the TC center. The color background is the spatially
+bearing relative to the TC core. The color background is the spatially
 interpolated final-time ERA5 10 m wind-speed field. Thin colored lines are
 vehicle trajectories, open circles mark initial positions, small red dots mark
-final vehicle positions, and the yellow star marks the TC center at the end of
+final vehicle positions, and the yellow star marks the TC core at the end of
 the episode.}
 \label{fig:surface_trajectory_matrix}
 \end{center}
@@ -1702,44 +1833,47 @@ the episode.}
 \renewcommand{\theHtable}{B.\arabic{table}}
 
 \begin{center}
-\includegraphics[width=\textwidth,height=0.87\textheight,keepaspectratio]
+\includegraphics[width=\textwidth,height=0.78\textheight,keepaspectratio]
   {figures/Fig7_Traditional_Planner_Rendering.pdf}
 \small
 \captionof{figure}{Comparison between IPPO and the four traditional planners on
 the same CHAMPI segment. The upper two rows show 12 m/s surface trajectories
 over the ERA5 10 m wind-speed field. The lower two rows show 1.5 m/s subsurface
 trajectories at 30 m over the HYCOM current-speed field. All methods use the
-same initial deployment. Panel titles report final and mean tracking error for
-the surface task and mean experienced current for the subsurface task. Open
+same initial deployment. The surface formation center is deployed at a distance
+of 400 km from the TC core, and the subsurface SUVs are initialized
+within a 200 km radius of the TC core. Panel titles report final and mean
+tracking errors for the surface task and mean experienced current
+for the subsurface task. Open
 circles mark initial positions, triangles mark final positions, and the red
-star marks the TC center.}
+star marks the TC core.}
 \label{fig:planner_rendering}
 \end{center}
 
 \begin{center}
-\captionof{table}{Distance and observation metrics for the traditional planner comparison on the held-out TC segments. Panel A reports the two surface distance metrics by deployment radius, averaged over the four fleet sizes and both speed limits. Panel B reports mean experienced current speed, geometric coverage, and current-weighted coverage at each depth, averaged over the two propulsion limits. Current-weighted coverage is reported in \(10^3\) m\,s\(^{-1}\)\,km\(^2\). For surface tracking, lower errors and paths are better. For subsurface observation, higher current and coverage are better.}
+\captionof{table}{Distance and observation metrics for the traditional planner comparison on the held-out TC segments. Panel A reports episode-median final and mean tracking errors by deployment radius, averaged over the four fleet sizes and both speed limits. Panel B reports episode-mean experienced current speed, geometric coverage, and current-weighted coverage at each depth, averaged over the two propulsion limits. Current-weighted coverage is reported in \(10^3\) m\,s\(^{-1}\)\,km\(^2\). For surface tracking, lower errors and paths are better. For subsurface observation, higher current and coverage are better.}
 \label{tab:planner_stratified}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.04}
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llrrrrr@{}}
 \toprule
-\multicolumn{7}{l}{\textbf{Panel A: surface distance metrics}}\\
+\multicolumn{7}{l}{\textbf{Panel A: surface tracking metrics}}\\
 Radius & Metric & IPPO & PF & A* & Lawn & Greedy\\
 \midrule
-100 km & Final error (km) & \textbf{220.8} & 290.4 & 325.8 & 366.1 & 295.2 \\
+100 km & Final tracking error (km) & \textbf{220.8} & 290.4 & 325.8 & 366.1 & 295.2 \\
  & Mean tracking error (km) & \textbf{170.6} & 229.9 & 250.5 & 232.9 & 212.0 \\
 \addlinespace[1.5pt]
-200 km & Final error (km) & \textbf{236.1} & 295.4 & 330.0 & 394.5 & 310.7 \\
+200 km & Final tracking error (km) & \textbf{236.1} & 295.4 & 330.0 & 394.5 & 310.7 \\
  & Mean tracking error (km) & \textbf{197.6} & 248.5 & 267.1 & 285.9 & 244.5 \\
 \addlinespace[1.5pt]
-400 km & Final error (km) & \textbf{304.0} & 353.5 & 394.9 & 504.5 & 405.1 \\
+400 km & Final tracking error (km) & \textbf{304.0} & 353.5 & 394.9 & 504.5 & 405.1 \\
  & Mean tracking error (km) & \textbf{303.0} & 343.0 & 367.4 & 441.8 & 374.5 \\
 \addlinespace[1.5pt]
-600 km & Final error (km) & \textbf{423.9} & 476.1 & 527.6 & 661.2 & 560.1 \\
+600 km & Final tracking error (km) & \textbf{423.9} & 476.1 & 527.6 & 661.2 & 560.1 \\
  & Mean tracking error (km) & \textbf{460.8} & 505.1 & 536.7 & 621.7 & 559.1 \\
 \addlinespace[1.5pt]
-800 km & Final error (km) & \textbf{596.1} & 651.8 & 707.6 & 847.4 & 759.8 \\
+800 km & Final tracking error (km) & \textbf{596.1} & 651.8 & 707.6 & 847.4 & 759.8 \\
  & Mean tracking error (km) & \textbf{650.8} & 694.4 & 725.0 & 809.7 & 756.7 \\
 \addlinespace[1.5pt]
 \midrule
@@ -1812,12 +1946,12 @@ Normalization scale used by the proximity and radius-excess reward terms. \\
 Near-center threshold & $d_{\mathrm{near}}$ & 100 km &
 Threshold defining the discrete near-center bonus. \\
 Near-center bonus & $b_{\mathrm{near}}$ & 1.0 &
-Bonus assigned when an SUV is within 100 km of the TC center. \\
+Bonus assigned when an SUV is within 100 km of the TC core. \\
 Radius-excess threshold & $R_{\mathrm{form}}$ & 100 km &
 Reference radius used by the additional distance penalty beyond 100 km. \\
 Radius-excess weight & $W_{\mathrm{form}}$ & 1.0 &
 Weight of the penalty applied when an individual SUV is farther than 100 km
-from the TC center. \\
+from the TC core. \\
 Action-change weight & $\lambda_u$ & 0.05 &
 Weight of the squared action change
 $\|\bar{\mathbf{a}}_{i,k}-\bar{\mathbf{a}}_{i,k-1}\|_2^2$ between
@@ -1842,8 +1976,7 @@ Downstream-alignment weight & $\beta_{\parallel}$ & 0.5 &
 Weight of the positive propulsion--current alignment term. \\
 Normalized action-magnitude weight & $\lambda_a$ & 0.05 &
 Penalizes the squared magnitude of the normalized propulsion command. This
-term regularizes the controller response and is not a calibrated energy or
-power model. \\
+term regularizes the controller response. \\
 Underwater reward clipping range & $[r_{\min},r_{\max}]$ & $[-5,5]$ &
 Clipping range applied to the team-averaged underwater reward during IPPO
 training. \\
@@ -1874,8 +2007,8 @@ action is removed. The subsurface comparison does not use this filter. \\
 % ============================================================
 \noindent\begin{minipage}{\textwidth}
 \centering
-\fontsize{7.8pt}{8.8pt}\selectfont
-\captionof{table}{Parameter-sharing IPPO network, training, and deployment
+\fontsize{7.6pt}{8.6pt}\selectfont
+\captionof{table}{Shared-action and parameter-sharing IPPO network, training, and deployment
 hyperparameters used in the final surface and subsurface experiments.}
 \label{tab:ippo_hyperparams}
 \resizebox{\textwidth}{!}{%
@@ -1884,11 +2017,8 @@ hyperparameters used in the final surface and subsurface experiments.}
 Parameter & Symbol & Value & Description \\
 \midrule
 Algorithm & -- & PPO &
-Stable-Baselines3 PPO with parameter sharing and independent per-agent action
-sampling. \\
-Return aggregation & -- & Team average &
-The environment reward is averaged across the $N$ SUVs before computing the
-shared PPO return. \\
+Stable-Baselines3 PPO with one shared surface formation action and independent
+per-agent action sampling underwater. \\
 Optimizer & -- & Adam &
 Adam optimizer used for the actor and critic parameters. \\
 Policy network & -- & $2\times256$ MLP &
@@ -1897,25 +2027,29 @@ Linear($256,256$)--Tanh--Linear($256,d_{\mathrm{act}}$). \\
 Value network & -- & $2\times256$ MLP &
 Critic: Linear($d_{\mathrm{obs}},256$)--Tanh--
 Linear($256,256$)--Tanh--Linear($256,1$).
-Per-agent values are summed during training. \\
+Surface training uses one fleet value; underwater training sums per-agent values. \\
 Per-agent observation dimension & $d_{\mathrm{obs}}$ & 16/28/40/52; 19 &
 Surface observations for 4/8/12/16 SUVs are 16/28/40/52,
 respectively. The
 four-SUV underwater IPPO evaluation uses
 $d_{\mathrm{obs}}=19$. \\
 Surface observation & -- & Wind at 10 m above sea level &
-Using ideal surface communication, each SUV receives the current wind speed and
-components at 10 m above the sea surface observed by every SUV in the fleet,
-together with its normalized ground velocity and
+Using ideal surface communication, the fleet forms one shared vector of wind
+speed and components at 10 m above the sea surface from all SUVs. The common
+surface policy query also receives the common normalized ground velocity and
 $[\cos\psi,\sin\psi]$. \\
 Underwater observation & -- & Current only &
 With no inter-vehicle communication, the active IPPO policy observes only
 its own local current speed and components at the assigned ocean depth, together
 with a five-frame history, its own normalized propulsion velocity, and
 $[\cos\psi,\sin\psi]$. \\
-Action dimension & $d_{\mathrm{act}}$ & 2 per SUV &
-Continuous east--north velocity command in $[-1,1]^2$, followed by circular
-projection to respect the maximum speed. \\
+Action dimension & $d_{\mathrm{act}}$ & 2 per fleet; 2 per SUV underwater &
+The surface policy emits one continuous east--north joint formation command in
+$[-1,1]^2$ and applies it to every SUV. Underwater, each SUV receives its
+own two-dimensional command. Circular projection enforces the speed bound. \\
+Surface formation constraint & -- & Hard shared action &
+All surface SUVs execute the same action and retain fixed initial relative
+offsets throughout an episode. \\
 Rollout length & $n_{\mathrm{steps}}$ & 2048 &
 Number of steps collected per environment before each PPO update. \\
 Mini-batch size & $B$ & 256 &
@@ -1923,7 +2057,7 @@ Mini-batch size used during each gradient update. \\
 Optimization epochs & $N_{\mathrm{epochs}}$ & 10 &
 Number of passes over each rollout. \\
 Learning rate & $\alpha$ & $3\times10^{-4}$ &
-Adam learning rate used for the actor and critic. \\
+Adam learning rate used by the actor and critic. \\
 Discount factor & $\gamma$ & 0.99 &
 Reward discount factor. \\
 GAE parameter & $\lambda_{\mathrm{GAE}}$ & 0.95 &
@@ -1940,7 +2074,7 @@ Maximum gradient norm & $g_{\max}$ & 0.5 &
 Global gradient clipping threshold. \\
 Training steps & $T$ & $2\times10^6$ &
 Nominal environment steps per training run. \\
-Independent seeds & -- & 0--9 &
+Training seeds & -- & 0--9 &
 Ten random seeds for each selected surface or underwater IPPO configuration. \\
 Surface training forecast-error radius & $R_{\mathrm{train}}$ & 0--800 km &
 The candidate surface formation-center radial offset is sampled uniformly in
@@ -1958,8 +2092,8 @@ initializes four vehicles with radial offsets sampled uniformly in
 not transferred. The 0--800 km forecast-error protocol is surface-only. \\
 Decision interval & $\Delta t$ & 10 min &
 Environmental observation and action interval. \\
-Surface formation radius & $R_{\mathrm{ring}}$ & 100 km &
-Surface SUVs use equal angular spacing of \(360^\circ/N\) on a 100 km ring. \\
+Initial formation mean radius & $R_{\mathrm{form}}$ & 100 km &
+Ring, line, grid, and V layouts are normalized to the same mean radius. \\
 Surface fleet sizes & $N$ & 4/8/12/16 &
 Number of SUVs in the final surface configurations. \\
 Underwater fleet size & $N$ & 4 &
