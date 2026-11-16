@@ -21,15 +21,31 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
+os.environ.setdefault("RIGID_FORMATION", "1")
+os.environ.setdefault("DYNAMICS_MODE", "constrained")
+os.environ.setdefault("DYN_SURFACE_CURRENT", "0")
+os.environ.setdefault("OBS_HEADING", "1")
+
 from code.surface.fleet_segment_env import FleetSegmentEnv
 from code.underwater.underwater_fleet_flow_env import UnderwaterFleetFlowEnv
-from code.paths import REPO_ROOT, RUNS_ROOT
 
 
-ROOT = REPO_ROOT
-SPLIT = ROOT / "data" / "typhoon_split_500.json"
-SEGS = ROOT / "data" / "segments_500.csv"
-OUT = RUNS_ROOT / "algorithm_comparison"
+ROOT = Path(__file__).resolve().parents[2]
+SPLIT = Path(
+    os.environ.get(
+        "SPLIT_JSON", str(ROOT / "data" / "typhoon_split_400.json")
+    )
+)
+SEGS = Path(
+    os.environ.get(
+        "SEGMENTS_CSV", str(ROOT / "data" / "segments_primary_400.csv")
+    )
+)
+OUT = Path(
+    os.environ.get("ALGO_MODEL_DIR", str(ROOT / "ppo_algorithm_comparison"))
+)
+RIGID_FORMATION = os.environ.get("RIGID_FORMATION", "1") == "1"
+ACTION_FILTER_BETA = float(os.environ.get("ACTION_FILTER_BETA", "0.8"))
 
 
 class SurfaceOffPolicyEnv(gym.Env):
@@ -51,24 +67,42 @@ class SurfaceOffPolicyEnv(gym.Env):
         )
         self.n_auv = n_auv
         self.obs_dim = self.inner.obs_dim
+        self.rigid_formation = RIGID_FORMATION
+        obs_dim = self.obs_dim if self.rigid_formation else n_auv * self.obs_dim
+        act_dim = 2 if self.rigid_formation else n_auv * 2
         self.observation_space = spaces.Box(
-            -np.inf, np.inf, (n_auv * self.obs_dim,), dtype=np.float32
+            -np.inf, np.inf, (obs_dim,), dtype=np.float32
         )
         self.action_space = spaces.Box(
-            -1.0, 1.0, (n_auv * 2,), dtype=np.float32
+            -1.0, 1.0, (act_dim,), dtype=np.float32
         )
-        self.executed = np.zeros((n_auv, 2), dtype=np.float32)
+        self.executed = np.zeros(
+            (1 if self.rigid_formation else n_auv, 2), dtype=np.float32
+        )
 
     def reset(self, *, seed=None, options=None):
         obs, info = self.inner.reset(seed=seed)
-        self.executed = np.zeros((self.n_auv, 2), dtype=np.float32)
+        self.executed = np.zeros(
+            (1 if self.rigid_formation else self.n_auv, 2),
+            dtype=np.float32,
+        )
+        if self.rigid_formation:
+            return obs[0].astype(np.float32), info
         return obs.reshape(-1).astype(np.float32), info
 
     def step(self, action):
-        raw = np.asarray(action, dtype=np.float32).reshape(self.n_auv, 2)
-        self.executed = 0.2 * raw + 0.8 * self.executed
+        if self.rigid_formation:
+            raw = np.asarray(action, dtype=np.float32).reshape(1, 2)
+        else:
+            raw = np.asarray(action, dtype=np.float32).reshape(self.n_auv, 2)
+        self.executed = (
+            (1.0 - ACTION_FILTER_BETA) * raw
+            + ACTION_FILTER_BETA * self.executed
+        )
         obs, reward, term, trunc, info = self.inner.step(self.executed)
         reward = float(np.clip(float(reward) / self.n_auv, -5.0, 2.0))
+        if self.rigid_formation:
+            return obs[0].astype(np.float32), reward, bool(term), bool(trunc), info
         return obs.reshape(-1).astype(np.float32), reward, bool(term), bool(trunc), info
 
 
@@ -209,7 +243,9 @@ def main() -> None:
         tensorboard_log=None,
         verbose=0,
         seed=args.seed,
-        device="cuda" if torch.cuda.is_available() else "cpu",
+        device=os.environ.get(
+            "ALGO_DEVICE", "cuda" if torch.cuda.is_available() else "cpu"
+        ),
     )
     model = SAC(**common) if args.algorithm == "sac" else TD3(**common)
     start = time.time()
@@ -223,7 +259,10 @@ def main() -> None:
         f"{args.task}_{args.algorithm}_n{args.n_auv}_v{args.vmax:g}"
         f"{depth_tag}_s{args.seed}"
     )
-    model.save(str(OUT / f"{tag}.zip"))
+    final_model = OUT / f"{tag}.zip"
+    temp_model = OUT / f"{tag}.tmp.{os.getpid()}"
+    model.save(str(temp_model))
+    os.replace(temp_model, final_model)
     gpu_max = float(torch.cuda.max_memory_allocated() / 2**30) if torch.cuda.is_available() else 0.0
     summary = {
         "task": args.task,
@@ -234,6 +273,8 @@ def main() -> None:
         "n_auv": args.n_auv,
         "vmax_ms": args.vmax,
         "depth_m": args.depth if args.task == "underwater" else None,
+        "rigid_formation": bool(RIGID_FORMATION) if args.task == "surface" else False,
+        "action_filter_beta": float(ACTION_FILTER_BETA),
         "elapsed_s": elapsed,
         "fps": args.steps / max(elapsed, 1e-9),
         "max_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,

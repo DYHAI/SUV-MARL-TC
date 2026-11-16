@@ -11,13 +11,10 @@ from pathlib import Path
 import numpy as np
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from code.common.constrained_dynamics import (
-    ConstrainedPlanarDynamics,
-    DynamicsConfig,
-)
+from code.common.constrained_dynamics import ConstrainedPlanarDynamics, DynamicsConfig
 
 
 def run_case(stage: str, vmax: float) -> dict[str, float]:

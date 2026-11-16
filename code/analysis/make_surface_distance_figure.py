@@ -1,71 +1,60 @@
-"""Plot mean and final tracking errors for 12/20 m/s."""
+"""Plot final tracking error and final wind speed for 12/20 m/s."""
 
 from __future__ import annotations
-
-import re
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from code.paths import PAPER_ROOT, REPO_ROOT, RESULTS_ROOT, RUNS_ROOT
 
-ROOT = REPO_ROOT
-DOC = PAPER_ROOT
-LOGDIR = RUNS_ROOT / "surface" / "logs_surface_final_distance"
-SUMMARY = RESULTS_ROOT / "surface" / "surface_vmax_10seed_summary.csv"
-OUT = DOC / "figures" / "Fig3_Surface_Vmax_Distance_Comparison.pdf"
-OUT_PNG = DOC / "figures" / "Fig3_Surface_Vmax_Distance_Comparison.png"
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+DOC = ROOT / "paper"
+SUMMARY = (
+    ROOT
+    / "runs"
+    / "results"
+    / "primary_median"
+    / "surface_main_summary.csv"
+)
+OUT = DOC / "figures" / "Fig4_Surface_Vmax_Distance_Comparison.pdf"
+OUT_PNG = DOC / "figures" / "Fig4_Surface_Vmax_Distance_Comparison.png"
 FLEETS = (4, 8, 12, 16)
-SEEDS = range(10)
 RADII = (100, 200, 400, 600, 800)
 
 
-def collect_final() -> pd.DataFrame:
-    rows = []
-    for version in (12, 20):
-        for fleet in FLEETS:
-            for seed in SEEDS:
-                for radius in RADII:
-                    path = LOGDIR / f"v{version}_n{fleet}_s{seed}_d{radius}.log"
-                    if not path.exists():
-                        continue
-                    match = re.search(r"^FINALROW\|([^\n]+)$", path.read_text(errors="replace"), re.M)
-                    if not match:
-                        continue
-                    values = match.group(1).split("|")
-                    rows.append(
-                        {
-                            "version_ms": version,
-                            "fleet": fleet,
-                            "seed": seed,
-                            "distance_target_km": radius,
-                            "final_distance": float(values[3]),
-                        }
-                    )
-    return pd.DataFrame(rows)
-
-
 def main() -> None:
-    time_avg = pd.read_csv(SUMMARY)
-    final = collect_final()
-    grouped = (
-        final.groupby(["version_ms", "fleet", "distance_target_km"], as_index=False)
-        .agg(
-            final_distance=("final_distance", "mean"),
-            final_distance_std=("final_distance", lambda x: x.std(ddof=1)),
-            final_distance_n=("final_distance", "count"),
-        )
+    primary = pd.read_csv(SUMMARY)
+    merged = primary.rename(
+        columns={
+            "vmax_ms": "version_ms",
+            "n_auv": "fleet",
+            "radius_km": "distance_target_km",
+            "final_tracking_error_km_mean": "final_distance",
+            "final_tracking_error_km_std": "final_distance_std",
+            "final_wind_speed_ms_mean": "final_wind_speed",
+            "final_wind_speed_ms_std": "final_wind_speed_std",
+        }
     )
-    if len(grouped) != 40:
+    required = {
+        "version_ms",
+        "fleet",
+        "distance_target_km",
+        "final_distance",
+        "final_distance_std",
+        "final_wind_speed",
+        "final_wind_speed_std",
+    }
+    missing = required.difference(merged.columns)
+    if missing:
+        raise SystemExit(f"Missing surface summary columns: {sorted(missing)}")
+    if len(merged) != 40:
         raise SystemExit(
-            f"Incomplete final-distance evaluation: {len(grouped)}/40 conditions"
+            f"Incomplete surface summary: {len(merged)}/40 conditions"
         )
-    merged = time_avg.merge(
-        grouped, on=["version_ms", "fleet", "distance_target_km"], how="inner"
-    )
-    merged.to_csv(RESULTS_ROOT / "surface" / "surface_distance_summary.csv", index=False)
+    merged.to_csv(DOC / "surface_distance_summary.csv", index=False)
 
     plt.rcParams.update(
         {
@@ -77,11 +66,19 @@ def main() -> None:
         }
     )
     fig, axes = plt.subplots(
-        1, 2, figsize=(11.0, 4.8), sharex=True, layout="constrained"
+        1, 2, figsize=(11.5, 4.8), sharex=True, layout="constrained"
     )
     metrics = (
-        ("distance", "distance_std", "Mean tracking error (km)"),
-        ("final_distance", "final_distance_std", "Final tracking error (km)"),
+        (
+            "final_distance",
+            "final_distance_std",
+            "Final tracking error (km)",
+        ),
+        (
+            "final_wind_speed",
+            "final_wind_speed_std",
+            "Final mean 10 m wind speed (m s$^{-1}$)",
+        ),
     )
     colors = {
         4: "#0077BB",
@@ -131,7 +128,7 @@ def main() -> None:
         loc="outside lower center",
     )
     fig.suptitle(
-        "SUV Surface tracking performance across deployment errors",
+        "Surface tracking performance across deployment error",
         fontsize=14,
         fontweight="bold",
     )

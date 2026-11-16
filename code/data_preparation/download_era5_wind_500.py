@@ -19,9 +19,8 @@ import cdsapi
 import xarray as xr
 
 import code.data_preparation.typhoons_500 as T
-from code.paths import REPO_ROOT
 
-ROOT = str(REPO_ROOT)
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 OUTDIR = os.path.join(ROOT, "data", "era5_wind")
 AREA = [56.7, 98.7, 6.8, 171.6]  # N, W, S, E  (same union bbox)
 TIMES = [f"{h:02d}:00" for h in range(24)]  # hourly

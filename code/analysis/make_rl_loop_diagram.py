@@ -15,9 +15,9 @@ from matplotlib import font_manager
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.patches import Ellipse, FancyArrowPatch, FancyBboxPatch
 
-from code.paths import PAPER_ROOT
 
-FIGDIR = PAPER_ROOT / "figures"
+ROOT = Path(__file__).resolve().parents[2]
+FIGDIR = ROOT / "paper" / "figures"
 LANG = os.environ.get("RL_LOOP_LANG", "en").lower()
 if LANG == "zh":
     FONT_PATH = os.environ.get("RL_LOOP_FONT", "/tmp/NotoSansCJKsc-Regular.otf")
@@ -212,7 +212,7 @@ def main() -> None:
     ax.text(
         0.815,
         0.525,
-        tr("Approach\nTC core", "高速接近\nTC核心区"),
+        tr("Approach moving\nTC core", "接近移动\nTC核心区"),
         ha="center",
         va="center",
         fontsize=8.3,
@@ -275,7 +275,7 @@ def main() -> None:
     ax.text(
         0.38,
         0.77,
-        tr("action ", "动作 ") + r"$\mathbf{a}_{i,t}$",
+        tr("action ", "动作 ") + r"$\mathbf{a}_{t}$",
         ha="center",
         va="center",
         fontsize=10.3,
@@ -287,13 +287,13 @@ def main() -> None:
         0.38,
         0.14,
         tr("next state ", "下一状态 ")
-        + r"$\mathbf{s}_{i,t+1}$"
+        + r"$\mathbf{s}_{t+1}$"
         "\n"
         + tr("next observation ", "下一观测 ")
-        + r"$\mathbf{o}_{i,t+1}$"
+        + r"$\mathbf{o}_{t+1}$"
         "\n"
         + tr("reward ", "奖励 ")
-        + r"$r_{i,t}$",
+        + r"$r_{t}$",
         ha="center",
         va="center",
         fontsize=10.0,

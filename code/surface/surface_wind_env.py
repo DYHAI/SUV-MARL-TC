@@ -20,11 +20,9 @@ from gymnasium import spaces
 from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage import distance_transform_edt
 
-from code.paths import REPO_ROOT
-
 STORMS=["DOKSURI_2023","HAIKUI_2023","GUCHOL_2023","KHANUN_2023",
         "HINNAMNOR_2022","TOKAGE_2022","YAGI_2024","BEBINCA_2024"]
-BASE=str(REPO_ROOT)
+BASE=os.path.dirname(os.path.abspath(__file__))
 ERA=os.path.join(BASE,"data","era5_wind")
 TRACK=os.path.join(BASE,"data","selected_typhoons")
 UNION=os.path.join(BASE,"data","union_region")
@@ -64,7 +62,9 @@ def _align_grid(xr_var, lat_ref, lon_ref):
     return xr_var.interp(latitude=lat_ref, longitude=lon_ref, method="linear")
 
 
-def load_storm(storm, use_uv=False, crop_margin_km=None, use_sst=False, use_hycom0=False, hycom0_native=False, use_mslp=False):
+def load_storm(storm, use_uv=False, crop_margin_km=None, use_sst=False,
+               use_hycom0=False, hycom0_native=False, use_mslp=False,
+               hycom0_motion_only=False):
     ds=xr.open_dataset(os.path.join(ERA,storm,"era5_10m_wind_hourly.nc"))
     u=ds["u10"].astype("float32").values   # (T, lat, lon)  lat 降序（逐小时）
     v=ds["v10"].astype("float32").values
@@ -124,17 +124,19 @@ def load_storm(storm, use_uv=False, crop_margin_km=None, use_sst=False, use_hyco
             hy_lat=lat_asc; hy_lon=lon
         hy_u_raw=hyu.values.astype("float32"); hy_v_raw=hyv.values.astype("float32")
         hy.close()
-        # HYCOM 距平（台风诱发流场）= 减去时间中位背景，只保留 Ekman 输运 + 惯性振荡
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=RuntimeWarning)
-            hy_u_anom = hy_u_raw - np.nanmedian(hy_u_raw, axis=0, keepdims=True)
-            hy_v_anom = hy_v_raw - np.nanmedian(hy_v_raw, axis=0, keepdims=True)
-        hy_u_anom = np.nan_to_num(hy_u_anom, nan=0.0)
-        hy_v_anom = np.nan_to_num(hy_v_anom, nan=0.0)
-        hy_spd_anom = np.hypot(hy_u_anom, hy_v_anom)
-        # 原始流速（对照用）
         hy_u=np.nan_to_num(hy_u_raw, nan=0.0); hy_v=np.nan_to_num(hy_v_raw, nan=0.0)
-        hy_spd=np.hypot(hy_u, hy_v)
+        if hycom0_motion_only:
+            hy_spd = hy_u_anom = hy_v_anom = hy_spd_anom = None
+        else:
+            # HYCOM 距平（台风诱发流场）= 减去时间中位背景。
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                hy_u_anom = hy_u_raw - np.nanmedian(hy_u_raw, axis=0, keepdims=True)
+                hy_v_anom = hy_v_raw - np.nanmedian(hy_v_raw, axis=0, keepdims=True)
+            hy_u_anom = np.nan_to_num(hy_u_anom, nan=0.0)
+            hy_v_anom = np.nan_to_num(hy_v_anom, nan=0.0)
+            hy_spd_anom = np.hypot(hy_u_anom, hy_v_anom)
+            hy_spd = np.hypot(hy_u, hy_v)
     tr=pd.read_csv(os.path.join(TRACK,storm,"track.csv"),parse_dates=["ISO_TIME"]).dropna(subset=["LAT","LON"]).sort_values("ISO_TIME")
     tt=tr["ISO_TIME"].values.astype("datetime64[ns]").astype("int64")
 
@@ -183,17 +185,19 @@ def load_storm(storm, use_uv=False, crop_margin_km=None, use_sst=False, use_hyco
                     hy_lon = hy_lon[jm_hy]; hy_lat = hy_lat[im_hy]
                     hy_u = hy_u[:, im_hy, :][:, :, jm_hy]
                     hy_v = hy_v[:, im_hy, :][:, :, jm_hy]
-                    hy_spd = hy_spd[:, im_hy, :][:, :, jm_hy]
-                    hy_u_anom = hy_u_anom[:, im_hy, :][:, :, jm_hy]
-                    hy_v_anom = hy_v_anom[:, im_hy, :][:, :, jm_hy]
-                    hy_spd_anom = hy_spd_anom[:, im_hy, :][:, :, jm_hy]
+                    if not hycom0_motion_only:
+                        hy_spd = hy_spd[:, im_hy, :][:, :, jm_hy]
+                        hy_u_anom = hy_u_anom[:, im_hy, :][:, :, jm_hy]
+                        hy_v_anom = hy_v_anom[:, im_hy, :][:, :, jm_hy]
+                        hy_spd_anom = hy_spd_anom[:, im_hy, :][:, :, jm_hy]
                 else:
                     hy_u = hy_u[:, im, :][:, :, jm]
                     hy_v = hy_v[:, im, :][:, :, jm]
-                    hy_spd = hy_spd[:, im, :][:, :, jm]
-                    hy_u_anom = hy_u_anom[:, im, :][:, :, jm]
-                    hy_v_anom = hy_v_anom[:, im, :][:, :, jm]
-                    hy_spd_anom = hy_spd_anom[:, im, :][:, :, jm]
+                    if not hycom0_motion_only:
+                        hy_spd = hy_spd[:, im, :][:, :, jm]
+                        hy_u_anom = hy_u_anom[:, im, :][:, :, jm]
+                        hy_v_anom = hy_v_anom[:, im, :][:, :, jm]
+                        hy_spd_anom = hy_spd_anom[:, im, :][:, :, jm]
 
     in_domain=(lon_t>=lon.min())&(lon_t<=lon.max())&(lat_t>=lat_asc.min())&(lat_t<=lat_asc.max())
     d=dict(storm=storm, lon=lon, lat=lat_asc, times=times,
@@ -210,8 +214,10 @@ def load_storm(storm, use_uv=False, crop_margin_km=None, use_sst=False, use_hyco
     if use_mslp:
         d["msl"]=msl
     if use_hycom0:
-        d["hycom0_u"]=hy_u; d["hycom0_v"]=hy_v; d["hycom0_spd"]=hy_spd
-        d["hycom0_u_anom"]=hy_u_anom; d["hycom0_v_anom"]=hy_v_anom; d["hycom0_spd_anom"]=hy_spd_anom
+        d["hycom0_u"]=hy_u; d["hycom0_v"]=hy_v
+        if not hycom0_motion_only:
+            d["hycom0_spd"]=hy_spd
+            d["hycom0_u_anom"]=hy_u_anom; d["hycom0_v_anom"]=hy_v_anom; d["hycom0_spd_anom"]=hy_spd_anom
         d["hycom0_lat"]=hy_lat; d["hycom0_lon"]=hy_lon
     return d
 
@@ -278,6 +284,8 @@ class SurfaceWindEnv(gym.Env):
 
     def _reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        if seed is not None:
+            np.random.seed(int(seed))
         s=np.random.choice(self.storms)
         self.d=self.data[s]
         t0=int(np.where(self.d["in_domain"])[0][0])   # 台风生成点（首个域内时刻）

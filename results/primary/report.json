@@ -1,0 +1,8 @@
+{
+  "underwater_algorithms": {
+    "source": "runs/algorithms_primary/underwater",
+    "available": true,
+    "seed_rows": 6,
+    "condition_rows": 3
+  }
+}

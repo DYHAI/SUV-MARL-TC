@@ -15,15 +15,13 @@
 import fcntl, os, sys, time, gc
 import numpy as np
 
-from code.paths import REPO_ROOT
-
-ROOT = str(REPO_ROOT)
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
 import code.underwater.underwater_flow_env as ufe
 
-CACHE_ROOT = os.environ.get("UWFLOW_CACHE_DIR", "/home/ding/main/data/uwflow_cache")
+CACHE_ROOT = os.environ.get("UWFLOW_CACHE_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "runs", "uwflow_cache")))
 
 FIELDS = ["u", "v", "spd", "dist_to_land", "lon", "lat",
           "track_lon", "track_lat", "track_x", "track_y", "track_cum",

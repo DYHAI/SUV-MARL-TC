@@ -16,9 +16,7 @@ from gymnasium import spaces
 from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage import distance_transform_edt
 
-from code.paths import REPO_ROOT
-
-BASE = str(REPO_ROOT)
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 UNION = os.path.join(BASE, "data", "union_region")
 TRACK = os.path.join(BASE, "data", "selected_typhoons")
 
@@ -45,7 +43,7 @@ _LOAD_CACHE = {}
 # load_storm 优先 mmap 读取：多个训练/评测进程共享同一份 page cache，
 # 载入从 ~50min/450台风 降到 ~1min，且不重复占内存。
 # 只对 (native_res=False, grid_deg=0.25, crop_margin=3.0) 生效，其余走 netCDF。
-_DISK_CACHE_ROOT = os.environ.get("UWFLOW_CACHE_DIR", "/home/ding/main/data/uwflow_cache")
+_DISK_CACHE_ROOT = os.environ.get("UWFLOW_CACHE_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "runs", "uwflow_cache")))
 
 
 def _disk_cache_path(storm, depth_m, grid_deg, crop_margin, native_res):
@@ -206,6 +204,8 @@ class UnderwaterFlowEnv(gym.Env):
 
     def _reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        if seed is not None:
+            np.random.seed(int(seed))
         s = np.random.choice(self.storms)
         self.d = self.data[s]
         t0 = 0

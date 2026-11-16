@@ -13,11 +13,9 @@ import os
 import subprocess
 import sys
 
-from code.paths import REPO_ROOT
-
 
 DEFAULT_DEPTHS = (0, 10, 20, 30, 40, 50, 60)
-LOCAL_ROOT = os.path.join(str(REPO_ROOT), "data", "union_region")
+LOCAL_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "union_region")
 NAS_ROOT = "/mnt/nas/multi_auv_typhoon_tracking/union_current_depths"
 
 
@@ -27,19 +25,12 @@ def tags_from(module: str) -> list[str]:
         f"T=importlib.import_module('{module}'); "
         "print('\\n'.join(T.tag_of(s) for s in T.build_storm_list()))"
     )
-    out = subprocess.check_output(
-        [sys.executable, "-c", code], cwd=REPO_ROOT, text=True
-    )
+    out = subprocess.check_output([sys.executable, "-c", code], text=True)
     return [line.strip() for line in out.splitlines() if line.strip()]
 
 
 def audit(depths: tuple[int, ...]) -> dict[str, object]:
-    expected = sorted(
-        set(
-            tags_from("code.data_preparation.typhoons_200")
-            + tags_from("code.data_preparation.typhoons_500")
-        )
-    )
+    expected = sorted(set(tags_from("typhoons_200") + tags_from("typhoons_500")))
     if len(expected) != 500:
         raise RuntimeError(f"expected 500 unique storm tags, found {len(expected)}")
 

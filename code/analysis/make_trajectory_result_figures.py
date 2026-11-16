@@ -6,11 +6,23 @@ import os
 from pathlib import Path
 
 os.environ.setdefault("FLEET_VMAX", "20")
+os.environ.setdefault("RIGID_FORMATION", "1")
 os.environ.setdefault("DEPLOY_OCEAN_ONLY", "1")
 os.environ.setdefault("DEPLOY_MIN_COAST_KM", "100")
 os.environ.setdefault("SAFETY_MARGIN_KM", "100")
 os.environ.setdefault("SST_MODE", "none")
 os.environ.setdefault("USE_MSLP", "0")
+os.environ.setdefault("DYNAMICS_MODE", "constrained")
+os.environ.setdefault("DYN_SURFACE_CURRENT", "0")
+os.environ.setdefault("OBS_HEADING", "1")
+os.environ.setdefault("DYN_SURFACE_ACC_MS2", "0.02")
+os.environ.setdefault("DYN_SURFACE_DEC_MS2", "0.03")
+os.environ.setdefault("DYN_SURFACE_YAW_DEG_S", "1.0")
+os.environ.setdefault("DYN_SURFACE_MIN_TURN_RADIUS_M", "200")
+os.environ.setdefault("DYN_SUB_ACC_MS2", "0.002")
+os.environ.setdefault("DYN_SUB_DEC_MS2", "0.003")
+os.environ.setdefault("DYN_SUB_YAW_DEG_S", "2.0")
+os.environ.setdefault("DYN_SUB_MIN_TURN_RADIUS_M", "100")
 
 import matplotlib
 
@@ -23,26 +35,44 @@ from scipy.interpolate import RegularGridInterpolator
 from scipy.ndimage import gaussian_filter
 from stable_baselines3 import PPO
 
+import sys
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
 from code.surface.fleet_segment_env import (  # noqa: E402
     D2KM,
     FleetSegmentEnv,
+    coerce_formation_action,
+    formation_safety_filter,
+    policy_observation,
+    rigid_formation_enabled,
     sample_deployment,
     safety_filter,
     seg_idx,
 )
 from code.surface.surface_wind_env import land_ocean_mask  # noqa: E402
 from code.underwater.underwater_fleet_flow_env import UnderwaterFleetFlowEnv, STEP_MIN  # noqa: E402
-from code.paths import PAPER_ROOT, REPO_ROOT, RUNS_ROOT
 
-ROOT = REPO_ROOT
-DOC = PAPER_ROOT
+
+DOC = ROOT / "paper"
 FIGDIR = DOC / "figures"
-MODELDIR = RUNS_ROOT / "surface" / "models"
-UW_MODELDIR = RUNS_ROOT / "underwater" / "models"
-SEGMENTS = ROOT / "data" / "segments_500.csv"
-SURFACE_MATRIX_CASE = ("CHAMPI_2015_2015286", 1518)
-SURFACE_EVOLUTION_CASE = ("CHAMPI_2015_2015286", 1518)
-UNDERWATER_CASE = ("CHAMPI_2015_2015286", 1518)
+MODELDIR = Path(
+    os.environ.get(
+        "SURFACE_MODEL_DIR",
+        ROOT
+        / "runs"
+        / "surface"
+        / "models",
+    )
+)
+UW_MODELDIR = (
+    ROOT / "runs" / "underwater" / "models"
+)
+SEGMENTS = ROOT / "data" / "segments_primary_400.csv"
+SURFACE_MATRIX_CASE = ("MATMO_2025", 561)
+SURFACE_EVOLUTION_CASE = ("MATMO_2025", 561)
+UNDERWATER_CASE = ("KHANUN_2023", 815)
 UNDERWATER_DEPTHS = (0, 30, 50)
 UW_COLORS = ("#F28E2B", "#E15759", "#59A14F", "#B07AA1")
 
@@ -65,10 +95,7 @@ COLORS = (
 )
 WIND_CMAP = plt.get_cmap("YlGnBu")
 def surface_model(n_auv: int) -> PPO:
-    path = MODELDIR / (
-        f"ppo_fleet_seg{n_auv}_ring_s005_d800_t10min_n500_dscan_"
-        "mthr100_ab_windonly_noid.zip"
-    )
+    path = MODELDIR / f"surface_n{n_auv}_v20_s0.zip"
     return PPO.load(path, device="cpu")
 
 
@@ -78,6 +105,8 @@ def surface_rollout(env: FleetSegmentEnv, model: PPO, row, radius: int, storm: s
     env.t1 = seg_idx(row.t1)
     env.t = env.t0
     np.random.seed(17)
+    if env.dynamics is not None:
+        env.dynamics.reset(seed=17)
     env.lons, env.lats = sample_deployment(
         env.d,
         env.t0,
@@ -93,24 +122,33 @@ def surface_rollout(env: FleetSegmentEnv, model: PPO, row, radius: int, storm: s
     env.vxs = np.zeros(env.n_auv)
     env.vys = np.zeros(env.n_auv)
     env.prev_actions = np.zeros((env.n_auv, 2), dtype=np.float32)
-    obs = env._obs()
+    rigid = rigid_formation_enabled()
+    obs = policy_observation(env._obs(), rigid)
     action_prev = np.zeros((env.n_auv, 2), dtype=np.float32)
     trajectories = [[(env.lons[i], env.lats[i])] for i in range(env.n_auv)]
     eyes = [(float(env.d["track_lon"][env.t]), float(env.d["track_lat"][env.t]))]
     times = [0]
     while True:
-        action, _ = model.predict(
-            np.asarray(obs, dtype=np.float32).reshape(-1), deterministic=True
-        )
-        action = np.asarray(action, dtype=np.float32).reshape(env.n_auv, 2)
+        action, _ = model.predict(obs, deterministic=True)
+        if rigid:
+            action = coerce_formation_action(action, env.n_auv)
+        else:
+            action = np.asarray(action, dtype=np.float32).reshape(env.n_auv, 2)
         action_prev = (1.0 - BETA) * action + BETA * action_prev
         action_use = np.clip(action_prev, -1.0, 1.0)
         norm = np.linalg.norm(action_use, axis=1, keepdims=True)
         action_use /= np.maximum(1.0, norm)
-        action_use = safety_filter(
-            action_use, env.lons, env.lats, env.dist_interp, 100.0
-        )
+        if rigid:
+            common = formation_safety_filter(
+                action_use[0], env.lons, env.lats, env.dist_interp, 100.0
+            )
+            action_use = np.repeat(common[None, :], env.n_auv, axis=0)
+        else:
+            action_use = safety_filter(
+                action_use, env.lons, env.lats, env.dist_interp, 100.0
+            )
         obs, _reward, _terminated, truncated, info = env.step(action_use)
+        obs = policy_observation(obs, rigid)
         for i in range(env.n_auv):
             trajectories[i].append((env.lons[i], env.lats[i]))
         eyes.append((float(info["eye_lon"]), float(info["eye_lat"])))
@@ -227,14 +265,88 @@ def make_surface_matrix(row, storm):
                 d["track_lat"][envs[n].t0:envs[n].t1 + 1],
                 color="white", lw=1.5, ls="--", alpha=0.9, zorder=3,
             )
-            for i, tr in enumerate(trajectories):
-                color = COLORS[i]
-                ax.plot(tr[:, 0], tr[:, 1], color="white", lw=2.25,
-                        alpha=0.55, zorder=4)
-                ax.plot(tr[:, 0], tr[:, 1], color=color, lw=1.15, alpha=0.95, zorder=5)
-                ax.plot(tr[0, 0], tr[0, 1], "o", ms=3.0, color="white",
-                        mec="#d62728", mew=0.8, zorder=8)
-                add_auv(ax, tr[-1, 0], tr[-1, 1])
+            positions = np.stack(trajectories, axis=1)
+            centerline = positions.mean(axis=1)
+            ax.plot(
+                centerline[:, 0],
+                centerline[:, 1],
+                color="white",
+                lw=3.0,
+                alpha=0.78,
+                zorder=4,
+            )
+            ax.plot(
+                centerline[:, 0],
+                centerline[:, 1],
+                color="#163A5F",
+                lw=1.65,
+                zorder=5,
+            )
+            arrow_index = min(len(centerline) - 2, int(0.58 * len(centerline)))
+            if arrow_index >= 0:
+                ax.annotate(
+                    "",
+                    xy=centerline[arrow_index + 1],
+                    xytext=centerline[arrow_index],
+                    arrowprops={
+                        "arrowstyle": "-|>",
+                        "color": "#163A5F",
+                        "lw": 1.2,
+                        "mutation_scale": 8,
+                    },
+                    zorder=7,
+                )
+
+            ring_radius_km = float(envs[n].ring_radius)
+            ring_frames = np.unique(
+                np.array(
+                    [0, (len(positions) - 1) // 2, len(positions) - 1],
+                    dtype=int,
+                )
+            )
+            ring_styles = (
+                {"ls": ":", "marker": "o", "mfc": "white", "alpha": 0.82},
+                {"ls": "--", "marker": "o", "mfc": "none", "alpha": 0.88},
+                {"ls": "-", "marker": "^", "mfc": "#163A5F", "alpha": 1.0},
+            )
+            ring_theta = np.linspace(0.0, 2.0 * np.pi, 240)
+            for frame, style in zip(ring_frames, ring_styles):
+                ring = positions[frame]
+                ring_center_lon = float(np.mean(ring[:, 0]))
+                ring_center_lat = float(np.mean(ring[:, 1]))
+                ring_lon = ring_center_lon + ring_radius_km * np.cos(ring_theta) / (
+                    D2KM * np.cos(np.deg2rad(ring_center_lat))
+                )
+                ring_lat = ring_center_lat + ring_radius_km * np.sin(ring_theta) / D2KM
+                ax.plot(
+                    ring_lon,
+                    ring_lat,
+                    color="#163A5F",
+                    lw=1.0,
+                    ls=style["ls"],
+                    alpha=style["alpha"],
+                    zorder=6,
+                )
+                ax.scatter(
+                    ring[:, 0],
+                    ring[:, 1],
+                    s=9.0 if n <= 8 else 6.5,
+                    marker=style["marker"],
+                    facecolors=style["mfc"],
+                    edgecolors="#163A5F",
+                    linewidths=0.65,
+                    alpha=style["alpha"],
+                    zorder=8,
+                )
+            ax.scatter(
+                [centerline[-1, 0]],
+                [centerline[-1, 1]],
+                s=16,
+                color="#163A5F",
+                edgecolors="white",
+                linewidths=0.55,
+                zorder=9,
+            )
             ax.plot(eyes[-1, 0], eyes[-1, 1], "*", color="#FFD400", ms=12,
                     mec="black", mew=0.7, zorder=15)
             ax.set_xlim(extent[0], extent[1])
@@ -257,11 +369,11 @@ def make_surface_matrix(row, storm):
     cbar = fig.colorbar(mesh, ax=axes, shrink=0.62, pad=0.018)
     cbar.set_label("10 m wind speed (m s$^{-1}$)")
     fig.suptitle(
-        "Representative surface trajectories for 4/8/12/16 SUVs at five "
-        r"deployment radii ($V_{\max}$=20 m/s)",
+        "Formation-center trajectories for 4/8/12/16 SUVs of ring formation "
+        r"at five deployment radii ($V_{\max}=20$ m/s)",
         fontsize=15, fontweight="bold",
     )
-    out = FIGDIR / "Fig4_Surface_Trajectory_Matrix"
+    out = FIGDIR / "FigA1_Surface_Trajectory_Matrix"
     fig.savefig(out.with_suffix(".pdf"), bbox_inches="tight")
     fig.savefig(out.with_suffix(".png"), dpi=280, bbox_inches="tight")
     plt.close(fig)
@@ -304,6 +416,28 @@ def make_surface_snapshots(row, storm):
             add_auv(ax, tr[kk - 1, 0], tr[kk - 1, 1])
         ax.plot(eyes[k, 0], eyes[k, 1], "*", color="#FFD400", ms=15,
                 mec="black", mew=0.7, zorder=15)
+        positions = np.asarray(
+            [trajectory[min(k, len(trajectory) - 1)] for trajectory in trajectories]
+        )
+        center_dx = (
+            (positions[:, 0].mean() - eyes[k, 0])
+            * D2KM
+            * np.cos(np.deg2rad(eyes[k, 1]))
+        )
+        center_dy = (positions[:, 1].mean() - eyes[k, 1]) * D2KM
+        center_distance = float(np.hypot(center_dx, center_dy))
+        ax.text(
+            0.02,
+            0.97,
+            f"Fleet-center to TC core distance:\n{center_distance:.1f} km",
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=8.5,
+            fontweight="bold",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.76, pad=1.4),
+            zorder=30,
+        )
         ax.set_xlim(extent[0], extent[1]); ax.set_ylim(extent[2], extent[3])
         ax.set_box_aspect(0.72)
         ax.set_title(f"t = {times[k]:.1f} h", fontsize=11, fontweight="bold")
@@ -314,7 +448,7 @@ def make_surface_snapshots(row, storm):
         "Four-SUV surface tracking from a 400 km deployment radius",
         fontsize=14, fontweight="bold",
     )
-    out = FIGDIR / "Fig2_Surface_Trajectory_Evolution"
+    out = FIGDIR / "Fig3_Surface_Trajectory_Evolution"
     fig.savefig(out.with_suffix(".pdf"), bbox_inches="tight")
     fig.savefig(out.with_suffix(".png"), dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -410,8 +544,7 @@ def make_underwater_comparison(row, storm):
     common_extent = None
     for depth in UNDERWATER_DEPTHS:
         model = PPO.load(
-            UW_MODELDIR
-            / f"ppo_uwflow_500_d{depth}_v2.0_rC_20h_sb3_s0.zip",
+            UW_MODELDIR / f"uw_d{depth}_v2_s0.zip",
             device="cpu",
         )
 
@@ -504,18 +637,11 @@ def make_underwater_comparison(row, storm):
                 ax.plot(tr[0, 0], tr[0, 1], "o", ms=4, color="white",
                         mec="#d62728", mew=1.0, zorder=8)
                 add_auv(ax, tr[-1, 0], tr[-1, 1])
-            path = np.mean([
-                np.hypot(
-                    np.diff(tr[:, 0]) * D2KM * np.cos(np.deg2rad(tr[:-1, 1])),
-                    np.diff(tr[:, 1]) * D2KM,
-                ).sum()
-                for tr in trajs
-            ])
             ax.set_xlim(common_extent[0], common_extent[1])
             ax.set_ylim(common_extent[2], common_extent[3])
             ax.set_box_aspect(0.72)
             ax.set_title(
-                f"{label}\nmean |V|={speeds.mean():.2f} m/s, path={path:.1f} km",
+                f"{label}\nmean |V|={speeds.mean():.2f} m/s",
                 fontsize=14,
             )
             ax.set_xlabel("Longitude (°E)")
@@ -563,6 +689,7 @@ def main():
         make_underwater_comparison(underwater_row, underwater_storm)
         return
     if os.environ.get("SURFACE_ONLY", "0") == "1":
+        make_surface_matrix(matrix_row, matrix_storm)
         make_surface_snapshots(evolution_row, evolution_storm)
         return
     make_surface_matrix(matrix_row, matrix_storm)

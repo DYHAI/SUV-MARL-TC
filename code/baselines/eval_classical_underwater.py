@@ -12,18 +12,27 @@ import numpy as np
 import pandas as pd
 
 from code.baselines.classical_planning_baselines import make_planner
-from code.underwater.underwater_fleet_flow_env import (
-    D2KM,
-    UnderwaterFleetFlowEnv,
+from code.underwater.underwater_fleet_flow_env import D2KM, UnderwaterFleetFlowEnv
+from code.underwater.underwater_coverage import (
+    HYCOM_LAT_DEG,
+    HYCOM_LON_DEG,
+    native_hycom_cells,
+    native_hycom_coverage_area,
+    native_hycom_weighted_coverage,
 )
 from code.underwater.underwater_flow_env import STEP_MIN
-from code.paths import REPO_ROOT, RUNS_ROOT
 
 
-ROOT = REPO_ROOT
-SPLIT = ROOT / "data" / "typhoon_split_500.json"
-SEGCSV = ROOT / "data" / "segments_500.csv"
-OUTDIR = Path(os.environ.get("CLASSICAL_OUT_DIR", str(RUNS_ROOT / "baselines")))
+ROOT = Path(__file__).resolve().parents[2]
+SPLIT = Path(
+    os.environ.get("SPLIT_JSON", ROOT / "data" / "typhoon_split_400.json")
+)
+SEGCSV = Path(
+    os.environ.get("SEGMENTS_CSV", ROOT / "data" / "segments_primary_400.csv")
+)
+OUTDIR = Path(
+    os.environ.get("CLASSICAL_OUT_DIR", str(ROOT / "classical_eval"))
+)
 
 
 def selected_segments(storms: list[str]) -> pd.DataFrame:
@@ -65,9 +74,9 @@ def run_episode(planner, env, row, seed):
     # Include the state reached by the final action in path and coverage.
     lats.append(np.asarray(env.lats).copy())
     lons.append(np.asarray(env.lons).copy())
-    speeds.append(
-        np.asarray(env._at2m("spd", env.lats, env.lons), dtype=np.float64)
-    )
+    final_u = env._at2m("u", env.lats, env.lons)
+    final_v = env._at2m("v", env.lats, env.lons)
+    speeds.append(np.hypot(final_u, final_v).astype(np.float64))
     LAT = np.asarray(lats, dtype=np.float64)
     LON = np.asarray(lons, dtype=np.float64)
     SPD = np.asarray(speeds, dtype=np.float64)
@@ -84,24 +93,37 @@ def run_episode(planner, env, row, seed):
         path_km = 0.0
     duration_s = max(len(ACT), 1) * STEP_MIN * 60.0
 
-    cov_deg = float(env.cov_deg)
-    lat0 = float(np.min(env.d["lat"]))
-    lon0 = float(np.min(env.d["lon"]))
-    cells = {
-        (
-            int(np.floor((lat - lat0) / cov_deg)),
-            int(np.floor((lon - lon0) / cov_deg)),
-        )
-        for lat, lon in zip(LAT.ravel(), LON.ravel())
-    }
+    land_distance = env._at(
+        env.d["dist_to_land"].astype(np.float32)
+        if getattr(env, "storage16", False)
+        else env.d["dist_to_land"],
+        LAT.ravel(),
+        LON.ravel(),
+    )
+    ocean_valid = np.asarray(land_distance, dtype=np.float64) > 0.0
+    cells = native_hycom_cells(LAT.ravel(), LON.ravel(), ocean_valid)
+    coverage_area = native_hycom_coverage_area(cells)
+    mean_current = float(SPD.ravel()[ocean_valid].mean())
+    cellwise_weighted = native_hycom_weighted_coverage(
+        LAT.ravel(),
+        LON.ravel(),
+        SPD.ravel(),
+        ocean_valid,
+    )
     result = {
         "planner": planner.__class__.__name__,
         "depth_m": float(env.depth_m),
         "vmax_ms": float(env.vmax),
         "deployment_seed": seed,
         "storm": row["storm"],
-        "mean_current_ms": float(SPD.mean()),
-        "coverage_area_km2": float(len(cells) * env._cell_area_km2),
+        "mean_current_ms": mean_current,
+        "coverage_area_km2": coverage_area,
+        "current_weighted_coverage": cellwise_weighted,
+        "current_weighted_coverage_product": (
+            mean_current * coverage_area
+        ),
+        "coverage_lat_deg": HYCOM_LAT_DEG,
+        "coverage_lon_deg": HYCOM_LON_DEG,
         "path_km": path_km,
         "mean_ground_speed_ms": path_km * 1000.0 / max(duration_s, 1e-9),
         "command_proxy": float(np.mean(ACT * ACT)),
@@ -165,6 +187,7 @@ def main() -> None:
             crop_margin=3.0,
             depth_m=args.depth,
             grid_deg=args.grid_deg,
+            cov_deg=args.grid_deg,
             duration_h=20.0,
         )
         for _, row in sub.iterrows():

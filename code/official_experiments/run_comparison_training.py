@@ -7,7 +7,6 @@ import fcntl
 import json
 import os
 import subprocess
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,14 +15,16 @@ from code.official_experiments.run_main_training import common_env, process_runn
 from code.paths import REPO_ROOT, RUNS_ROOT
 
 
-EXPERIMENT = RUNS_ROOT / "official"
 ROOT = REPO_ROOT
-PYTHON = sys.executable
+EXPERIMENT = RUNS_ROOT / "official"
+PYTHON = os.environ.get("PYTHON_BIN", "python")
 MAX_JOBS = int(os.environ.get("DYN_COMPARISON_JOBS", "2"))
 STEPS = int(os.environ.get("DYN_TRAIN_STEPS", "2000000"))
 COMPARISON_SCOPE = os.environ.get("DYN_COMPARISON_SCOPE", "all")
 SURFACE_TAG = os.environ.get("DYN_SURFACE_TAG", "").strip()
 SKIP_OFFPOLICY = os.environ.get("DYN_SKIP_OFFPOLICY", "0") == "1"
+SKIP_FORMATION = os.environ.get("DYN_SKIP_FORMATION", "0") == "1"
+ALGO_SUBDIR = os.environ.get("DYN_ALGO_SUBDIR", "algorithms")
 ALGO_SEEDS = [
     int(value) for value in os.environ.get("DYN_ALGO_SEEDS", "0 1").split()
 ]
@@ -45,7 +46,7 @@ def jobs() -> list[Job]:
     formation_logs = EXPERIMENT / "logs" / f"formation{formation_suffix}"
     formation_dir.mkdir(parents=True, exist_ok=True)
     formation_logs.mkdir(parents=True, exist_ok=True)
-    if COMPARISON_SCOPE != "underwater":
+    if COMPARISON_SCOPE != "underwater" and not SKIP_FORMATION:
         for speed in (12.0, 20.0):
             for formation in ("line", "grid", "v"):
                 name = f"formation_{formation}_n8_v{speed:g}_s0"
@@ -87,8 +88,9 @@ def jobs() -> list[Job]:
                 )
 
     algo_suffix = f"_{SURFACE_TAG}" if SURFACE_TAG and COMPARISON_SCOPE == "surface" else ""
-    algo_dir = EXPERIMENT / "models" / f"algorithms{algo_suffix}"
-    algo_logs = EXPERIMENT / "logs" / f"algorithms{algo_suffix}"
+    algo_name = ALGO_SUBDIR if not algo_suffix else f"{ALGO_SUBDIR}{algo_suffix}"
+    algo_dir = EXPERIMENT / "models" / algo_name
+    algo_logs = EXPERIMENT / "logs" / algo_name
     algo_dir.mkdir(parents=True, exist_ok=True)
     algo_logs.mkdir(parents=True, exist_ok=True)
     if not SKIP_OFFPOLICY:
@@ -103,7 +105,15 @@ def jobs() -> list[Job]:
                     else:
                         name = f"underwater_{algorithm}_n4_v1.5_d30_s{seed}"
                     env = common_env()
-                    env.update({"ALGO_MODEL_DIR": str(algo_dir)})
+                    env.update(
+                        {
+                            "ALGO_MODEL_DIR": str(algo_dir),
+                            "ACTION_FILTER_BETA": "0.8",
+                            "ALGO_DEVICE": "cpu",
+                        }
+                    )
+                    if task == "surface":
+                        env["RIGID_FORMATION"] = "1"
                     command = [
                         PYTHON,
                         "-m",

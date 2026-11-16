@@ -16,9 +16,8 @@ import numpy as np
 import code.data_preparation.typhoons_200 as T2
 import code.data_preparation.typhoons_500 as T5
 import code.data_preparation.typhoons_2020plus as T0
-from code.paths import REPO_ROOT
 
-ROOT = str(REPO_ROOT)
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 OUT = os.path.join(ROOT, "data", "typhoon_split_500.json")
 # ⚠️ 数据没齐时**只写 _partial**，避免半成品划分被下游（launch_stage500.sh / 评测）当成终版。
 OUT_PARTIAL = os.path.join(ROOT, "data", "typhoon_split_500_partial.json")

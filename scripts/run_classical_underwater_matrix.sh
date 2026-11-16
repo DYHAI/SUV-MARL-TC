@@ -1,42 +1,22 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 source "$ROOT/scripts/official_env.sh"
-RL=${PYTHON_BIN:-python}
-OUT="$ROOT/runs/baselines"
-LOGS="$OUT/logs"
-mkdir -p "$OUT" "$LOGS"
+export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
+export SPLIT_JSON="$ROOT/data/typhoon_split_400.json"
+export SEGMENTS_CSV="$ROOT/data/segments_primary_400.csv"
 
-DEPTHS=(0 10 20 30 40 50 60)
-VMAXES=(1.5 2.0)
-read -ra PLANNERS <<< "${PLANNERS:-potential astar coverage greedy}"
-MAX_JOBS=${MAX_JOBS:-4}
-GRID_DEG=${GRID_DEG:-0.25}
+OUT="${CLASSICAL_OUT_DIR:-$ROOT/runs/classical/underwater}"
+mkdir -p "$OUT"
 
-for planner in "${PLANNERS[@]}"; do
-  for depth in "${DEPTHS[@]}"; do
-    for vmax in "${VMAXES[@]}"; do
-      while [ "$(jobs -rp | wc -l)" -ge "$MAX_JOBS" ]; do
-        sleep 5
-      done
-      out="$OUT/underwater_${planner}_test_d${depth}_v${vmax}_s10.csv"
-      log="$LOGS/underwater_${planner}_d${depth}_v${vmax}.log"
-      if [ -s "$out" ]; then
-        echo "skip $out"
-        continue
-      fi
-      (
-        "$RL" -m code.baselines.eval_classical_underwater "$planner" \
-          --depth "$depth" --vmax "$vmax" --split-key test \
-          --grid-deg "$GRID_DEG" \
-          --seeds 10 --batch-storms 10 --out "$out"
-      ) >"$log" 2>&1 &
-      echo "started $planner depth=$depth Vmax=$vmax pid=$!"
+for planner in potential astar coverage greedy; do
+  for depth in 0 10 20 30 40 50 60; do
+    for speed in 1.5 2.0; do
+      "${PYTHON_BIN:-python}" -m code.baselines.eval_classical_underwater \
+        "$planner" --depth "$depth" --vmax "$speed" --split-key test --seeds 10 \
+        --out "$OUT/${planner}_d${depth}_v${speed}.csv"
     done
   done
 done
-
-wait
-echo "ALL UNDERWATER CLASSICAL JOBS DONE"

@@ -4,7 +4,7 @@
 Surface: 4/8/12/16 SUVs x 12/20 m/s x 10 seeds = 80 models.
 Subsurface: 7 depths x 1.5/2.0 m/s x 10 seeds = 140 models.
 
-All artifacts stay under ``constrained_dynamics_experiments``.  Existing
+All artifacts stay under ``runs``.  Existing
 manuscript models and result files are never read or overwritten.
 """
 
@@ -14,20 +14,19 @@ import fcntl
 import json
 import os
 import subprocess
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from code.paths import REPO_ROOT, RUNS_ROOT
 
-EXPERIMENT = RUNS_ROOT / "official"
 ROOT = REPO_ROOT
-PYTHON = sys.executable
+EXPERIMENT = RUNS_ROOT / "official"
+PYTHON = os.environ.get("PYTHON_BIN", "python")
 MAX_JOBS = int(os.environ.get("DYN_MAX_JOBS", "6"))
 STEPS = int(os.environ.get("DYN_TRAIN_STEPS", "2000000"))
 SURFACE_NENV = int(
-    os.environ.get("DYN_SURFACE_NENV", os.environ.get("DYN_NENV", "4"))
+    os.environ.get("DYN_SURFACE_NENV", os.environ.get("DYN_NENV", "2"))
 )
 UNDERWATER_NENV = int(
     os.environ.get("DYN_UNDERWATER_NENV", os.environ.get("DYN_NENV", "5"))
@@ -43,9 +42,17 @@ SURFACE_ENABLED = os.environ.get("DYN_SURFACE_ENABLED", "1") == "1"
 UNDERWATER_ENABLED = os.environ.get("DYN_UNDERWATER_ENABLED", "1") == "1"
 UNDERWATER_JOBS = int(os.environ.get("DYN_UNDERWATER_JOBS", "7"))
 SURFACE_JOBS = int(os.environ.get("DYN_SURFACE_JOBS", "2"))
+SURFACE_JOBS_DURING_ALGORITHMS = int(
+    os.environ.get("DYN_SURFACE_JOBS_DURING_ALGORITHMS", "2")
+)
 SEED_LIST = [
     int(value) for value in os.environ.get("DYN_SEEDS", "0 1 2 3 4 5 6 7 8 9").split()
 ]
+SURFACE_HOLD = {
+    value.strip()
+    for value in os.environ.get("DYN_SURFACE_HOLD", "").split(",")
+    if value.strip()
+}
 
 
 @dataclass(frozen=True)
@@ -76,8 +83,8 @@ def common_env() -> dict[str, str]:
             "DYN_SUB_MIN_TURN_RADIUS_M": env.get(
                 "DYN_SUB_MIN_TURN_RADIUS_M", "100"
             ),
-            "SPLIT_JSON": str(ROOT / "data" / "typhoon_split_500.json"),
-            "SEGMENTS_CSV": str(ROOT / "data" / "segments_500.csv"),
+            "SPLIT_JSON": str(ROOT / "data" / "typhoon_split_400.json"),
+            "SEGMENTS_CSV": str(ROOT / "data" / "segments_primary_400.csv"),
             "OMP_NUM_THREADS": "2",
             "MKL_NUM_THREADS": "2",
             "OPENBLAS_NUM_THREADS": "2",
@@ -102,8 +109,15 @@ def surface_jobs() -> list[Job]:
                 env = common_env()
                 env.update(
                     {
+                        "SEGMENTS_CSV": str(
+                            ROOT / "data" / "segments_primary_400.csv"
+                        ),
                         "FLEET_VMAX": str(speed),
                         "FLEET_MODEL_DIR": str(model_dir),
+                        "RIGID_FORMATION": "1",
+                        "FORMATION": "ring",
+                        "FORMATION_RADIUS_KM": "100",
+                        "ACTION_FILTER_BETA": "0.8",
                         "SEED": str(seed),
                         "NENV": str(SURFACE_NENV),
                         "DEPLOY_OCEAN_ONLY": "1",
@@ -139,8 +153,14 @@ def surface_jobs() -> list[Job]:
 
 def underwater_jobs() -> list[Job]:
     jobs = []
-    model_dir = EXPERIMENT / "models" / "underwater_main"
-    log_dir = EXPERIMENT / "logs" / "underwater_main"
+    model_subdir = os.environ.get(
+        "DYN_UNDERWATER_MODEL_SUBDIR", "underwater_main"
+    )
+    log_subdir = os.environ.get(
+        "DYN_UNDERWATER_LOG_SUBDIR", model_subdir
+    )
+    model_dir = EXPERIMENT / "models" / model_subdir
+    log_dir = EXPERIMENT / "logs" / log_subdir
     model_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
     for seed in SEED_LIST:
@@ -251,10 +271,45 @@ def run() -> None:
         jobs = underwater_jobs()
     else:
         raise ValueError("both surface and underwater jobs are disabled")
-    pending = [job for job in jobs if not job.output.exists()]
+    algorithm_marker: Path | None = None
+    if (
+        SURFACE_ENABLED
+        and os.environ.get("DYN_SURFACE_MODEL_SUBDIR") == "surface_primary_circle"
+    ):
+        algorithm_marker = Path(
+            os.environ.get(
+                "DYN_ALGORITHM_TRAINING_MARKER",
+                str(
+                    EXPERIMENT
+                    / "ALGORITHM_COMPARISON_TRAINING_PRIMARY.done"
+                ),
+            )
+        )
+        allow_parallel = (
+            os.environ.get("DYN_ALLOW_PARALLEL_ALGORITHMS", "0") == "1"
+        )
+        while not algorithm_marker.exists() and not allow_parallel:
+            print(
+                "[constrained] waiting for SAC/TD3 representative training",
+                flush=True,
+            )
+            time.sleep(300)
+    held = [
+        job
+        for job in jobs
+        if job.kind == "surface"
+        and job.name in SURFACE_HOLD
+        and not job.output.exists()
+    ]
+    pending = [
+        job
+        for job in jobs
+        if not job.output.exists() and job not in held
+    ]
     print(
-        f"[constrained] total={len(jobs)} complete={len(jobs)-len(pending)} "
-        f"pending={len(pending)} max_jobs={MAX_JOBS}",
+        f"[constrained] total={len(jobs)} "
+        f"complete={sum(job.output.exists() for job in jobs)} "
+        f"pending={len(pending)} held={len(held)} max_jobs={MAX_JOBS}",
         flush=True,
     )
     running: dict[str, tuple[Job, subprocess.Popen, float, object]] = {}
@@ -271,8 +326,13 @@ def run() -> None:
             running[name][0] for name in running
         ] + [job for job in pending if job.name in external]
         surface_pending = any(job.kind == "surface" for job in pending)
+        surface_limit = SURFACE_JOBS
+        if algorithm_marker is not None and not algorithm_marker.exists():
+            surface_limit = min(
+                SURFACE_JOBS, SURFACE_JOBS_DURING_ALGORITHMS
+            )
         limits = {
-            "surface": SURFACE_JOBS if surface_pending else 0,
+            "surface": surface_limit if surface_pending else 0,
             "underwater": 1 if surface_pending else UNDERWATER_JOBS,
         }
         started_this_pass = True
@@ -337,12 +397,23 @@ def run() -> None:
             "completed": len([j for j in jobs if j.output.exists()]),
             "total": len(jobs),
             "pending": len(pending),
+            "held": sorted(job.name for job in held if not job.output.exists()),
             "failures": failures,
         }
         state_path.write_text(json.dumps(state, indent=2) + "\n")
     if failures:
         raise SystemExit("failed jobs: " + ", ".join(failures))
+    if any(not job.output.exists() for job in held):
+        print(
+            "[constrained] pending jobs are held: "
+            + ", ".join(job.name for job in held if not job.output.exists()),
+            flush=True,
+        )
+        while any(not job.output.exists() for job in held):
+            time.sleep(300)
     marker.touch()
+    if marker.name == "SURFACE_PRIMARY_CIRCLE.done":
+        (EXPERIMENT / "SURFACE_PRIMARY_PIPELINE.done").touch()
     print("[constrained] main training complete", flush=True)
 
 

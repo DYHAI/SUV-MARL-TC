@@ -2,11 +2,11 @@
   data/union_region/<tag>/hycom_uv_{0,50}m.nc      (water_u, water_v, 3-hourly)
   data/union_region/<tag>/hycom_temp_{0,50}m.nc    (water_temp,    3-hourly)
 
-下载器按时间接力 HYCOM 数据源。
+与 download_hycom_200.py 的区别只有一个：**源按时间接力**（200 批只有 expt_93.0 / ESPC 两个源）。
 每个 48h 分块会按 hycom_candidates() 给出的候选源**逐个试**，拿到非空就继续 ——
 所以对 2016/2017 那几个实验的交接边界不敏感（边界是月级探测定出来的）。
 
-存储：新台风的目录建在第二块 NVMe（/home/ding/main/data/typhoon500/），
+存储：新台风的目录建在第二块 NVMe（data/typhoon500/），
 并用 symlink 挂到 data/union_region/<tag>，与 200 批的做法一致。
 
 用法: python download_hycom_500.py <worker> <nworkers> <product:uv0|uv50|t0|t50>
@@ -16,11 +16,10 @@ import pandas as pd
 import xarray as xr
 
 import code.data_preparation.typhoons_500 as T
-from code.paths import REPO_ROOT
 
-ROOT = str(REPO_ROOT)
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 LINKROOT = os.path.join(ROOT, "data", "union_region")      # 训练代码读这里
-STOREROOT = "/home/ding/main/data/typhoon500/union"        # 实际落盘（第二块 NVMe）
+STOREROOT = "data/typhoon500/union"        # 实际落盘（第二块 NVMe）
 # ⚠️ 分块大小实测（expt_53.X / 全 union bbox / 单个请求）：
 #    48h → 296 s / 16.9 MB (57 KB/s)；72h → 260 s / 25.3 MB (97 KB/s)；
 #    120h → 318 s / 42.1 MB (132 KB/s) ← 最快；7 天(168h) 会让服务器 5 分钟后断。

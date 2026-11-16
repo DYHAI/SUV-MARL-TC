@@ -1,7 +1,7 @@
 PYTHON ?= python
 PYTHON_BIN ?= $(PYTHON)
 
-.PHONY: check validate-dynamics paper data-audit cache surface-train surface-eval underwater-train classical classical-results formation formation-results planner-rendering loop-figure
+.PHONY: check validate-dynamics paper data-audit cache surface-train surface-eval underwater-train classical classical-results formation formation-results aggregate figures planner-rendering loop-figure algorithm
 
 check:
 	$(PYTHON) -m compileall -q code scripts/check_runtime.py
@@ -34,15 +34,28 @@ classical:
 	PYTHON_BIN=$(PYTHON_BIN) bash scripts/run_classical_underwater_matrix.sh
 
 classical-results:
-	$(PYTHON) -m code.baselines.aggregate_classical_baselines
+	$(PYTHON) -m code.analysis.aggregate_primary_median
 
 formation:
 	PYTHON_BIN=$(PYTHON_BIN) bash scripts/run_formation_training.sh
 	PYTHON_BIN=$(PYTHON_BIN) bash scripts/run_formation_full_matrix.sh
 
 formation-results:
-	$(PYTHON) -m code.formation.aggregate_formation_full_matrix
-	$(PYTHON) -m code.formation.make_formation_comparison_figure
+	PYTHON_BIN=$(PYTHON_BIN) bash scripts/run_formation_full_matrix.sh
+
+algorithm:
+	PYTHON_BIN=$(PYTHON_BIN) bash scripts/run_algorithm_comparison_training.sh
+
+aggregate:
+	$(PYTHON) -m code.analysis.aggregate_primary_median
+	$(PYTHON) -m code.analysis.rebuild_primary_figures_tables
+
+figures:
+	$(PYTHON) -m code.analysis.make_surface_distance_figure
+	$(PYTHON) -m code.analysis.make_trajectory_result_figures
+	$(PYTHON) -m code.analysis.make_filter_path_comparison
+	$(PYTHON) -m code.analysis.make_traditional_planner_renderings
+	$(PYTHON) -m code.analysis.make_rl_loop_diagram
 
 planner-rendering:
 	$(PYTHON) -m code.analysis.make_traditional_planner_renderings

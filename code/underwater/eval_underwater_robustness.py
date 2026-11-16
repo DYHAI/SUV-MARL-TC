@@ -12,15 +12,21 @@ import numpy as np
 import pandas as pd
 from stable_baselines3 import PPO, SAC, TD3
 
+from code.underwater.underwater_coverage import (
+    HYCOM_LAT_DEG,
+    HYCOM_LON_DEG,
+    native_hycom_cells,
+    native_hycom_coverage_area,
+    native_hycom_weighted_coverage,
+)
 from code.underwater.underwater_fleet_flow_env import UnderwaterFleetFlowEnv
 from code.underwater.underwater_flow_env import D2KM, STEP_MIN
-from code.paths import REPO_ROOT, RUNS_ROOT
 
 
-ROOT = REPO_ROOT
-SPLIT = ROOT / "data" / "typhoon_split_500.json"
-SEGCSV = ROOT / "data" / "segments_500.csv"
-OUTDIR = RUNS_ROOT / "underwater" / "robustness"
+ROOT = Path(__file__).resolve().parents[2]
+SPLIT = ROOT / "data" / "typhoon_split_400.json"
+SEGCSV = ROOT / "data" / "segments_primary_400.csv"
+OUTDIR = ROOT / "robustness_eval"
 
 
 def model_seed(path: str) -> int:
@@ -162,19 +168,20 @@ def run_episode(env, model, row, seed, cfg):
         path_km = 0.0
     duration_s = max(len(LAT) - 1, 1) * STEP_MIN * 60.0
 
-    cov_deg = float(env.cov_deg)
-    lat0 = float(np.min(env.d["lat"]))
-    lon0 = float(np.min(env.d["lon"]))
-    cells = {
-        (
-            int(np.floor((lat - lat0) / cov_deg)),
-            int(np.floor((lon - lon0) / cov_deg)),
-        )
-        for lat, lon in zip(LAT.ravel(), LON.ravel())
-    }
+    cells = native_hycom_cells(LAT.ravel(), LON.ravel())
+    coverage_area = native_hycom_coverage_area(cells)
+    mean_current = float(SPD.mean())
     return {
-        "mean_current_ms": float(SPD.mean()),
-        "coverage_area_km2": float(len(cells) * env._cell_area_km2),
+        "mean_current_ms": mean_current,
+        "coverage_area_km2": coverage_area,
+        "current_weighted_coverage": native_hycom_weighted_coverage(
+            LAT.ravel(), LON.ravel(), SPD.ravel()
+        ),
+        "current_weighted_coverage_product": (
+            mean_current * coverage_area
+        ),
+        "coverage_lat_deg": HYCOM_LAT_DEG,
+        "coverage_lon_deg": HYCOM_LON_DEG,
         "path_km": path_km,
         "mean_ground_speed_ms": path_km * 1000.0 / max(duration_s, 1e-9),
         "command_proxy": float(np.mean(ACT * ACT)),

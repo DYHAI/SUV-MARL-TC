@@ -18,9 +18,8 @@ import pandas as pd
 import xarray as xr
 
 import code.data_preparation.typhoons_500_split as S
-from code.paths import REPO_ROOT
 
-BASE = str(REPO_ROOT)
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 ERA = os.path.join(BASE, "data", "era5_wind")
 TRACK = os.path.join(BASE, "data", "selected_typhoons")
 SPLIT = os.path.join(BASE, "data", "typhoon_split_500.json")

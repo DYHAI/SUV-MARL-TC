@@ -11,9 +11,7 @@ same format used by the original 8 storms (window = track min-6h .. max+24h snap
 import json, os, re
 import pandas as pd
 
-from code.paths import REPO_ROOT
-
-ROOT = str(REPO_ROOT)
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DATA = os.path.join(ROOT, "data")
 SEL = os.path.join(DATA, "selected_typhoons")
 IB = os.path.join(DATA, "scs_typhoons", "ibtracs_WP.csv")

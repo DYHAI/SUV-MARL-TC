@@ -17,26 +17,30 @@
       python eval_deploy_xfer.py <model.zip> <n_auv> <D_km> [seeds]
 """
 import fcntl, hashlib, os, sys, json
+from pathlib import Path
 import numpy as np
 import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from code.surface.fleet_segment_env import (
     FleetSegmentEnv,
     D2KM,
-    deploy_formation,
-    seg_idx,
+    R_BUFFER,
     STEP_MIN,
     VMAX,
-    R_BUFFER,
+    coerce_formation_action,
+    deploy_formation,
+    formation_safety_filter,
+    rigid_formation_enabled,
     safety_filter,
-    land_interp,
+    seg_idx,
+    wind_speed_at,
 )
 from stable_baselines3 import PPO, SAC, TD3
-from code.paths import REPO_ROOT, RUNS_ROOT
+from code.surface.nearest_tc import NearestTCCatalog
 
-BASE = str(REPO_ROOT)
-SPLIT = os.environ.get("SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_500.json"))
-SEGCSV = os.environ.get("SEGMENTS_CSV", os.path.join(BASE, "data", "segments_500.csv"))
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+SPLIT = os.environ.get("SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_400.json"))
+SEGCSV = os.environ.get("SEGMENTS_CSV", os.path.join(BASE, "data", "segments_primary_400.csv"))
 SPLIT_KEY = os.environ.get("SPLIT_KEY", "test")
 DEPLOY_OCEAN_ONLY = os.environ.get("DEPLOY_OCEAN_ONLY", "1") == "1"
 DEPLOY_MIN_COAST_KM = float(os.environ.get("DEPLOY_MIN_COAST_KM", "100"))
@@ -46,17 +50,23 @@ USE_MSLP = os.environ.get("USE_MSLP", "0") == "1"
 STORAGE16 = os.environ.get("STORAGE16", "0") == "1"
 # XFER_DUMP=1 → 额外把**逐段**指标写 logs_xfer/<XFER_TAG>_seg.csv（配对检验用）
 XFER_DUMP = os.environ.get("XFER_DUMP", "0") == "1"
+XFER_DUMP_DIR = Path(
+    os.environ.get("XFER_DUMP_DIR", os.path.join(BASE, "logs_xfer"))
+)
 
 MODEL = sys.argv[1]
 N_AUV = int(sys.argv[2]) if len(sys.argv) > 2 else 4
 D_FIXED = float(sys.argv[3]) if len(sys.argv) > 3 else 200.0
 SEEDS = int(sys.argv[4]) if len(sys.argv) > 4 else 3
-R_TRAIN = float(os.environ.get("XFER_R_TRAIN", "800"))
+R_TRAIN = float(os.environ.get("XFER_R_TRAIN", "200"))
 
 SPACING, PATCH_N = 0.25, 1
 BETA = float(os.environ.get("ACTION_FILTER_BETA", "0.8"))
 RING_RADIUS = float(os.environ.get("FORMATION_RADIUS_KM", "100"))
 FORMATION = os.environ.get("FORMATION", "ring")
+RIGID_FORMATION = rigid_formation_enabled()
+NEAREST_TC_METRICS = os.environ.get("NEAREST_TC_METRICS", "0") == "1"
+NEAREST_CATALOG = NearestTCCatalog() if NEAREST_TC_METRICS else None
 
 
 def acquire_evaluation_lock():
@@ -123,8 +133,10 @@ def run_segment(model, env, seg, idx, sd):
         env.dynamics.reset(seed=seed)
     env.lons, env.lats, dep_centre_km, dep_coast_km = deploy_fixed(
         d, env.t0, env.n_auv, D_FIXED, seed)
+    env._rigid_offsets_km = None
     env.prev_actions = np.zeros((env.n_auv, 2), dtype=np.float32)
-    obs = env._obs().reshape(-1).astype(np.float32)
+    obs_all = env._obs().astype(np.float32)
+    obs = obs_all[0] if RIGID_FORMATION else obs_all.reshape(-1)
     ld0 = env.dist_interp(np.stack([env.lats, env.lons], axis=1))
     init_land_frac = float((ld0 <= 0.0).mean())
     init_on_land = ld0 <= 0.0
@@ -134,21 +146,48 @@ def run_segment(model, env, seg, idx, sd):
     land_steps = 0; buf_steps = 0; any_land_steps = 0; tot_steps = 0; touched = False
     path = np.zeros(env.n_auv)
     dists = []
+    centre_dists = []
+    nearest_tc_dists = []
+    nearest_tc_names = []
+    active_tc_counts = []
     max_prop_speed = 0.0
     max_accel = 0.0
     max_yaw_rate = 0.0
     max_surface_current = 0.0
+    max_formation_offset_drift = 0.0
+    if RIGID_FORMATION:
+        env._capture_rigid_offsets()
+        initial_offsets = env._rigid_offsets_km.copy()
     formation_radii = []
     pairwise_spacings = []
     while True:
         a, _ = model.predict(obs, deterministic=True)
-        a = np.asarray(a, dtype=np.float32).reshape(env.n_auv, 2)
+        if RIGID_FORMATION:
+            a = coerce_formation_action(a, env.n_auv)
+        else:
+            a = np.asarray(a, dtype=np.float32).reshape(env.n_auv, 2)
         a_exec = (1.0 - BETA) * a + BETA * a_exec
         a_use = np.clip(a_exec, -1.0, 1.0)
         nrm = np.linalg.norm(a_use, axis=1, keepdims=True)
         a_use = a_use / np.maximum(1.0, nrm)
         if SAFETY_MARGIN_KM > 0:
-            a_use = safety_filter(a_use, env.lons, env.lats, env.dist_interp, SAFETY_MARGIN_KM)
+            if RIGID_FORMATION:
+                common = formation_safety_filter(
+                    a_use[0],
+                    env.lons,
+                    env.lats,
+                    env.dist_interp,
+                    SAFETY_MARGIN_KM,
+                )
+                a_use = np.repeat(common[None, :], env.n_auv, axis=0)
+            else:
+                a_use = safety_filter(
+                    a_use,
+                    env.lons,
+                    env.lats,
+                    env.dist_interp,
+                    SAFETY_MARGIN_KM,
+                )
         prev_lons = env.lons.copy()
         prev_lats = env.lats.copy()
         obs, _r, _t, trunc, info = env.step(a_use)
@@ -170,12 +209,28 @@ def run_segment(model, env, seg, idx, sd):
                 max_surface_current,
                 float(np.max(info["surface_current_speed"])),
             )
+        if RIGID_FORMATION:
+            lon0 = float(np.mean(env.lons))
+            lat0 = float(np.mean(env.lats))
+            current_offsets = np.stack(
+                [
+                    (env.lons - lon0)
+                    * D2KM
+                    * np.cos(np.deg2rad(lat0)),
+                    (env.lats - lat0) * D2KM,
+                ],
+                axis=1,
+            )
+            max_formation_offset_drift = max(
+                max_formation_offset_drift,
+                float(np.max(np.abs(current_offsets - initial_offsets))),
+            )
         step_km = np.hypot(
             (env.lons - prev_lons) * D2KM * np.cos(np.deg2rad(prev_lats)),
             (env.lats - prev_lats) * D2KM,
         )
         path += step_km
-        obs = obs.reshape(-1).astype(np.float32)
+        obs = obs[0].astype(np.float32) if RIGID_FORMATION else obs.reshape(-1).astype(np.float32)
         ld = info["land_dist"]
         onl = ld <= 0.0
         inb = (ld > 0.0) & (ld < R_BUFFER)
@@ -186,6 +241,26 @@ def run_segment(model, env, seg, idx, sd):
         if onl.any():
             touched = True
         dists.append(float(np.mean(info["dist_km"])))
+        rel_x = (
+            (env.lons - float(info["eye_lon"]))
+            * D2KM
+            * np.cos(np.deg2rad(float(info["eye_lat"])))
+        )
+        rel_y = (
+            (env.lats - float(info["eye_lat"]))
+            * D2KM
+        )
+        centre_dists.append(float(np.hypot(np.mean(rel_x), np.mean(rel_y))))
+        if NEAREST_CATALOG is not None:
+            nearest_distance, nearest_name, active_count = NEAREST_CATALOG.nearest(
+                d,
+                env.t,
+                float(np.mean(env.lons)),
+                float(np.mean(env.lats)),
+            )
+            nearest_tc_dists.append(nearest_distance)
+            nearest_tc_names.append(nearest_name)
+            active_tc_counts.append(active_count)
         centroid_lon = float(np.mean(env.lons))
         centroid_lat = float(np.mean(env.lats))
         from_center_km = np.hypot(
@@ -227,11 +302,37 @@ def run_segment(model, env, seg, idx, sd):
         vmean=float(path.mean() * 1000.0 / (tot_steps * STEP_MIN * 60.0 + 1e-9)),
         dist=float(np.mean(dists)),
         final_dist=float(dists[-1]) if dists else float("nan"),
+        centre_dist=float(np.mean(centre_dists)),
+        final_centre_dist=(
+            float(centre_dists[-1]) if centre_dists else float("nan")
+        ),
+        final_wind_speed_ms=float(
+            np.mean(wind_speed_at(d, env.t, env.lons, env.lats))
+        ),
+        nearest_tc_dist=(
+            float(np.mean(nearest_tc_dists))
+            if nearest_tc_dists
+            else float("nan")
+        ),
+        final_nearest_tc_dist=(
+            float(nearest_tc_dists[-1])
+            if nearest_tc_dists
+            else float("nan")
+        ),
+        final_nearest_tc_name=(
+            nearest_tc_names[-1] if nearest_tc_names else ""
+        ),
+        multi_tc_step_fraction=(
+            float(np.mean(np.asarray(active_tc_counts) > 1))
+            if active_tc_counts
+            else 0.0
+        ),
         T_h=float(tot_steps * STEP_MIN / 60.0),
         max_prop_speed_ms=max_prop_speed,
         max_accel_mps2=max_accel,
         max_yaw_rate_dps=float(np.degrees(max_yaw_rate)),
         max_surface_current_ms=max_surface_current,
+        max_formation_offset_drift_km=max_formation_offset_drift,
         formation_radius_km=float(np.mean(formation_radii)),
         pairwise_spacing_km=float(np.mean(pairwise_spacings)),
     )
@@ -241,6 +342,9 @@ def main():
     lock_stream = acquire_evaluation_lock()
     if lock_stream is None:
         raise SystemExit(75)
+    global NEAREST_CATALOG
+    if NEAREST_TC_METRICS and NEAREST_CATALOG is None:
+        NEAREST_CATALOG = NearestTCCatalog()
     print("XFER 训练半径 R_train=%.0f km | 固定布防距离 D=%.0f km | 台数=%d | seeds=%d"
           % (R_TRAIN, D_FIXED, N_AUV, SEEDS), flush=True)
     lowered = os.path.basename(MODEL).lower()
@@ -276,10 +380,14 @@ def main():
     # （聚合行只有均值，做不了配对检验；2026-10-13 加）
     if XFER_DUMP and "idx" in df.columns:
         tag = os.environ.get("XFER_TAG", "xfer")
-        keep = ["idx", "storm", "t0", "sd", "dist", "path", "vmean", "T_h", "land_frac"]
-        out_dir = RUNS_ROOT / "surface" / "eval"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        df[keep].to_csv(out_dir / f"{tag}_seg.csv", index=False)
+        keep = [
+            "idx", "storm", "t0", "sd", "dist", "final_dist",
+            "centre_dist", "final_centre_dist",
+            "final_wind_speed_ms",
+            "path", "vmean", "max_prop_speed_ms", "T_h", "land_frac",
+        ]
+        XFER_DUMP_DIR.mkdir(parents=True, exist_ok=True)
+        df[keep].to_csv(XFER_DUMP_DIR / f"{tag}_seg.csv", index=False)
     # 段级误差棒（768 个测试段 = 768 个不同的方位角实现，天然给出不确定度）
     n_seg = max(len(df), 1)
     sem_dist = float(df.dist.std(ddof=1) / np.sqrt(n_seg)) if n_seg > 1 else 0.0
@@ -315,6 +423,30 @@ def main():
         % (R_TRAIN, D_FIXED, N_AUV, final_mean, final_sem, len(df)),
         flush=True,
     )
+    centre_mean = float(df.centre_dist.mean())
+    centre_sem = (
+        float(df.centre_dist.std(ddof=1) / np.sqrt(n_seg))
+        if n_seg > 1 else 0.0
+    )
+    final_centre_mean = float(df.final_centre_dist.mean())
+    final_centre_sem = (
+        float(df.final_centre_dist.std(ddof=1) / np.sqrt(n_seg))
+        if n_seg > 1 else 0.0
+    )
+    print(
+        "CENTERROW|%.0f|%.0f|%d|%.1f|%.2f|%.1f|%.2f|%.0f"
+        % (
+            R_TRAIN,
+            D_FIXED,
+            N_AUV,
+            centre_mean,
+            centre_sem,
+            final_centre_mean,
+            final_centre_sem,
+            len(df),
+        ),
+        flush=True,
+    )
     print(
         "CONSTRAINTROW|%.0f|%.0f|%d|%.6f|%.6f|%.6f|%.6f"
         % (
@@ -337,6 +469,16 @@ def main():
             float(df.formation_radius_km.mean()),
             float(df.pairwise_spacing_km.mean()),
             len(df),
+        ),
+        flush=True,
+    )
+    print(
+        "RIGIDROW|%.0f|%.0f|%d|%.9f"
+        % (
+            R_TRAIN,
+            D_FIXED,
+            N_AUV,
+            float(df.max_formation_offset_drift_km.max()),
         ),
         flush=True,
     )

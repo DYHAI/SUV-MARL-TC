@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Aggregate the underwater 4-AUV max-flow matrix evaluation into one table.
 
-Reads runs/underwater/eval/eval_info_info_d*_500.csv, parses
+Reads eval_out/eval_info_info_d*_500.csv (written by run_uwflow_eval.py), parses
 depth / vmax / duration out of the file name and algo / reward / seed out of the
 policy label, then reports, for every configuration:
 
@@ -9,7 +9,7 @@ policy label, then reports, for every configuration:
     coverage area / info coverage / core hit / reconstruction RMSE (P3 family)
     path length, mean speed, p90 flow speed, energy proxy
 
-Usage:  python -m code.underwater.summarize_uwflow_500 [glob]
+Usage:  python summarize_uwflow_500.py [glob]
 Output: eval_uwflow_500_summary.psv  (+ stdout table)
 """
 import os, re, glob, sys
@@ -17,10 +17,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from code.paths import RESULTS_ROOT, RUNS_ROOT
-
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PAT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-    str(RUNS_ROOT / "underwater" / "eval"), "eval_info_info_d*_500.csv")
+    BASE, "eval_out", "eval_info_info_d*_500.csv")
 
 METRICS = ["mean_V", "cov_area_km2", "info_cov_pct", "core_hit_pct",
            "recon_rmse", "recon_corr", "path_km", "mean_speed_ms",
@@ -95,7 +94,7 @@ def main():
             "recon_rmse", "recon_corr", "path_km", "mean_speed_ms", "V_p90", "high_pct", "mean_a2"]
     s = s[[c for c in cols if c in s.columns]].sort_values(
         ["depth", "vmax", "dur", "algo", "reward", "train_seed"]).reset_index(drop=True)
-    path = os.path.join(str(RESULTS_ROOT / "underwater"), "eval_uwflow_500_summary.psv")
+    path = os.path.join(BASE, "eval_uwflow_500_summary.psv")
     s.to_csv(path, sep="|", index=False, float_format="%.4f")
 
     pd.set_option("display.width", 250)
@@ -162,7 +161,7 @@ def main():
                         r["gV"], 0.0 if pd.isna(r["gVsd"]) else r["gVsd"], r["gC"], r["core"],
                         r["rmse"], r["path"], r["energy"]))
 
-    mdp = os.path.join(str(RESULTS_ROOT / "underwater"), "eval_uwflow_500_report.md")
+    mdp = os.path.join(BASE, "eval_uwflow_500_report.md")
     open(mdp, "w").write("\n".join(L) + "\n")
     print("saved", mdp)
 

@@ -22,21 +22,23 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from code.surface.fleet_segment_env import FleetSegmentEnv, STEP_MIN, VMAX
+from code.surface.fleet_segment_env import (
+    FleetSegmentEnv,
+    STEP_MIN,
+    VMAX,
+    rigid_formation_enabled,
+)
 from code.surface.fleet_sb3 import SharedPerAgentPolicy
-from code.paths import REPO_ROOT, RUNS_ROOT
 
-BASE = str(REPO_ROOT)
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SPLIT = os.environ.get(
-    "SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_500.json")
+    "SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_400.json")
 )
 SEGCSV = os.environ.get(
-    "SEGMENTS_CSV", os.path.join(BASE, "data", "segments_500.csv")
+    "SEGMENTS_CSV", os.path.join(BASE, "data", "segments_primary_400.csv")
 )
 OUT = os.path.abspath(
-    os.environ.get(
-        "FLEET_MODEL_DIR", str(RUNS_ROOT / "surface" / "official_models")
-    )
+    os.environ.get("FLEET_MODEL_DIR", os.path.join(BASE, "ppo_fleet"))
 )
 
 TOTAL = int(sys.argv[1]) if len(sys.argv) > 1 else 2_000_000
@@ -79,19 +81,34 @@ class FlatFleetSegmentEnvActFilter(gym.Env):
         self.n_auv = n_auv
         self.beta = float(beta)
         self.obs_dim = self.inner.obs_dim
+        self.rigid_formation = rigid_formation_enabled()
         if tuple(self.inner.observation_space.shape) != (n_auv, self.obs_dim):
             raise ValueError("surface observation dimension mismatch")
-        self.observation_space = spaces.Box(-np.inf, np.inf, (n_auv * self.obs_dim,), dtype=np.float32)
-        self.action_space = spaces.Box(-1.0, 1.0, (n_auv * 2,), dtype=np.float32)
-        self.a_exec = np.zeros((n_auv, 2), dtype=np.float32)
+        obs_width = self.obs_dim if self.rigid_formation else n_auv * self.obs_dim
+        act_width = 2 if self.rigid_formation else n_auv * 2
+        self.observation_space = spaces.Box(
+            -np.inf, np.inf, (obs_width,), dtype=np.float32
+        )
+        self.action_space = spaces.Box(-1.0, 1.0, (act_width,), dtype=np.float32)
+        self.a_exec = np.zeros(
+            (1 if self.rigid_formation else n_auv, 2), dtype=np.float32
+        )
 
     def reset(self, *, seed=None, options=None):
         obs, info = self.inner.reset(seed=seed)
-        self.a_exec = np.zeros((self.n_auv, 2), dtype=np.float32)
+        self.a_exec = np.zeros(
+            (1 if self.rigid_formation else self.n_auv, 2),
+            dtype=np.float32,
+        )
+        if self.rigid_formation:
+            return obs[0].astype(np.float32), info
         return obs.reshape(-1).astype(np.float32), info
 
     def step(self, action):
-        a = np.asarray(action, dtype=np.float32).reshape(self.n_auv, 2)
+        if self.rigid_formation:
+            a = np.asarray(action, dtype=np.float32).reshape(1, 2)
+        else:
+            a = np.asarray(action, dtype=np.float32).reshape(self.n_auv, 2)
         self.a_exec = (1.0 - self.beta) * a + self.beta * self.a_exec     # ← 唯一新增：动作低通
         a_use = np.clip(self.a_exec, -1.0, 1.0)
         obs, reward, term, trunc, info = self.inner.step(a_use)
@@ -101,6 +118,8 @@ class FlatFleetSegmentEnvActFilter(gym.Env):
             reward = base + float(lp.sum()) / self.n_auv       # 陆罚不被裁剪吃掉
         else:
             reward = float(np.clip(float(reward) / self.n_auv, -5.0, 2.0))
+        if self.rigid_formation:
+            return obs[0].astype(np.float32), reward, term, trunc, info
         return obs.reshape(-1).astype(np.float32), reward, term, trunc, info
 
 
@@ -153,13 +172,21 @@ def main():
     ) else 0
     od = nch * N_AUV + 2 + n_id + n_heading
     print("[config] MLP + 动作低通滤波  STEP_MIN=%d VMAX=%.2fm/s n_auv=%d deploy=%.0fkm  beta=%.2f  hidden=%d  "
-          "n_steps=%d batch=%d n_env=%d total=%d seed=%d  coast_obs=%d  sst=%s  mslp=%d  agent_id=%s"
-          % (STEP_MIN, VMAX, N_AUV, DEPLOY, BETA, HIDDEN, N_STEPS, BATCH, NENV, TOTAL, SEED,
+          "rigid_formation=%d  n_steps=%d batch=%d n_env=%d total=%d seed=%d  coast_obs=%d  sst=%s  mslp=%d  agent_id=%s"
+          % (STEP_MIN, VMAX, N_AUV, DEPLOY, BETA, HIDDEN,
+             int(rigid_formation_enabled()), N_STEPS, BATCH, NENV, TOTAL, SEED,
              int(os.environ.get("OBS_COAST_DIST", "0") == "1"), SST_MODE, int(USE_MSLP),
              os.environ.get("OBS_AGENT_ID", "0")), flush=True)
     env = SubprocVecEnv([make_env(train, seg, i) for i in range(NENV)], start_method="fork")
-    model = PPO(SharedPerAgentPolicy, env,
-                policy_kwargs=dict(n_auv=N_AUV, obs_dim=od, act_dim=2, hidden=HIDDEN),
+    rigid_formation = rigid_formation_enabled()
+    policy = "MlpPolicy" if rigid_formation else SharedPerAgentPolicy
+    policy_kwargs = (
+        dict(net_arch=[HIDDEN, HIDDEN])
+        if rigid_formation
+        else dict(n_auv=N_AUV, obs_dim=od, act_dim=2, hidden=HIDDEN)
+    )
+    model = PPO(policy, env,
+                policy_kwargs=policy_kwargs,
                 n_steps=N_STEPS, batch_size=BATCH, n_epochs=N_EPOCHS,
                 learning_rate=LR, gamma=GAMMA, gae_lambda=GAE_LAMBDA,
                 clip_range=CLIP, clip_range_vf=CLIP_VF, ent_coef=ENT, vf_coef=VF,

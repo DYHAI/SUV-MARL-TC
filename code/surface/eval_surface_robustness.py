@@ -16,17 +16,20 @@ from code.surface.fleet_segment_env import (
     D2KM,
     R_BUFFER,
     FleetSegmentEnv,
+    coerce_formation_action,
     deploy_formation,
     land_interp,
+    policy_observation,
+    rigid_formation_enabled,
     seg_idx,
+    wind_speed_at,
 )
-from code.paths import REPO_ROOT, RUNS_ROOT
 
 
-ROOT = REPO_ROOT
-SPLIT = ROOT / "data" / "typhoon_split_500.json"
-SEGCSV = ROOT / "data" / "segments_500.csv"
-OUTDIR = RUNS_ROOT / "surface" / "robustness"
+ROOT = Path(__file__).resolve().parents[2]
+SPLIT = ROOT / "data" / "typhoon_split_400.json"
+SEGCSV = ROOT / "data" / "segments_primary_400.csv"
+OUTDIR = ROOT / "robustness_eval"
 WIND_NORM = 50.0
 
 
@@ -173,9 +176,10 @@ def run_segment(
     )
     env.prev_actions = np.zeros((env.n_auv, 2), dtype=np.float32)
     obs = env._obs()
+    rigid = rigid_formation_enabled()
     delayed = np.zeros((env.n_auv, 2), dtype=np.float32)
     executed = np.zeros((env.n_auv, 2), dtype=np.float32)
-    distance, path, land_steps, steps = [], 0.0, 0, 0
+    distance, centre_distance, path, land_steps, steps = [], [], 0.0, 0, 0
     formation_radii: list[float] = []
     pairwise_spacings: list[float] = []
     while True:
@@ -185,8 +189,12 @@ def run_segment(
             wind_bias=float(cfg.get("wind_bias", 1.0)),
             sensor_noise_ms=float(cfg.get("sensor_noise_ms", 0.0)),
         )
-        raw, _ = model.predict(obs_in.reshape(-1), deterministic=True)
-        raw = np.asarray(raw, dtype=np.float32).reshape(env.n_auv, 2)
+        policy_obs = policy_observation(obs_in, rigid)
+        raw, _ = model.predict(policy_obs, deterministic=True)
+        if rigid:
+            raw = coerce_formation_action(raw, env.n_auv)
+        else:
+            raw = np.asarray(raw, dtype=np.float32).reshape(env.n_auv, 2)
         delay = int(cfg.get("action_delay", 0))
         if delay == 0:
             command = raw
@@ -202,6 +210,17 @@ def run_segment(
         path += float(np.mean(np.linalg.norm(action, axis=1))) * env.vmax * 10.0 * 60.0 / 1000.0
         obs, _reward, terminated, truncated, info = env.step(action)
         distance.append(float(np.mean(info["dist_km"])))
+        eye_lon = float(info["eye_lon"])
+        eye_lat = float(info["eye_lat"])
+        rel_x = (
+            (env.lons - eye_lon)
+            * D2KM
+            * np.cos(np.deg2rad(eye_lat))
+        )
+        rel_y = (env.lats - eye_lat) * D2KM
+        centre_distance.append(
+            float(np.hypot(np.mean(rel_x), np.mean(rel_y)))
+        )
         lat0 = float(np.mean(env.lats))
         dx = (env.lons - float(np.mean(env.lons))) * D2KM * np.cos(
             np.deg2rad(lat0)
@@ -224,6 +243,11 @@ def run_segment(
     return {
         "final_distance_km": distance[-1],
         "distance_avg_km": float(np.mean(distance)),
+        "final_centre_distance_km": centre_distance[-1],
+        "centre_distance_avg_km": float(np.mean(centre_distance)),
+        "final_wind_speed_ms": float(
+            np.mean(wind_speed_at(env.d, env.t, env.lons, env.lats))
+        ),
         "path_km": path,
         "on_land_fraction": land_steps / max(steps * env.n_auv, 1),
         "formation_radius_km": float(np.mean(formation_radii)),

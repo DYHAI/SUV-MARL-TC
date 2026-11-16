@@ -20,6 +20,11 @@
     "required_phrases": true,
     "legacy_phrases_absent": true
   },
+  "pipeline_and_generators": {
+    "scheduler": true,
+    "plot_generators": true,
+    "evaluation": true
+  },
   "environment_smoke": {
     "surface_observation_shape": [
       28
@@ -37,7 +42,9 @@
       2
     ],
     "underwater_current_norm_error": 0.0,
-    "coverage_cell_area_km2": 770.0625
+    "training_env_grid_cell_area_km2": 770.0625,
+    "native_hycom_coverage_cell_area_km2": 37.04473952426683,
+    "native_hycom_cellwise_weighted_coverage": 18.522369762133415
   },
   "aggregation": {
     "surface_seed_medians": [

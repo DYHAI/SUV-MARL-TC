@@ -9,7 +9,6 @@ the much smaller segment-level SEM.
 from __future__ import annotations
 
 import argparse
-import os
 import re
 from pathlib import Path
 
@@ -18,12 +17,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from code.paths import PAPER_ROOT, REPO_ROOT, RESULTS_ROOT, RUNS_ROOT
 
-ROOT = REPO_ROOT
-LOG_ROOT = Path(os.environ.get("SURFACE_LOG_ROOT", str(RUNS_ROOT / "surface")))
-OUTDIR = PAPER_ROOT / "figures"
-TABLEDIR = PAPER_ROOT / "tables"
+ROOT = Path(__file__).resolve().parents[2]
+OUTDIR = ROOT / "paper" / "figures"
+TABLEDIR = ROOT / "paper" / "tables"
 FLEETS = (4, 8, 12, 16)
 SEEDS = tuple(range(10))
 RADII = (100, 200, 400, 600, 800)
@@ -43,24 +40,24 @@ FIELDS = {
 def row_path(version: int, n_auv: int, seed: int, distance: int) -> Path:
     if version == 12:
         return (
-            LOG_ROOT
+            ROOT
             / "logs_vmax12_seed10"
             / f"eval_n{n_auv}_s{seed}_d{distance}.log"
         )
     if n_auv == 16:
         return (
-            LOG_ROOT
+            ROOT
             / "logs_seed16"
             / f"eval_n16_s{seed}_d{distance}.log"
         )
     if seed == 0:
         return (
-            LOG_ROOT
+            ROOT
             / "logs_xfer"
             / f"xfer_r800_windonly_n{n_auv}_d{distance}.log"
         )
     return (
-        LOG_ROOT
+        ROOT
         / "logs_seed_extra"
         / f"eval_n{n_auv}_s{seed}_d{distance}.log"
     )
@@ -354,11 +351,11 @@ def main() -> None:
 
     OUTDIR.mkdir(parents=True, exist_ok=True)
     TABLEDIR.mkdir(parents=True, exist_ok=True)
-    raw.to_csv(ROOT / "Latex_Yihui_MARL" / "surface_vmax_10seed_raw.csv", index=False)
+    raw.to_csv(ROOT / "paper" / "surface_vmax_10seed_raw.csv", index=False)
     summary = summarize(raw)
-    summary.to_csv(ROOT / "Latex_Yihui_MARL" / "surface_vmax_10seed_summary.csv", index=False)
+    summary.to_csv(ROOT / "paper" / "surface_vmax_10seed_summary.csv", index=False)
     tests = paired_tests(raw)
-    tests.to_csv(ROOT / "Latex_Yihui_MARL" / "surface_vmax_10seed_paired_tests.csv", index=False)
+    tests.to_csv(ROOT / "paper" / "surface_vmax_10seed_paired_tests.csv", index=False)
 
     if len(summary) != 2 * len(FLEETS) * len(RADII):
         print("Partial data: tables and final figure were not generated.")
@@ -390,9 +387,9 @@ def main() -> None:
     write_numeric_results(
         summary,
         tests,
-        ROOT / "Latex_Yihui_MARL" / "sections" / "surface_vmax_results.tex",
+        ROOT / "paper" / "sections" / "surface_vmax_results.tex",
     )
-    print(ROOT / "Latex_Yihui_MARL" / "surface_vmax_10seed_summary.csv")
+    print(ROOT / "paper" / "surface_vmax_10seed_summary.csv")
     print(TABLEDIR / "surface_vmax_dynamic.tex")
     print(TABLEDIR / "surface_vmax_operational.tex")
     print(OUTDIR / "surface_vmax_10seed_metrics.pdf")

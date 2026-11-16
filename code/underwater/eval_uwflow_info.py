@@ -10,7 +10,8 @@
   mean_a2       推进能耗代理
 
 【新族 · 科学目标（找到核心区域去测量）】
-  cov_area_km2  4 台 AUV 覆盖到的不重复面积（0.05° 格点累加）
+  cov_area_km2  4 台 AUV 覆盖到的不重复面积，按 HYCOM 原生
+                0.04° 纬度 × 0.08° 经度矩形网格累加
   info_cov_pct  覆盖到的「信息价值」占评估区总价值的比例（W 加权覆盖率）
   core_hit_pct  评估区内 W 前 10% 的核心区被采样到的比例
   recon_rmse    用采样点 IDW 重构评估区时均流场，与 HYCOM 真值的 RMSE（m/s）
@@ -30,12 +31,16 @@ import torch
 import torch.nn as nn
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from code.underwater.underwater_fleet_flow_env import (
-    UnderwaterFleetFlowEnv,
-    D2KM,
-)  # noqa: E402
+from code.underwater.underwater_fleet_flow_env import UnderwaterFleetFlowEnv, D2KM  # noqa: E402
+from code.underwater.underwater_coverage import (  # noqa: E402
+    HYCOM_LAT_DEG,
+    HYCOM_LON_DEG,
+    native_cell_center,
+    native_hycom_cells,
+    native_hycom_coverage_area,
+    native_hycom_weighted_coverage,
+)
 from code.underwater.underwater_flow_env import STEP_MIN  # noqa: E402
-from code.paths import REPO_ROOT, RUNS_ROOT
 
 
 class Actor(nn.Module):
@@ -54,24 +59,22 @@ class Actor(nn.Module):
         std = self.log_std.exp().clamp(min=1e-4, max=1.0)
         return mean, std
 
-BASE = str(REPO_ROOT)
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SPLIT = os.environ.get(
-    "SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_500.json")
+    "SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_400.json")
 )
 SEGCSV = os.environ.get(
-    "SEGMENTS_CSV", os.path.join(BASE, "data", "segments_500.csv")
+    "SEGMENTS_CSV", os.path.join(BASE, "data", "segments_primary_400.csv")
 )
 OUT = os.path.abspath(
-    os.environ.get(
-        "UWFLOW_MODEL_DIR", str(RUNS_ROOT / "underwater" / "official_models")
-    )
+    os.environ.get("UWFLOW_MODEL_DIR", os.path.join(BASE, "ppo_underwater_fleet"))
 )
 EVAL_OUT = os.path.abspath(
-    os.environ.get(
-        "UWFLOW_EVAL_DIR", str(RUNS_ROOT / "underwater" / "official_eval")
-    )
+    os.environ.get("UWFLOW_EVAL_DIR", os.path.join(BASE, "eval_out"))
 )
 R_EVAL_KM = 250.0
+COVERAGE_DEG = float(os.environ.get("COVERAGE_DEG", "0.25"))
+INCLUDE_IDLE_RANDOM = os.environ.get("INCLUDE_IDLE_RANDOM", "1") == "1"
 IDW_POWER = 2.0
 IDW_K = 8
 
@@ -93,7 +96,8 @@ def make_env(depth, start, dur, storms, seg, n_patch=1, frame_stack=True,
         storms=storms, segments_df=seg, vmax=vmax, reward_mode=reward,
         N=n_patch, use_frame_stack=frame_stack, frame_k=5,
         start_radius=float(start), crop_margin=(3.0 if start <= 200 else 6.0),
-        depth_m=depth, grid_deg=grid, duration_h=float(dur), native_res=native, **extra)
+        depth_m=depth, grid_deg=grid, duration_h=float(dur),
+        cov_deg=COVERAGE_DEG, native_res=native, **extra)
 
 
 def load_actor(name, obs_dim):
@@ -121,7 +125,18 @@ def load_policy(name, obs_dim):
         model = model_class.load(os.path.join(OUT, name), device="cpu")
 
         def pol(o, e, model=model):
-            a, _ = model.predict(np.asarray(o, dtype=np.float32).reshape(-1), deterministic=True)
+            obs = np.asarray(o, dtype=np.float32).reshape(e.n_auv, -1)
+            expected = int(np.prod(model.observation_space.shape))
+            if obs.size != expected:
+                per_agent = expected // e.n_auv
+                if expected % e.n_auv != 0 or obs.shape[1] < per_agent:
+                    raise ValueError(
+                        f"{name}: model expects {expected} observation values, "
+                        f"environment produced {obs.size}"
+                    )
+                # Older archived actors predate the two heading features.
+                obs = obs[:, :per_agent]
+            a, _ = model.predict(obs.reshape(-1), deterministic=True)
             return np.clip(np.asarray(a, dtype=np.float32).reshape(e.n_auv, 2), -1, 1)
         return pol
     actor = load_actor(name, obs_dim)
@@ -171,9 +186,9 @@ def rollout(env, policy, seed, row=None):
     # field values so the last transition contributes to path and coverage.
     slat.append(np.asarray(env.lats, dtype=np.float64))
     slon.append(np.asarray(env.lons, dtype=np.float64))
-    sspd.append(
-        np.asarray(env._at2m("spd", env.lats, env.lons), dtype=np.float64)
-    )
+    final_u = env._at2m("u", env.lats, env.lons)
+    final_v = env._at2m("v", env.lats, env.lons)
+    sspd.append(np.hypot(final_u, final_v).astype(np.float64))
     sW.append(
         np.atleast_1d(env._at(env.W, env.lats, env.lons)).astype(np.float64)
     )
@@ -224,22 +239,29 @@ def episode_metrics(env, slat, slon, sspd, sact, sprop, sW, speak, sapeak, sypea
     d = env.d
     region, _, _ = _region(env)
     lat_g = d["lat"]; lon_g = d["lon"]
-    cov = env.cov_deg
+    cov = float(env.cov_deg)
     lat0 = float(lat_g.min()); lon0 = float(lon_g.min())
     # 覆盖格点：**直接从 4 台 AUV 的轨迹点算**，对所有策略一视同仁。
     # （旧实现读 env._cov_cells，而它只在 reward_mode=="G" 时才会被 step() 填充，
     #   导致 B/C 奖励的模型覆盖率永远是 0。）
+    land_distance = env._at(
+        d["dist_to_land"].astype(np.float32)
+        if getattr(env, "storage16", False)
+        else d["dist_to_land"],
+        np.asarray(slat).ravel(),
+        np.asarray(slon).ravel(),
+    )
+    ocean_valid = np.asarray(land_distance, dtype=np.float64) > 0.0
     covered_grid = np.zeros_like(region, dtype=bool)
-    cov_cells = set()
-    for clat_, clon_ in zip(np.asarray(slat).ravel(), np.asarray(slon).ravel()):
-        i = int(np.floor((clat_ - lat0) / cov))
-        j = int(np.floor((clon_ - lon0) / cov))
-        cov_cells.add((i, j))
-        ii = int(round((lat0 + (i + 0.5) * cov - lat_g[0]) / (lat_g[1] - lat_g[0])))
-        jj = int(round((lon0 + (j + 0.5) * cov - lon_g[0]) / (lon_g[1] - lon_g[0])))
+    ocean_lats = np.asarray(slat).ravel()[ocean_valid]
+    ocean_lons = np.asarray(slon).ravel()[ocean_valid]
+    cov_cells = native_hycom_cells(ocean_lats, ocean_lons)
+    for cell in cov_cells:
+        clat, clon = native_cell_center(cell)
+        ii = int(round((clat - lat_g[0]) / (lat_g[1] - lat_g[0])))
+        jj = int(round((clon - lon_g[0]) / (lon_g[1] - lon_g[0])))
         if 0 <= ii < len(lat_g) and 0 <= jj < len(lon_g):
             covered_grid[ii, jj] = True
-    n_cells = len(cov_cells)
     # 航迹长度 / 平均航速（用户要的另外两个指标）
     n_auv = env.n_auv
     LAT = np.asarray(slat, dtype=np.float64).reshape(-1, n_auv)
@@ -255,7 +277,14 @@ def episode_metrics(env, slat, slon, sspd, sact, sprop, sW, speak, sapeak, sypea
     mean_speed = path_km * 1000.0 / dur_s
     # 推进速度（不含水流）：约束动力学下取实际积分速度，原模型取动作幅值×Vmax。
     prop_speed = float(np.mean(sprop))
-    sspd_arr = np.asarray(sspd, dtype=np.float64)
+    sspd_arr = np.asarray(sspd, dtype=np.float64)[ocean_valid]
+    coverage_area = native_hycom_coverage_area(cov_cells)
+    cellwise_weighted = native_hycom_weighted_coverage(
+        np.asarray(slat).ravel(),
+        np.asarray(slon).ravel(),
+        np.asarray(sspd).ravel(),
+        ocean_valid,
+    )
     W = env.W
     Wr = W[region]
     tot_W = float(Wr.sum())
@@ -295,14 +324,26 @@ def episode_metrics(env, slat, slon, sspd, sact, sprop, sW, speak, sapeak, sypea
             info_layer = num / den * 100.0
         if ncore > 0:
             core_layer = nhit / ncore * 100.0
-    rmse, corr = idw_to_region(env, slat, slon, sspd, region)
+    rmse, corr = idw_to_region(
+        env,
+        np.asarray(slat).ravel()[ocean_valid],
+        np.asarray(slon).ravel()[ocean_valid],
+        np.asarray(sspd).ravel()[ocean_valid],
+        region,
+    )
     return {
         "storm": env.d["storm"],
         "depth_m": float(env.depth_m),
         "vmax_ms": float(env.vmax),
-        "mean_V": float(sspd.mean()),
+        "mean_V": float(sspd_arr.mean()),
         "mean_a2": float((sact ** 2).mean()),
-        "cov_area_km2": float(n_cells * env._cell_area_km2),
+        "cov_area_km2": coverage_area,
+        "current_weighted_coverage": cellwise_weighted,
+        "current_weighted_coverage_product": (
+            float(sspd_arr.mean()) * coverage_area
+        ),
+        "coverage_lat_deg": HYCOM_LAT_DEG,
+        "coverage_lon_deg": HYCOM_LON_DEG,
         "info_cov_pct": info_cov * 100.0,
         "core_hit_pct": core_hit * 100.0,
         "core_prec_pct": core_prec * 100.0,
@@ -329,7 +370,7 @@ def main():
     n_seed = int(sys.argv[1]) if len(sys.argv) > 1 else 8
     depth = float(sys.argv[2]) if len(sys.argv) > 2 else 50.0
     start = float(sys.argv[3]) if len(sys.argv) > 3 else 200.0
-    dur = float(sys.argv[4]) if len(sys.argv) > 4 else 20.0
+    dur = float(sys.argv[4]) if len(sys.argv) > 4 else 10.0
     models = sys.argv[5:]
 
     split = json.load(open(SPLIT)); test = split["test"]
@@ -344,10 +385,22 @@ def main():
           % (len(test), len(seg_pick), obs_dim, depth, start, dur), flush=True)
     print("R_EVAL=%.0fkm  episodes=%d  models=%s\n" % (R_EVAL_KM, n_seed, models), flush=True)
 
-    policies = [
-        ("idle(漂流)", lambda o, e: np.zeros((e.n_auv, 2), dtype=np.float32)),
-        ("random", lambda o, e: np.random.uniform(-1, 1, (e.n_auv, 2)).astype(np.float32)),
-    ]
+    policies = []
+    if INCLUDE_IDLE_RANDOM:
+        policies.extend(
+            [
+                (
+                    "idle(漂流)",
+                    lambda o, e: np.zeros((e.n_auv, 2), dtype=np.float32),
+                ),
+                (
+                    "random",
+                    lambda o, e: np.random.uniform(
+                        -1, 1, (e.n_auv, 2)
+                    ).astype(np.float32),
+                ),
+            ]
+        )
     for name in models:
         pol = load_policy(name, obs_dim)
         label = os.path.basename(name).replace(".pt", "").replace(".zip", "")

@@ -22,19 +22,8 @@ os.environ.setdefault("DYNAMICS_MODE", "constrained")
 os.environ.setdefault("DYN_SURFACE_CURRENT", "0")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from code.surface.surface_wind_env import (
-    load_storm,
-    land_ocean_mask,
-    D2KM,
-    STEP_MIN,
-    LAND_PENALTY,
-    R_BUFFER,
-    W_BUFFER,
-)
-from code.common.constrained_dynamics import (
-    ConstrainedPlanarDynamics,
-    DynamicsConfig,
-)
+from code.surface.surface_wind_env import load_storm, land_ocean_mask, D2KM, STEP_MIN, LAND_PENALTY, R_BUFFER, W_BUFFER
+from code.common.constrained_dynamics import ConstrainedPlanarDynamics, DynamicsConfig
 
 N_AUV = 9
 # Default remains 20 m/s for exact reproduction of existing experiments.
@@ -59,6 +48,26 @@ def smooth_scale(step_min=None):
     归一化后「单位物理时间内的平滑代价」一致：smooth_eff = smooth × (STEP_MIN/10)。
     """
     return float(step_min or STEP_MIN) / 10.0
+
+
+def wind_speed_at(d, time_index, lons, lats):
+    """Interpolate ERA5 10 m wind speed at arbitrary surface positions."""
+    h0 = int(d["h0"][time_index])
+    h1 = int(d["h1"][time_index])
+    frac = float(d["frac"][time_index])
+    field = (1.0 - frac) * d["spd"][h0] + frac * d["spd"][h1]
+    lat_g = np.asarray(d["lat"], dtype=np.float64)
+    lon_g = np.asarray(d["lon"], dtype=np.float64)
+    lon_pos = np.atleast_1d(np.asarray(lons, dtype=np.float64))
+    lat_pos = np.atleast_1d(np.asarray(lats, dtype=np.float64))
+    iy = (lat_pos - lat_g[0]) / (lat_g[1] - lat_g[0])
+    ix = (lon_pos - lon_g[0]) / (lon_g[1] - lon_g[0])
+    return map_coordinates(
+        field,
+        np.stack([iy, ix], axis=0),
+        order=1,
+        mode="nearest",
+    )
 SST_NORM = 30.0   # 原始 SST 归一化：(sst_K - 273.15)/SST_NORM
 SST_ANOM_NORM = 3.0  # SST 距平归一化：sst_anom_degC / SST_ANOM_NORM
 HYCOM_NORM = 3.0  # HYCOM 0m 原始流速归一化（~0-3 m/s）
@@ -83,52 +92,58 @@ def deploy_formation(clon, clat, n_auv, formation="scatter", spread_radius=100.0
     formation="scatter": 在 spread_radius km 半径内随机散开（原两级布防第二步）；
     formation="ring": 在 ring_radius km 圆上均匀分布(4 AUV 即 90° 间隔)，整体随机旋转。
     formation="line": 随机朝向的等间距直线队形；
-    formation="grid": 近似方形的等间距网格队形。
+    formation="grid": 近似方形的等间距网格队形；
     formation="v": 随机朝向的 V 字形队形，两翼各 n_auv/2 台且左右对称。
+    ring/line/grid/V 均归一化到相同的平均编队半径 ring_radius。
     返回 (lons, lats)。"""
     lons = np.zeros(n_auv); lats = np.zeros(n_auv)
-    if formation == "ring":
+    offsets_km = np.zeros((n_auv, 2), dtype=np.float64)
+    if formation in ("ring", "line", "grid", "v"):
         theta = np.random.uniform(0, 2 * np.pi)
-        for i in range(n_auv):
-            ang = theta + i * (2 * np.pi / n_auv)
-            lons[i] = clon + ring_radius * np.cos(ang) / (D2KM * np.cos(np.deg2rad(clat)))
-            lats[i] = clat + ring_radius * np.sin(ang) / D2KM
-    elif formation == "line":
-        theta = np.random.uniform(0, 2 * np.pi)
-        offsets = np.linspace(-ring_radius, ring_radius, n_auv)
-        for i, offset in enumerate(offsets):
-            dx = offset * np.cos(theta)
-            dy = offset * np.sin(theta)
-            lons[i] = clon + dx / (D2KM * np.cos(np.deg2rad(clat)))
-            lats[i] = clat + dy / D2KM
-    elif formation == "grid":
-        theta = np.random.uniform(0, 2 * np.pi)
-        cols = int(np.ceil(np.sqrt(n_auv)))
-        rows = int(np.ceil(n_auv / cols))
-        xs = np.linspace(-ring_radius, ring_radius, cols)
-        ys = np.linspace(-ring_radius, ring_radius, rows)
-        ca, sa = np.cos(theta), np.sin(theta)
-        for i in range(n_auv):
-            gx = xs[i % cols]
-            gy = ys[i // cols]
-            dx = ca * gx - sa * gy
-            dy = sa * gx + ca * gy
-            lons[i] = clon + dx / (D2KM * np.cos(np.deg2rad(clat)))
-            lats[i] = clat + dy / D2KM
-    elif formation == "v":
-        if n_auv % 2:
-            raise ValueError("V formation requires an even number of SUVs")
-        theta = np.random.uniform(0, 2 * np.pi)
-        half_angle = np.deg2rad(35.0)
-        arm_fraction = np.linspace(0.25, 1.0, n_auv // 2)
-        for side, sign in enumerate((-1.0, 1.0)):
-            for j, fraction in enumerate(arm_fraction):
-                angle = theta + sign * half_angle
-                dx = ring_radius * fraction * np.cos(angle)
-                dy = ring_radius * fraction * np.sin(angle)
-                i = side * (n_auv // 2) + j
-                lons[i] = clon + dx / (D2KM * np.cos(np.deg2rad(clat)))
-                lats[i] = clat + dy / D2KM
+        if formation == "ring":
+            angles = theta + np.arange(n_auv) * (2 * np.pi / n_auv)
+            offsets_km[:, 0] = ring_radius * np.cos(angles)
+            offsets_km[:, 1] = ring_radius * np.sin(angles)
+        elif formation == "line":
+            offsets = np.linspace(-ring_radius, ring_radius, n_auv)
+            offsets_km[:, 0] = offsets * np.cos(theta)
+            offsets_km[:, 1] = offsets * np.sin(theta)
+        elif formation == "grid":
+            cols = int(np.ceil(np.sqrt(n_auv)))
+            rows = int(np.ceil(n_auv / cols))
+            xs = np.linspace(-ring_radius, ring_radius, cols)
+            ys = np.linspace(-ring_radius, ring_radius, rows)
+            ca, sa = np.cos(theta), np.sin(theta)
+            for i in range(n_auv):
+                gx = xs[i % cols]
+                gy = ys[i // cols]
+                offsets_km[i] = [
+                    ca * gx - sa * gy,
+                    sa * gx + ca * gy,
+                ]
+        else:
+            if n_auv % 2:
+                raise ValueError("V formation requires an even number of SUVs")
+            half_angle = np.deg2rad(35.0)
+            arm_fraction = np.linspace(0.25, 1.0, n_auv // 2)
+            for side, sign in enumerate((-1.0, 1.0)):
+                for j, fraction in enumerate(arm_fraction):
+                    angle = theta + sign * half_angle
+                    i = side * (n_auv // 2) + j
+                    offsets_km[i] = [
+                        ring_radius * fraction * np.cos(angle),
+                        ring_radius * fraction * np.sin(angle),
+                    ]
+        offsets_km -= offsets_km.mean(axis=0, keepdims=True)
+        mean_radius = float(
+            np.mean(np.linalg.norm(offsets_km, axis=1))
+        )
+        if mean_radius > 1e-12:
+            offsets_km *= ring_radius / mean_radius
+        lons = clon + offsets_km[:, 0] / (
+            D2KM * np.cos(np.deg2rad(clat))
+        )
+        lats = clat + offsets_km[:, 1] / D2KM
     else:
         for i in range(n_auv):
             ang = np.random.uniform(0, 2 * np.pi)
@@ -181,6 +196,53 @@ def safety_filter(a_use, lons, lats, interp, margin):
     if out.any():
         a[out] = 0.5 * a[out] + 0.5 * n[out]        # 已在陆地：主动推出去
     return a
+
+
+def rigid_formation_enabled():
+    """Whether all surface SUVs execute one shared formation command."""
+    return os.environ.get("RIGID_FORMATION", "0") == "1"
+
+
+def coerce_formation_action(action, n_auv):
+    """Return one identical action for every SUV."""
+    arr = np.asarray(action, dtype=np.float32).reshape(-1)
+    if arr.size == 2:
+        common = arr
+    elif arr.size == 2 * n_auv:
+        common = arr.reshape(n_auv, 2).mean(axis=0)
+    else:
+        raise ValueError(
+            f"formation action must contain 2 or {2 * n_auv} values, got {arr.size}"
+        )
+    common = np.clip(np.nan_to_num(common), -1.0, 1.0)
+    return np.repeat(common[None, :], n_auv, axis=0).astype(np.float32)
+
+
+def policy_observation(obs, rigid_formation=None):
+    """Flatten a multi-SUV observation for legacy mode or return the shared row."""
+    rigid = (
+        rigid_formation_enabled()
+        if rigid_formation is None
+        else bool(rigid_formation)
+    )
+    arr = np.asarray(obs, dtype=np.float32)
+    if rigid and arr.ndim >= 2:
+        return arr.reshape(-1, arr.shape[-1])[0].copy()
+    return arr.reshape(-1).copy()
+
+
+def formation_safety_filter(action, lons, lats, interp, margin):
+    """Apply one common safety projection at the most coast-limited SUV."""
+    a = np.asarray(action, dtype=np.float64).reshape(1, 2)
+    clearance = interp(np.stack([lats, lons], axis=1))
+    idx = int(np.argmin(clearance))
+    return safety_filter(
+        a,
+        np.asarray([lons[idx]], dtype=np.float64),
+        np.asarray([lats[idx]], dtype=np.float64),
+        interp,
+        margin,
+    )[0].astype(np.float32)
 
 
 def sample_deployment(d, t0, n_auv, deploy_radius, formation="scatter", spread_radius=100.0,
@@ -247,6 +309,8 @@ class FleetSegmentEnv(gym.Env):
         super().__init__()
         self.n_auv = n_auv
         self.vmax = float(vmax)
+        self.rigid_formation = rigid_formation_enabled()
+        self._rigid_offsets_km = None
         self.dynamics_config = DynamicsConfig.from_env("surface")
         self.dynamics = (
             ConstrainedPlanarDynamics(self.n_auv, self.vmax, self.dynamics_config)
@@ -617,6 +681,33 @@ class FleetSegmentEnv(gym.Env):
         cv = map_coordinates(v, coords, order=1, mode="nearest")
         return np.stack([cu, cv], axis=1)
 
+    def _capture_rigid_offsets(self):
+        """Capture the initial formation as fixed local-km offsets."""
+        lon0 = float(np.mean(self.lons))
+        lat0 = float(np.mean(self.lats))
+        self._rigid_offsets_km = np.stack(
+            [
+                (self.lons - lon0)
+                * D2KM
+                * np.cos(np.deg2rad(lat0)),
+                (self.lats - lat0) * D2KM,
+            ],
+            axis=1,
+        ).astype(np.float64)
+
+    def _project_rigid_formation(self):
+        """Keep the exact translation-invariant initial formation."""
+        if not self.rigid_formation:
+            return
+        if self._rigid_offsets_km is None:
+            self._capture_rigid_offsets()
+        lon0 = float(np.mean(self.lons))
+        lat0 = float(np.mean(self.lats))
+        self.lons = lon0 + self._rigid_offsets_km[:, 0] / (
+            D2KM * np.cos(np.deg2rad(lat0))
+        )
+        self.lats = lat0 + self._rigid_offsets_km[:, 1] / D2KM
+
     def _reset(self, seed=None, options=None):
         if seed is not None:
             np.random.seed(seed)
@@ -640,20 +731,43 @@ class FleetSegmentEnv(gym.Env):
         self.prev_actions = np.zeros((self.n_auv, 2), dtype=np.float32)
         if self.dynamics is not None:
             self.dynamics.reset()
+        self._rigid_offsets_km = None
         self.step_count = 0
         return self._obs(), {}
 
     def step(self, action):
-        a = np.clip(action, -1, 1)
+        if self.rigid_formation:
+            a = coerce_formation_action(action, self.n_auv)
+        else:
+            a = np.asarray(action, dtype=np.float64).reshape(self.n_auv, 2)
+        a = np.clip(a, -1, 1)
         a = np.nan_to_num(a, copy=False, nan=0.0, posinf=1.0, neginf=-1.0)  # 动作里的 NaN 也兜底
         # 圆形裁剪：合速度 ≤ VMAX（每轴限幅会让对角线 |a| 达 √2，速度超 VMAX）
         norm = np.sqrt(a[:, 0]**2 + a[:, 1]**2)
         scale = np.where(norm > 1.0, 1.0 / np.maximum(norm, 1e-9), 1.0)   # 避免 0 除告警
         a = a * scale[:, None]
         if getattr(self, "safety_margin_km", 0.0) > 0:
-            a = safety_filter(a, self.lons, self.lats, self.dist_interp, self.safety_margin_km)
+            if self.rigid_formation:
+                common = formation_safety_filter(
+                    a[0],
+                    self.lons,
+                    self.lats,
+                    self.dist_interp,
+                    self.safety_margin_km,
+                )
+                a = np.repeat(common[None, :], self.n_auv, axis=0)
+            else:
+                a = safety_filter(
+                    a,
+                    self.lons,
+                    self.lats,
+                    self.dist_interp,
+                    self.safety_margin_km,
+                )
         a_change = a - self.prev_actions
         self.prev_actions = a.copy()
+        if self.rigid_formation and self._rigid_offsets_km is None:
+            self._capture_rigid_offsets()
         dt = float(STEP_MIN * 60)
         if self.dynamics is None:
             self.vxs = a[:, 0] * self.vmax
@@ -692,6 +806,7 @@ class FleetSegmentEnv(gym.Env):
         lo = self.d["lon"]; la = self.d["lat"]
         self.lons = np.clip(self.lons, lo.min(), lo.max())
         self.lats = np.clip(self.lats, la.min(), la.max())
+        self._project_rigid_formation()
         self.t = min(self.t + 1, self.d["T"] - 1)
         self.step_count += 1
 

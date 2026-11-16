@@ -16,6 +16,7 @@ os.environ.setdefault("DYN_SURFACE_ACC_MS2", "0.02")
 os.environ.setdefault("DYN_SURFACE_DEC_MS2", "0.03")
 os.environ.setdefault("DYN_SURFACE_YAW_DEG_S", "1.0")
 os.environ.setdefault("DYN_SURFACE_MIN_TURN_RADIUS_M", "200")
+os.environ.setdefault("RIGID_FORMATION", "1")
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,29 +26,53 @@ from matplotlib.lines import Line2D
 from scipy.interpolate import RegularGridInterpolator
 from stable_baselines3 import PPO
 
-from code.paths import PAPER_ROOT, REPO_ROOT, RESULTS_ROOT, RUNS_ROOT
 from code.surface.eval_surface_robustness import deploy_fixed
-from code.surface.fleet_segment_env import D2KM, FleetSegmentEnv, seg_idx
+from code.surface.fleet_segment_env import (
+    D2KM,
+    FleetSegmentEnv,
+    coerce_formation_action,
+    policy_observation,
+    rigid_formation_enabled,
+    seg_idx,
+)
+from code.surface.surface_wind_env import load_storm
 
 
-ROOT = REPO_ROOT
-OUT = PAPER_ROOT / "figures"
-METRICS_OUT = RESULTS_ROOT / "formation" / "representative_metrics.csv"
-STORM = "KHANUN_2023"
-STORM_T0 = 815
+ROOT = Path(__file__).resolve().parents[2]
+OUT = ROOT / "paper" / "figures"
+METRICS_OUT = (
+    ROOT
+    / "runs"
+    / "results"
+    / "formation_dynamics_only"
+    / "representative_metrics.csv"
+)
+STORM = "MATMO_2025"
+STORM_T0 = 561
 SEED = 917
+SURFACE_MODEL_DIR = Path(
+    os.environ.get(
+        "SURFACE_MAIN_MODEL_DIR",
+        ROOT / "runs" / "formation" / "surface_models",
+    )
+)
+FORMATION_MODEL_DIR = Path(
+    os.environ.get(
+        "SURFACE_FORMATION_MODEL_DIR",
+        ROOT / "runs" / "formation" / "models",
+    )
+)
 MODELS = {
-    "Ring": RUNS_ROOT / "official" / "models" / "surface_main"
-    / "surface_n8_v12_s0.zip",
-    "Line": RUNS_ROOT / "formation" / "models" / "surface_line_n8_v12_s0.zip",
-    "Grid": RUNS_ROOT / "formation" / "models" / "surface_grid_n8_v12_s0.zip",
-    "V": RUNS_ROOT / "formation" / "models" / "surface_v_n8_v12_s0.zip",
+    "Ring": SURFACE_MODEL_DIR / "surface_n8_v12_s0.zip",
+    "Line": FORMATION_MODEL_DIR / "formation_line_n8_v12_s0.zip",
+    "Grid": FORMATION_MODEL_DIR / "formation_grid_n8_v12_s0.zip",
+    "V": FORMATION_MODEL_DIR / "formation_v_n8_v12_s0.zip",
 }
 WIND_CMAP = plt.get_cmap("YlGnBu")
 
 
 def simulate(formation: str, model_path: Path):
-    seg = pd.read_csv(ROOT / "data" / "segments_500.csv")
+    seg = pd.read_csv(ROOT / "data" / "segments_primary_400.csv")
     row = seg[(seg.storm == STORM) & (seg.t0 == STORM_T0)].iloc[0]
     env = FleetSegmentEnv(
         storms=[STORM],
@@ -78,17 +103,22 @@ def simulate(formation: str, model_path: Path):
     )
     env.prev_actions = np.zeros((env.n_auv, 2), dtype=np.float32)
     model = PPO.load(model_path, device="cpu")
-    obs = env._obs()
+    rigid = rigid_formation_enabled()
+    obs = policy_observation(env._obs(), rigid)
     executed = np.zeros((env.n_auv, 2), dtype=np.float32)
     traj = []
     while True:
-        raw, _ = model.predict(obs.reshape(-1), deterministic=True)
-        raw = np.asarray(raw, dtype=np.float32).reshape(env.n_auv, 2)
+        raw, _ = model.predict(obs, deterministic=True)
+        if rigid:
+            raw = coerce_formation_action(raw, env.n_auv)
+        else:
+            raw = np.asarray(raw, dtype=np.float32).reshape(env.n_auv, 2)
         executed = 0.2 * raw + 0.8 * executed
         executed /= np.maximum(
             1.0, np.linalg.norm(executed, axis=1, keepdims=True)
         )
         obs, _reward, terminated, truncated, info = env.step(executed)
+        obs = policy_observation(obs, rigid)
         eye_lon = float(info["eye_lon"])
         eye_lat = float(info["eye_lat"])
         x = (env.lons - eye_lon) * D2KM * np.cos(np.deg2rad(eye_lat))
@@ -96,7 +126,39 @@ def simulate(formation: str, model_path: Path):
         traj.append(np.stack([x, y], axis=1))
         if terminated or truncated:
             break
-    return np.asarray(traj), row, d, int(env.t)
+    plot_data = load_storm(
+        STORM,
+        use_uv=False,
+        crop_margin_km=2400.0,
+    )
+    final_t = int(env.t)
+    final_eye_lon = float(plot_data["track_lon"][final_t])
+    final_eye_lat = float(plot_data["track_lat"][final_t])
+    final_lons = final_eye_lon + np.asarray(traj)[-1, :, 0] / (
+        D2KM * np.cos(np.deg2rad(final_eye_lat))
+    )
+    final_lats = final_eye_lat + np.asarray(traj)[-1, :, 1] / D2KM
+    wind_interpolator = RegularGridInterpolator(
+        (plot_data["lat"], plot_data["lon"]),
+        wind_snapshot(plot_data, final_t),
+        method="linear",
+        bounds_error=False,
+        fill_value=np.nan,
+    )
+    final_wind_speed = float(
+        np.nanmean(
+            wind_interpolator(
+                np.stack([final_lats, final_lons], axis=1)
+            )
+        )
+    )
+    return (
+        np.asarray(traj),
+        row,
+        plot_data,
+        final_t,
+        final_wind_speed,
+    )
 
 
 def wind_snapshot(d: dict, t: int) -> np.ndarray:
@@ -158,7 +220,7 @@ def main() -> None:
         }
     )
     fig, axes = plt.subplots(
-        2, 2, figsize=(11.5, 9.2), constrained_layout=True
+        2, 2, figsize=(11.5, 11.0), constrained_layout=True
     )
     axes = axes.reshape(-1)
     formation_colors = {
@@ -178,15 +240,33 @@ def main() -> None:
     )
     xmin, ymin = np.min(all_traj, axis=0)
     xmax, ymax = np.max(all_traj, axis=0)
-    xpad = max(20.0, 0.08 * (xmax - xmin))
-    ypad = max(20.0, 0.08 * (ymax - ymin))
+    # Use one enlarged plotting domain for every panel so that the four
+    # trajectories are compared on identical spatial extents.
+    xpad = max(50.0, 0.32 * (xmax - xmin))
+    ypad = max(45.0, 0.32 * (ymax - ymin))
     xlim = (xmin - xpad, xmax + xpad)
     ylim = (ymin - ypad, ymax + ypad)
+    x_center = 0.5 * sum(xlim)
+    y_center = 0.5 * sum(ylim)
+    x_span = xlim[1] - xlim[0]
+    y_span = ylim[1] - ylim[0]
+    target_y_span = 0.72 * x_span
+    if y_span < target_y_span:
+        ylim = (
+            y_center - 0.5 * target_y_span,
+            y_center + 0.5 * target_y_span,
+        )
+    else:
+        target_x_span = y_span / 0.72
+        xlim = (
+            x_center - 0.5 * target_x_span,
+            x_center + 0.5 * target_x_span,
+        )
     mesh = None
     for index, (ax, formation) in enumerate(
         zip(axes, ("Ring", "Line", "Grid", "V"))
     ):
-        traj, _row, d, final_t = results[formation]
+        traj, _row, d, final_t, final_wind_speed = results[formation]
         mesh = draw_wind_background(ax, d, final_t, xlim, ylim)
         mesh.set_alpha(0.80)
         line_color = formation_colors[formation]
@@ -218,23 +298,24 @@ def main() -> None:
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
         ax.set_aspect("equal", adjustable="box")
+        ax.set_box_aspect(0.72)
         if index < 2:
             ax.tick_params(labelbottom=False)
         ax.tick_params(direction="out", length=2.8, width=0.7, labelsize=9.5)
         ax.grid(color="white", alpha=0.16, lw=0.45)
-        centroid = traj[:, :, :].mean(axis=1)
-        radius = np.linalg.norm(traj - centroid[:, None, :], axis=2).mean()
+        centroid = traj.mean(axis=1)
         final_distance = float(np.linalg.norm(centroid[-1]))
         ax.set_title(
             f"{formation} formation\n"
-            f"mean radius {radius:.1f} km, final offset {final_distance:.1f} km",
-            loc="left", fontsize=11, fontweight="bold", pad=5,
+            f"Final tracking error: {final_distance:.1f} km  |  "
+            f"Final wind speed: {final_wind_speed:.2f} m s$^{{-1}}$",
+            loc="left", fontsize=9.5, fontweight="bold", pad=5,
         )
         metric_rows.append(
             {
                 "formation": formation,
-                "mean_formation_radius_km": float(radius),
                 "final_centroid_distance_km": final_distance,
+                "final_wind_speed_ms": final_wind_speed,
             }
         )
         print(formation, metric_rows[-1], flush=True)
@@ -254,7 +335,7 @@ def main() -> None:
         Line2D(
             [0], [0], marker="*", color="#E63946", linestyle="None",
             markeredgecolor="white", markeredgewidth=0.7,
-            markersize=12, label="TC center",
+            markersize=12, label="TC core",
         ),
     ]
     axes[-2].set_xlabel("TC-relative east (km)")
@@ -281,12 +362,12 @@ def main() -> None:
     cbar.set_ticks(np.arange(0.0, 31.0, 10.0))
     cbar.ax.tick_params(labelsize=9.5, length=2.5, width=0.7)
     OUT.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT / "FigB1_Formation_Comparison.pdf", bbox_inches="tight")
-    fig.savefig(OUT / "FigB1_Formation_Comparison.png", dpi=300, bbox_inches="tight")
+    fig.savefig(OUT / "Fig5_Formation_Comparison.pdf", bbox_inches="tight")
+    fig.savefig(OUT / "Fig5_Formation_Comparison.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
     METRICS_OUT.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(metric_rows).to_csv(METRICS_OUT, index=False)
-    print(OUT / "FigB1_Formation_Comparison.pdf")
+    print(OUT / "Fig5_Formation_Comparison.pdf")
 
 
 if __name__ == "__main__":

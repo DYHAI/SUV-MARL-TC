@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -11,13 +12,17 @@ import pandas as pd
 from scipy import stats
 
 
-ROOT = Path(__file__).resolve().parent
-DOC = ROOT / "Latex_Yihui_MARL"
-EXPERIMENT = ROOT / "constrained_dynamics_experiments"
+ROOT = Path(__file__).resolve().parents[2]
+DOC = ROOT / "paper"
+EXPERIMENT = ROOT / "runs"
 OUT = EXPERIMENT / "results" / "classical_aggregate"
 FIG = OUT / "figures"
 UNDERWATER_RESULTS = EXPERIMENT / "results" / "underwater"
 SURFACE_CLASSICAL = EXPERIMENT / "results" / "surface_dynamics_only" / "classical"
+if os.environ.get("SURFACE_CENTER_RESULT_ROOT"):
+    SURFACE_CLASSICAL = (
+        Path(os.environ["SURFACE_CENTER_RESULT_ROOT"]) / "classical"
+    )
 UNDERWATER_CLASSICAL = EXPERIMENT / "results" / "classical_underwater"
 
 DEPTHS = (0, 10, 20, 30, 40, 50, 60)
@@ -54,9 +59,10 @@ def learned_episode_metrics(depth_m: float, vmax_ms: float) -> pd.DataFrame:
             "cov_area_km2": "coverage_area_km2",
         }
     )
-    learned["current_weighted_coverage"] = (
-        learned["mean_current_ms"] * learned["coverage_area_km2"]
-    )
+    if "current_weighted_coverage" not in learned.columns:
+        learned["current_weighted_coverage"] = (
+            learned["mean_current_ms"] * learned["coverage_area_km2"]
+        )
     metrics = (
         "mean_current_ms",
         "coverage_area_km2",
@@ -80,6 +86,8 @@ def aggregate_surface() -> pd.DataFrame:
         frame["method"] = frame["planner"].map(METHODS)
         frames.append(frame)
     raw = pd.concat(frames, ignore_index=True)
+    if "final_wind_speed_ms" not in raw.columns:
+        raw["final_wind_speed_ms"] = np.nan
     keys = ["method", "n_auv", "vmax_ms", "radius_km"]
     metrics = [
         "distance_avg_km",
@@ -88,12 +96,13 @@ def aggregate_surface() -> pd.DataFrame:
         "mean_speed_ms",
         "on_land_fraction",
         "duration_h",
+        "final_wind_speed_ms",
     ]
     grouped = raw.groupby(keys, as_index=False).agg(
-        distance_avg_km=("distance_avg_km", "mean"),
-        distance_avg_km_std=("distance_avg_km", "std"),
-        final_distance_km=("final_distance_km", "mean"),
-        final_distance_km_std=("final_distance_km", "std"),
+        distance_avg_km=("centre_distance_avg_km", "mean"),
+        distance_avg_km_std=("centre_distance_avg_km", "std"),
+        final_distance_km=("final_centre_distance_km", "mean"),
+        final_distance_km_std=("final_centre_distance_km", "std"),
         path_km=("path_km", "mean"),
         path_km_std=("path_km", "std"),
         mean_speed_ms=("mean_speed_ms", "mean"),
@@ -102,6 +111,8 @@ def aggregate_surface() -> pd.DataFrame:
         on_land_fraction_std=("on_land_fraction", "std"),
         duration_h=("duration_h", "mean"),
         duration_h_std=("duration_h", "std"),
+        final_wind_speed_ms=("final_wind_speed_ms", "mean"),
+        final_wind_speed_ms_std=("final_wind_speed_ms", "std"),
         n_episode=("planner", "size"),
     )
     grouped.to_csv(OUT / "surface_classical_summary.csv", index=False)
@@ -143,9 +154,10 @@ def aggregate_underwater() -> tuple[pd.DataFrame, pd.DataFrame]:
         frame["method"] = frame["planner"].map(METHODS)
         frames.append(frame)
     raw = pd.concat(frames, ignore_index=True)
-    raw["current_weighted_coverage"] = (
-        raw["mean_current_ms"] * raw["coverage_area_km2"]
-    )
+    if "current_weighted_coverage" not in raw.columns:
+        raw["current_weighted_coverage"] = (
+            raw["mean_current_ms"] * raw["coverage_area_km2"]
+        )
     summary = (
         raw.groupby(["method", "depth_m", "vmax_ms"], as_index=False)
         .agg(
@@ -276,7 +288,7 @@ def plot_surface(summary: pd.DataFrame) -> None:
             ax.set_xticks(RADII)
             ax.grid(alpha=0.25)
             if col == 0:
-                ax.set_ylabel(f"$V_{{max}}$={speed:g} m/s\nFinal error (km)")
+                ax.set_ylabel(f"$V_{{max}}$={speed:g} m/s\nFinal tracking error (km)")
             if row == len(SPEEDS_SURFACE) - 1:
                 ax.set_xlabel("Deployment radius (km)")
     axes[0, 0].legend(frameon=False, loc="upper left", fontsize=8)
@@ -430,7 +442,7 @@ def write_summary_table(surface: pd.DataFrame, underwater: pd.DataFrame) -> None
         r"\begin{tabular}{@{}lrrrr@{}}",
         r"\toprule",
         r"\multicolumn{5}{l}{\textbf{Panel A: surface tracking}}\\",
-        r"Method & Final error (km) & Mean tracking error (km) & "
+        r"Method & Final tracking error (km) & Mean tracking error (km) & "
         r"\multicolumn{2}{c}{Path per SUV (km)}\\",
         r"\midrule",
     ]
@@ -445,7 +457,7 @@ def write_summary_table(surface: pd.DataFrame, underwater: pd.DataFrame) -> None
     lines += [
         r"\midrule",
         r"\multicolumn{5}{l}{\textbf{Panel B: subsurface observation}}\\",
-        r"Method & Mean current (m/s) & Geometric coverage (km$^2$) & "
+        r"Method & Mean current (m/s) & Native-HYCOM coverage (km$^2$) & "
         r"Path (km) & Current-weighted coverage "
         r"($10^3$ m\,s$^{-1}$\,km$^2$)\\",
         r"\midrule",

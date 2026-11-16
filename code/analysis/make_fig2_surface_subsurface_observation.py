@@ -4,6 +4,9 @@ The layout deliberately uses a dedicated colorbar row so that the colorbar
 labels cannot overlap the figure footnotes or the neighboring panel.
 """
 
+from pathlib import Path
+import sys
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,17 +16,18 @@ from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.gridspec import GridSpec
 from scipy.interpolate import RegularGridInterpolator
 
-from code.surface.surface_wind_env import land_ocean_mask
-from code.paths import PAPER_ROOT, REPO_ROOT
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT))
+FIGDIR = ROOT / "paper" / "figures"
 
-HERE = PAPER_ROOT
-ROOT = REPO_ROOT
+from code.surface.surface_wind_env import land_ocean_mask
 
 
 STORM = "HINNAMNOR_2022"
 CENTER_TIME = pd.Timestamp("2022-09-03 21:00:00")
 WINDOW = (118.5, 131.0, 21.0, 31.0)
-AUV_IMAGE = np.fliplr(plt.imread(HERE / "figures" / "auv_icon.png"))
+AUV_IMAGE = np.fliplr(plt.imread(FIGDIR / "auv_icon.png"))
 
 
 def subset(lat, lon, *fields):
@@ -278,8 +282,8 @@ def main():
     add_horizontal_colorbar(fig, cax2, im2,
                             "30 m current speed (m s$^{-1}$)")
 
-    out_png = HERE / "figures" / "Fig1_Surface_Subsurface_Observation.png"
-    out_pdf = HERE / "figures" / "Fig1_Surface_Subsurface_Observation.pdf"
+    out_png = FIGDIR / "Fig1_Surface_Subsurface_Observation.png"
+    out_pdf = FIGDIR / "Fig1_Surface_Subsurface_Observation.pdf"
     fig.savefig(out_png, dpi=300, bbox_inches="tight", facecolor="white")
     fig.savefig(out_pdf, bbox_inches="tight", facecolor="white")
     plt.close(fig)

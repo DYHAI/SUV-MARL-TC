@@ -31,18 +31,8 @@ from scipy.ndimage import map_coordinates
 os.environ.setdefault("DYNAMICS_MODE", "constrained")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from code.underwater.underwater_flow_env import (
-    load_storm,
-    D2KM,
-    STEP_MIN,
-    LAND_PENALTY,
-    R_BUFFER,
-    W_BUFFER,
-)
-from code.common.constrained_dynamics import (
-    ConstrainedPlanarDynamics,
-    DynamicsConfig,
-)
+from code.underwater.underwater_flow_env import load_storm, D2KM, STEP_MIN, LAND_PENALTY, R_BUFFER, W_BUFFER
+from code.common.constrained_dynamics import ConstrainedPlanarDynamics, DynamicsConfig
 
 N_AUV = 4
 VMAX = 2.0
@@ -181,9 +171,9 @@ class UnderwaterFleetFlowEnv(gym.Env):
         if self.use_frame_stack:
             self.flow_hist = [[] for _ in range(self.n_auv)]
             for i in range(self.n_auv):
-                s0 = self._at2("spd", self.lats[i], self.lons[i])
                 u0 = self._at2("u", self.lats[i], self.lons[i])
                 v0 = self._at2("v", self.lats[i], self.lons[i])
+                s0 = float(np.hypot(u0, v0))
                 self.flow_hist[i].append(np.array([s0, u0, v0], dtype=np.float32))
         return self._obs(), {}
 
@@ -343,11 +333,10 @@ class UnderwaterFleetFlowEnv(gym.Env):
         if self.use_frame_stack:
             cu = self._at2m("u", self.lats, self.lons)
             cv = self._at2m("v", self.lats, self.lons)
-            cs_prev = self._at2m("spd", self.lats, self.lons)
         else:
             cu = self._at(Iu, self.lats, self.lons)
             cv = self._at(Iv, self.lats, self.lons)
-            cs_prev = self._at(Ispd, self.lats, self.lons)
+        cs_prev = np.hypot(cu, cv)
         spd_at = np.asarray(cs_prev, dtype=np.float32)
         coslat = np.cos(np.deg2rad(self.lats))
         if self.dynamics is None:
@@ -368,13 +357,12 @@ class UnderwaterFleetFlowEnv(gym.Env):
         self.lons = np.clip(self.lons + dx_m / 1000.0 / (D2KM * coslat), lo.min(), lo.max())
         self.lats = np.clip(self.lats + dy_m / 1000.0 / D2KM, la.min(), la.max())
         if self.use_frame_stack:
-            cs_new = self._at2m("spd", self.lats, self.lons)
             cu_new = self._at2m("u", self.lats, self.lons)
             cv_new = self._at2m("v", self.lats, self.lons)
         else:
-            cs_new = self._at(Ispd, self.lats, self.lons)
             cu_new = self._at(Iu, self.lats, self.lons)
             cv_new = self._at(Iv, self.lats, self.lons)
+        cs_new = np.hypot(cu_new, cv_new)
         # Update the causal five-frame history in both observation modes. The
         # frame-stacked SB3 path previously omitted this update, leaving the
         # history fixed at the reset observation.

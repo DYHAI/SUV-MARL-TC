@@ -4,11 +4,18 @@ import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import pandas as pd
 
-from code.paths import PAPER_ROOT, REPO_ROOT, RUNS_ROOT
 
-ROOT = REPO_ROOT
-OUT = PAPER_ROOT / "tables" / "surface_control_ablations.tex"
+ROOT = Path(__file__).resolve().parents[2]
+OUT = ROOT / "paper" / "tables" / "surface_control_ablations.tex"
+SUMMARY = (
+    ROOT
+    / "runs"
+    / "results"
+    / "primary_median"
+    / "surface_filter_summary.csv"
+)
 
 def read_land_fraction(path: Path) -> float:
     text = path.read_text(errors="replace")
@@ -35,85 +42,86 @@ def read_lowpass_metrics(path: Path) -> tuple[float, float, float, float]:
 
 
 def main() -> None:
-    log_root = RUNS_ROOT / "surface" / "logs"
-    no_penalty = read_land_fraction(log_root / "land_ablation" / "eval_land000.txt")
-    with_penalty = read_land_fraction(log_root / "land_ablation" / "eval_landpen.txt")
-    logdir = log_root / "filter_ablation"
-    lowpass = {}
-    for fleet in (4, 8, 12, 16):
-        lowpass[fleet] = {
-            "off": read_lowpass_metrics(logdir / f"exact_n{fleet}_b00.log"),
-            "on": read_lowpass_metrics(logdir / f"exact_n{fleet}_b08.log"),
-        }
+    if not SUMMARY.exists():
+        raise SystemExit(
+            f"waiting for primary median filter summary: {SUMMARY}"
+        )
+    summary = pd.read_csv(SUMMARY)
+    required = {
+        "n_auv",
+        "filter_beta",
+        "n_training_seeds",
+        "final_tracking_error_km_mean",
+        "path_km_mean",
+        "mean_speed_ms_mean",
+        "max_speed_ms_mean",
+    }
+    missing = required.difference(summary.columns)
+    if missing:
+        raise SystemExit(f"missing median filter columns: {sorted(missing)}")
+    if set(summary.n_training_seeds.astype(int)) != {10}:
+        raise SystemExit("primary filter summary must contain ten training seeds")
     lines = [
         r"\begin{table*}[htbp]",
         r"\centering",
         r"\caption{Execution-layer low-pass filtering for 4/8/12/16 surface "
-        r"SUVs on 768 held-out segments from 50 unseen TCs in the 500-TC "
+        r"SUVs on 262 held-out segments from 40 unseen TCs in the 400-TC "
         r"dataset. Each trained actor is evaluated with the filter off and on "
-        r"($\beta=0.8$) on the same validation episodes.}",
+        r"($\beta=0.8$) on identical validation episodes. Values are medians "
+        r"over episodes within each seed, averaged over ten seeds.}",
         r"\label{tab:surface_control_ablations}",
         r"\scriptsize",
         r"\setlength{\tabcolsep}{2.5pt}",
         r"\renewcommand{\arraystretch}{0.9}",
-        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}llrrrr@{}}",
+        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lr rrrr@{}}",
         r"\toprule",
         r"Fleet & Filter & Final tracking error (km) & Path per SUV (km) & "
         r"Mean speed (m/s) & Maximum speed (m/s) \\",
         r"\midrule",
     ]
     for fleet in (4, 8, 12, 16):
-        states = ("off", "on")
+        part = summary[summary.n_auv.astype(int) == fleet]
         values = {
-            metric: {
-                state: lowpass[fleet][state][index]
-                for state in states
-            }
-            for index, metric in enumerate(("final", "path", "mean", "maximum"))
+            float(row.filter_beta): row
+            for _, row in part.iterrows()
         }
         best = {
-            metric: min(states, key=lambda state: values[metric][state])
-            for metric in values
+            metric: min(values, key=lambda beta: values[beta][metric])
+            for metric in (
+                "final_tracking_error_km_mean",
+                "path_km_mean",
+                "mean_speed_ms_mean",
+                "max_speed_ms_mean",
+            )
         }
-        for state, label in (("off", "Off"), ("on", "On")):
-            final, path, mean, maximum = lowpass[fleet][state]
+        for beta, label in ((0.0, "Off"), (0.8, "On")):
+            row = values[beta]
             cells = []
-            for metric, value, digits in (
-                ("final", final, 1),
-                ("path", path, 1),
-                ("mean", mean, 2),
-                ("maximum", maximum, 2),
+            for metric, digits in (
+                ("final_tracking_error_km_mean", 1),
+                ("path_km_mean", 1),
+                ("mean_speed_ms_mean", 2),
+                ("max_speed_ms_mean", 2),
             ):
-                text = f"{value:.{digits}f}"
-                cells.append(r"\textbf{" + text + "}" if best[metric] == state else text)
+                text = f"{row[metric]:.{digits}f}"
+                cells.append(
+                    r"\textbf{" + text + "}"
+                    if best[metric] == beta
+                    else text
+                )
             lines.append(f"{fleet} & {label} & " + " & ".join(cells) + r" \\")
     lines += [
         r"\bottomrule",
         r"\end{tabular*}",
         r"\par\smallskip",
         r"\parbox{\textwidth}{\footnotesize Final tracking error is the "
-        r"fleet average of the individual SUV-to-best-track-center distances "
-        r"at the final time step. Off/on changes only the "
-        r"execution-layer filter on the same trained actor.}",
+        r"fleet-center-to-TC-core distance at the final time step. Off and on "
+        r"change only the execution-layer filter on the same trained actor.}",
         r"\end{table*}",
         "",
     ]
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(lines))
-    fig, ax = plt.subplots(figsize=(4.2, 3.0))
-    ax.bar(["No reward", "$P_{land}=20$"], [no_penalty, with_penalty],
-           color=["#d9822b", "#3b9b6d"], edgecolor="black", linewidth=0.5)
-    ax.set_ylabel("On-land AUV-step fraction (%)")
-    ax.set_ylim(0, max(no_penalty, with_penalty) * 1.25)
-    ax.grid(axis="y", alpha=0.25)
-    for idx, value in enumerate([no_penalty, with_penalty]):
-        ax.text(idx, value + 0.1, f"{value:.2f}%", ha="center", va="bottom")
-    figdir = PAPER_ROOT / "figures"
-    figdir.mkdir(parents=True, exist_ok=True)
-    fig.savefig(figdir / "land_penalty_ablation.pdf", bbox_inches="tight")
-    fig.savefig(figdir / "land_penalty_ablation.png", dpi=300,
-                bbox_inches="tight")
-    plt.close(fig)
     print(OUT)
 
 

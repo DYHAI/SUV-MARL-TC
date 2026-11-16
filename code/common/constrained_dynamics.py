@@ -98,7 +98,10 @@ class ConstrainedPlanarDynamics:
         if seed is not None:
             np.random.seed(seed)
         self.speed.fill(0.0)
-        self.heading[:] = np.random.uniform(0.0, 2.0 * np.pi, self.n_auv)
+        if os.environ.get("RIGID_FORMATION", "0") == "1":
+            self.heading.fill(np.random.uniform(0.0, 2.0 * np.pi))
+        else:
+            self.heading[:] = np.random.uniform(0.0, 2.0 * np.pi, self.n_auv)
         self.prop_velocity.fill(0.0)
         self.yaw_rate.fill(0.0)
         self.accel.fill(0.0)

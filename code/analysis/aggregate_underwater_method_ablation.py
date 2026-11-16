@@ -6,12 +6,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from code.paths import PAPER_ROOT, REPO_ROOT, RESULTS_ROOT
 
-ROOT = REPO_ROOT
-SRC = RESULTS_ROOT / "underwater" / "eval_uwflow_500_summary.psv"
-FIGDIR = PAPER_ROOT / "figures"
-TABLEDIR = PAPER_ROOT / "tables"
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / "eval_uwflow_500_summary.psv"
+FIGDIR = ROOT / "paper" / "figures"
+TABLEDIR = ROOT / "paper" / "tables"
 DEPTHS = (0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0)
 SPEEDS = (2.0, 1.5)
 
@@ -73,12 +72,9 @@ def aggregate(d: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_current_weighted_coverage(s: pd.DataFrame) -> pd.DataFrame:
-    reference = RESULTS_ROOT / "underwater" / "underwater_final_analysis.csv"
+    reference = ROOT / "paper" / "underwater_final_analysis.csv"
     if not reference.exists():
-        raise FileNotFoundError(
-            "The final current-weighted coverage table is required: "
-            f"{reference}"
-        )
+        raise FileNotFoundError(f"current-weighted coverage table not found: {reference}")
     ref = pd.read_csv(reference)
     keys = ["depth_m", "vmax_ms", "method"]
     weighted = ref[
@@ -97,7 +93,7 @@ def add_current_weighted_coverage(s: pd.DataFrame) -> pd.DataFrame:
     ).merge(weighted, on=keys, how="left", validate="one_to_one")
     required = ["current_weighted_coverage", "current_weighted_coverage_std"]
     if out[required].isna().any().any():
-        raise ValueError("Current-weighted coverage is incomplete for a method.")
+        raise ValueError("current-weighted coverage is incomplete")
     return out
 
 
@@ -110,7 +106,9 @@ def make_table(s: pd.DataFrame) -> None:
         r"sample standard deviations across ten trained active-policy seeds. "
         r"Random control and passive drift share the same 500 evaluation "
         r"episodes and have no training-seed variability. Normalized action "
-        r"magnitude is the mean squared norm of the unprojected action.}",
+        r"magnitude is the mean squared norm of the unprojected action. "
+        r"Geometric coverage counts unique native HYCOM cells of "
+        r"\(0.04^\circ\) latitude by \(0.08^\circ\) longitude.}",
         r"\label{tab:underwater_methods_10seed}",
         r"\small",
         r"\resizebox{\textwidth}{!}{%",
@@ -172,7 +170,7 @@ def make_figure(s: pd.DataFrame) -> None:
         (
             "coverage_area_km2",
             1.0e3,
-            "Geometric spatial coverage",
+            "Geometric coverage",
             r"Geometric coverage ($10^3$ km$^2$)",
         ),
         (
@@ -251,7 +249,7 @@ def main() -> None:
     s = add_current_weighted_coverage(aggregate(d))
     TABLEDIR.mkdir(parents=True, exist_ok=True)
     FIGDIR.mkdir(parents=True, exist_ok=True)
-    csv_path = RESULTS_ROOT / "underwater" / "underwater_methods_10seed.csv"
+    csv_path = ROOT / "paper" / "underwater_methods_10seed.csv"
     s.to_csv(csv_path, index=False)
     make_table(s)
     make_figure(s)

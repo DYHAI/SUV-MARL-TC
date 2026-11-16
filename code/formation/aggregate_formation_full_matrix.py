@@ -3,29 +3,41 @@
 
 from __future__ import annotations
 
-import os
 import re
+import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from code.paths import PAPER_ROOT, REPO_ROOT, RESULTS_ROOT, RUNS_ROOT
 
-ROOT = REPO_ROOT
-EXPERIMENT = Path(
-    os.environ.get("OFFICIAL_RUNS_ROOT", str(RUNS_ROOT / "official"))
-)
+ROOT = Path(__file__).resolve().parents[2]
+EXPERIMENT = ROOT / "runs"
 RAW = EXPERIMENT / "results" / "surface_dynamics_only" / "formation" / "logs"
-TABLES = PAPER_ROOT / "tables"
+if os.environ.get("SURFACE_CENTER_RESULT_ROOT"):
+    RAW = (
+        Path(os.environ["SURFACE_CENTER_RESULT_ROOT"])
+        / "formation"
+        / "logs"
+    )
+TABLES = ROOT / "paper" / "tables"
 SUMMARY = (
-    RESULTS_ROOT
+    EXPERIMENT
+    / "results"
+    / "surface_dynamics_only"
     / "formation"
     / "formation_full_matrix_summary.csv"
 )
+if os.environ.get("SURFACE_CENTER_RESULT_ROOT"):
+    SUMMARY = (
+        Path(os.environ["SURFACE_CENTER_RESULT_ROOT"])
+        / "summary"
+        / "formation_full_matrix_summary.csv"
+    )
 SPEEDS = (12, 20)
 FORMATIONS = ("ring", "line", "grid", "v")
 RADII = (100, 200, 400, 600, 800)
+REQUIRE_RIGID = os.environ.get("RIGID_FORMATION", "0") == "1"
 METRICS = (
     "final_distance_km",
     "distance_avg_km",
@@ -38,12 +50,25 @@ METRICS = (
 
 def load_and_summarize() -> pd.DataFrame:
     rows: list[dict] = []
+    expected_evaluations: int | None = None
     for speed in SPEEDS:
         for formation in FORMATIONS:
             for radius in RADII:
                 path = RAW / f"{formation}_v{speed}_d{radius}.log"
                 if not path.is_file():
                     raise FileNotFoundError(path)
+                segment_path = (
+                    path.parent.parent
+                    / "segments"
+                    / f"{formation}_v{speed}_d{radius}_seg.csv"
+                )
+                if not segment_path.is_file():
+                    raise FileNotFoundError(segment_path)
+                segment_values = pd.read_csv(segment_path)
+                if "final_wind_speed_ms" not in segment_values:
+                    raise ValueError(
+                        f"{segment_path}: missing final_wind_speed_ms"
+                    )
                 text = path.read_text(errors="replace")
                 row_match = re.search(
                     r"^ROW\|([^\n]+)$", text, flags=re.MULTILINE
@@ -51,33 +76,86 @@ def load_and_summarize() -> pd.DataFrame:
                 final_match = re.search(
                     r"^FINALROW\|([^\n]+)$", text, flags=re.MULTILINE
                 )
+                centre_match = re.search(
+                    r"^CENTERROW\|([^\n]+)$", text, flags=re.MULTILINE
+                )
                 formation_match = re.search(
                     r"^FORMATIONROW\|([^\n]+)$", text, flags=re.MULTILINE
                 )
-                if not (row_match and final_match and formation_match):
+                rigid_match = re.search(
+                    r"^RIGIDROW\|([^\n]+)$", text, flags=re.MULTILINE
+                )
+                constraint_match = re.search(
+                    r"^CONSTRAINTROW\|([^\n]+)$", text, flags=re.MULTILINE
+                )
+                if not (
+                    row_match
+                    and final_match
+                    and centre_match
+                    and formation_match
+                    and constraint_match
+                    and (rigid_match or not REQUIRE_RIGID)
+                ):
                     raise ValueError(f"{path}: incomplete evaluation record")
                 row_values = [float(x) for x in row_match.group(1).split("|")]
                 final_values = [
                     float(x) for x in final_match.group(1).split("|")
                 ]
+                centre_values = [
+                    float(x) for x in centre_match.group(1).split("|")
+                ]
                 formation_values = [
                     float(x) for x in formation_match.group(1).split("|")
                 ]
-                if int(row_values[-1]) != 768:
-                    raise ValueError(f"{path}: expected 768 evaluations")
+                rigid_values = (
+                    [float(x) for x in rigid_match.group(1).split("|")]
+                    if rigid_match
+                    else [800.0, float(radius), 8.0, 0.0]
+                )
+                constraint_values = [
+                    float(x)
+                    for x in constraint_match.group(1).split("|")
+                ]
+                n_evaluations = int(row_values[-1])
+                if expected_evaluations is None:
+                    expected_evaluations = n_evaluations
+                elif n_evaluations != expected_evaluations:
+                    raise ValueError(
+                        f"{path}: found {n_evaluations} evaluations, "
+                        f"expected {expected_evaluations}"
+                    )
+                if rigid_values[3] > 1e-6:
+                    raise ValueError(f"{path}: rigid formation drift")
+                if constraint_values[3] > speed + 1e-6:
+                    raise ValueError(f"{path}: speed limit violated")
+                if constraint_values[4] > 0.03 + 1e-6:
+                    raise ValueError(f"{path}: acceleration limit violated")
+                if constraint_values[5] > 1.0 + 1e-6:
+                    raise ValueError(f"{path}: yaw-rate limit violated")
                 row = {
                     "speed_ms": speed,
                     "training_radius_km": 800,
                     "evaluation_radius_km": radius,
                     "formation": formation,
-                    "n_segments": int(row_values[-1]),
+                    "n_segments": n_evaluations,
                     "model": formation,
-                    "final_distance_km": final_values[3],
-                    "distance_avg_km": row_values[3],
+                    "final_distance_km": float(
+                        segment_values["final_centre_dist"].median()
+                    ),
+                    "distance_avg_km": centre_values[3],
+                    "agent_final_distance_km": final_values[3],
+                    "agent_distance_avg_km": row_values[3],
                     "path_km": row_values[5],
+                    "final_wind_speed_ms": float(
+                        segment_values["final_wind_speed_ms"].median()
+                    ),
                     "on_land_fraction": row_values[10],
                     "formation_radius_km": formation_values[3],
                     "pairwise_spacing_km": formation_values[4],
+                    "max_formation_offset_drift_km": rigid_values[3],
+                    "max_prop_speed_ms": constraint_values[3],
+                    "max_accel_mps2": constraint_values[4],
+                    "max_yaw_rate_dps": constraint_values[5],
                 }
                 rows.append(row)
     return pd.DataFrame(rows)
@@ -93,17 +171,22 @@ def _best_cell(values: dict[str, float], formation: str, *, lower: bool) -> str:
 
 
 def write_table(summary: pd.DataFrame) -> None:
+    n_segments = int(summary["n_segments"].iloc[0])
     lines = [
         r"\begin{table*}[t]",
         r"\centering",
         r"\caption{Surface initial-formation comparison for eight SUVs. "
+        r"All four layouts use a mean radius of 100 km. "
         r"Each policy was trained with formation-center offsets sampled inside "
         r"an 800 km radius and evaluated without retraining at fixed offsets "
-        r"of 100, 200, 400, 600, and 800 km on the same 768 held-out TC "
-        r"segments. Error is the final SUV-to-best-track-center distance and "
-        r"path is the per-vehicle trajectory length. Bold entries are the best "
-        r"value in each speed/radius row; error and path are assessed "
-        r"separately. All distances are in km.}",
+        rf"of 100, 200, 400, 600, and 800 km on the same {n_segments} held-out TC "
+        r"segments. Final tracking error is the fleet-center-to-TC-core "
+        r"distance at the end of the episode, and final wind speed is the "
+        r"fleet-mean ERA5 10 m wind speed at the final SUV positions. Bold "
+        r"entries are the best value in each speed/radius row, with smaller "
+        r"final tracking error and larger final wind speed preferred. Final "
+        r"tracking error and mean radius are in km, and final wind speed is "
+        r"in m\,s$^{-1}$.}",
         r"\label{tab:formation_comparison}",
         r"\small",
         r"\setlength{\tabcolsep}{2.7pt}",
@@ -114,8 +197,10 @@ def write_table(summary: pd.DataFrame) -> None:
         r"\multicolumn{2}{c}{V} \\",
         r"\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}"
         r"\cmidrule(lr){10-11}",
-        r"(m/s) & (km) & (km) & Error & Path & Error & Path & "
-        r"Error & Path & Error & Path \\",
+        r"(m/s) & (km) & (km) & Final tracking error & Final wind speed & "
+        r"Final tracking error & Final wind speed & "
+        r"Final tracking error & Final wind speed & "
+        r"Final tracking error & Final wind speed \\",
         r"\midrule",
     ]
     for speed in SPEEDS:
@@ -125,7 +210,10 @@ def write_table(summary: pd.DataFrame) -> None:
                 & (summary["evaluation_radius_km"] == radius)
             ].set_index("formation")
             errors = {f: float(block.loc[f, "final_distance_km"]) for f in FORMATIONS}
-            paths = {f: float(block.loc[f, "path_km"]) for f in FORMATIONS}
+            winds = {
+                f: float(block.loc[f, "final_wind_speed_ms"])
+                for f in FORMATIONS
+            }
             cells = [
                 str(speed),
                 "800",
@@ -133,7 +221,16 @@ def write_table(summary: pd.DataFrame) -> None:
             ]
             for formation in FORMATIONS:
                 cells.append(_best_cell(errors, formation, lower=True))
-                cells.append(_best_cell(paths, formation, lower=True))
+                wind_value = winds[formation]
+                wind_text = f"{wind_value:.2f}"
+                if np.isclose(
+                    wind_value,
+                    max(winds.values()),
+                    rtol=0.0,
+                    atol=1e-9,
+                ):
+                    wind_text = rf"\textbf{{{wind_text}}}"
+                cells.append(wind_text)
             lines.append(" & ".join(cells) + r" \\")
         if speed != SPEEDS[-1]:
             lines.append(r"\midrule")
@@ -151,6 +248,7 @@ def write_table(summary: pd.DataFrame) -> None:
 
 def main() -> None:
     summary = load_and_summarize()
+    SUMMARY.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(SUMMARY, index=False)
     write_table(summary)
     print(summary.to_string(index=False))

@@ -1,15 +1,24 @@
 # Code
 
-- `data_preparation/`: ERA5, HYCOM, IBTrACS, segmentation, and cache tools.
-- `surface/`: surface environment, IPPO training, and deployment evaluation.
-- `underwater/`: subsurface environment, IPPO training, and strategy evaluation.
-- `baselines/`: traditional planning baselines and paired comparisons.
+- `common/`: constrained planar dynamics shared by all stages.
+- `surface/`: surface fleet environment, IPPO training, and evaluation.
+- `underwater/`: fixed-depth current-observation environment and IPPO.
+- `baselines/`: potential field, receding-horizon A*, lawnmower, and
+  information-greedy planners.
 - `formation/`: ring, line, grid, and V formation experiments.
-- `algorithm_comparison/`: representative IPPO, SAC, and TD3 comparison.
-- `analysis/`: final tables, figures, and result summaries.
-- `common/`: shared constrained planar dynamics.
-- `official_experiments/`: official configuration, equations audit, and
-  verification report.
+- `algorithm_comparison/`: representative IPPO/SAC/TD3 comparison.
+- `analysis/`: final aggregation, tables, and figure generation.
+- `data_preparation/`: TC selection, segmentation, downloads, and caches.
+- `official_experiments/`: final 400-TC configuration, schedulers, constraints,
+  and verification records.
 
-Run executable modules from the repository root with `python -m ...`; the
-launchers in `scripts/` do this automatically.
+Run maintained modules from the repository root, for example:
+
+```bash
+python -m code.official_experiments.validate_dynamics
+python -m code.analysis.make_surface_distance_figure
+python -m code.analysis.make_traditional_planner_renderings
+```
+
+Large datasets and model checkpoints are read from `data/` and `runs/` and are
+not tracked.

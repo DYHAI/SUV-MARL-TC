@@ -15,22 +15,34 @@ from code.baselines.classical_planning_baselines import make_planner
 from code.surface.fleet_segment_env import (
     D2KM,
     FleetSegmentEnv,
+    coerce_formation_action,
     deploy_formation,
+    formation_safety_filter,
     land_interp,
+    rigid_formation_enabled,
     safety_filter,
     seg_idx,
+    wind_speed_at,
 )
-from code.paths import REPO_ROOT, RUNS_ROOT
 
 
-ROOT = REPO_ROOT
-SPLIT = ROOT / "data" / "typhoon_split_500.json"
-SEGCSV = ROOT / "data" / "segments_500.csv"
-OUTDIR = Path(os.environ.get("CLASSICAL_OUT_DIR", str(RUNS_ROOT / "baselines")))
+ROOT = Path(__file__).resolve().parents[2]
+SPLIT = Path(
+    os.environ.get("SPLIT_JSON", ROOT / "data" / "typhoon_split_400.json")
+)
+SEGCSV = Path(
+    os.environ.get("SEGMENTS_CSV", ROOT / "data" / "segments_primary_400.csv")
+)
+OUTDIR = Path(
+    os.environ.get("CLASSICAL_OUT_DIR", str(ROOT / "classical_eval"))
+)
 # Preserve the historical default for old experiments.  The constrained
 # dynamics matrix explicitly exports ACTION_FILTER_BETA=0.8 so classical
 # planners use the same low-pass controller as the IPPO policies.
-ACTION_FILTER_BETA = float(os.environ.get("ACTION_FILTER_BETA", "0.8"))
+ACTION_FILTER_BETA = float(os.environ.get("ACTION_FILTER_BETA", "0.2"))
+RIGID_FORMATION = rigid_formation_enabled()
+FORMATION = os.environ.get("FORMATION", "ring")
+RING_RADIUS = float(os.environ.get("FORMATION_RADIUS_KM", "100"))
 
 
 def deploy_fixed(d, t0, n_auv, radius_km, seed, formation="ring", ring_radius=100.0):
@@ -73,13 +85,17 @@ def run_episode(planner, env, row, idx, deployment_seed, radius_km):
     if env.dynamics is not None:
         env.dynamics.reset(seed=seed)
     env.lons, env.lats, initial_clearance = deploy_fixed(
-        d, env.t0, env.n_auv, radius_km, seed
+        d, env.t0, env.n_auv, radius_km, seed,
+        formation=env.formation, ring_radius=env.ring_radius,
     )
+    env._rigid_offsets_km = None
     env.prev_actions = np.zeros((env.n_auv, 2), dtype=np.float32)
     planner.reset(env)
-    obs = env._obs().reshape(-1).astype(np.float32)
+    obs_all = env._obs().astype(np.float32)
+    obs = obs_all.reshape(-1)
     executed = np.zeros((env.n_auv, 2), dtype=np.float32)
     distances = []
+    centre_distances = []
     path = 0.0
     land_auv_steps = 0
     auv_steps = 0
@@ -91,15 +107,23 @@ def run_episode(planner, env, row, idx, deployment_seed, radius_km):
         raw = np.asarray(planner.act(obs, env), dtype=np.float32).reshape(
             env.n_auv, 2
         )
+        if RIGID_FORMATION:
+            raw = coerce_formation_action(raw, env.n_auv)
         executed = (
             ACTION_FILTER_BETA * executed
             + (1.0 - ACTION_FILTER_BETA) * raw
         )
         norm = np.linalg.norm(executed, axis=1, keepdims=True)
         action = executed / np.maximum(1.0, norm)
-        action = safety_filter(
-            action, env.lons, env.lats, env.dist_interp, 100.0
-        )
+        if RIGID_FORMATION:
+            common = formation_safety_filter(
+                action[0], env.lons, env.lats, env.dist_interp, 100.0
+            )
+            action = np.repeat(common[None, :], env.n_auv, axis=0)
+        else:
+            action = safety_filter(
+                action, env.lons, env.lats, env.dist_interp, 100.0
+            )
         prev_lons = env.lons.copy()
         prev_lats = env.lats.copy()
         obs, _reward, terminated, truncated, info = env.step(action)
@@ -113,6 +137,15 @@ def run_episode(planner, env, row, idx, deployment_seed, radius_km):
         )
         obs = obs.reshape(-1).astype(np.float32)
         distances.append(float(np.mean(info["dist_km"])))
+        rel_x = (
+            (env.lons - float(info["eye_lon"]))
+            * D2KM
+            * np.cos(np.deg2rad(float(info["eye_lat"])))
+        )
+        rel_y = (env.lats - float(info["eye_lat"])) * D2KM
+        centre_distances.append(
+            float(np.hypot(np.mean(rel_x), np.mean(rel_y)))
+        )
         land_auv_steps += int((info["land_dist"] <= 0.0).sum())
         auv_steps += env.n_auv
         steps += 1
@@ -138,12 +171,19 @@ def run_episode(planner, env, row, idx, deployment_seed, radius_km):
         "t0": env.t0,
         "distance_avg_km": float(np.mean(distances)),
         "final_distance_km": float(distances[-1]),
+        "centre_distance_avg_km": float(np.mean(centre_distances)),
+        "final_centre_distance_km": float(centre_distances[-1]),
+        "final_wind_speed_ms": float(
+            np.mean(wind_speed_at(env.d, env.t, env.lons, env.lats))
+        ),
         "path_km": path,
         "mean_speed_ms": path * 1000.0 / max(duration_h * 3600.0, 1e-9),
         "on_land_fraction": land_auv_steps / max(auv_steps, 1),
         "initial_clearance_km": initial_clearance,
         "duration_h": duration_h,
         "action_filter_beta": ACTION_FILTER_BETA,
+        "formation": env.formation,
+        "formation_radius_km": env.ring_radius,
         "dynamics_mode": (
             env.dynamics.config.mode if env.dynamics is not None else "kinematic"
         ),
@@ -199,8 +239,8 @@ def main() -> None:
         spacing_deg=0.25,
         patch_n=1,
         deploy_radius=800.0,
-        formation="ring",
-        ring_radius=100.0,
+        formation=FORMATION,
+        ring_radius=RING_RADIUS,
         sst_mode="none",
         use_mslp=False,
         vmax=args.vmax,

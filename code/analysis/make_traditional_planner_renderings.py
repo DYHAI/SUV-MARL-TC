@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 
 os.environ.setdefault("DYNAMICS_MODE", "constrained")
 os.environ.setdefault("DYN_SURFACE_CURRENT", "0")
 os.environ.setdefault("OBS_HEADING", "1")
+os.environ.setdefault("RIGID_FORMATION", "1")
 os.environ.setdefault("DEPLOY_OCEAN_ONLY", "1")
 os.environ.setdefault("DEPLOY_MIN_COAST_KM", "100")
 os.environ.setdefault("SAFETY_MARGIN_KM", "100")
@@ -20,36 +23,49 @@ from matplotlib.lines import Line2D
 from scipy.interpolate import RegularGridInterpolator
 from stable_baselines3 import PPO
 
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
 from code.baselines.classical_planning_baselines import make_planner
-from code.paths import PAPER_ROOT, REPO_ROOT, RUNS_ROOT
 from code.surface.eval_surface_robustness import deploy_fixed
 from code.surface.fleet_segment_env import (
     D2KM,
     FleetSegmentEnv,
+    coerce_formation_action,
+    formation_safety_filter,
+    policy_observation,
+    rigid_formation_enabled,
     safety_filter,
     seg_idx as surface_seg_idx,
 )
 from code.underwater.underwater_fleet_flow_env import UnderwaterFleetFlowEnv
+from code.underwater.underwater_coverage import (
+    native_hycom_cells,
+    native_hycom_coverage_area,
+    native_hycom_weighted_coverage,
+)
 from code.underwater.underwater_flow_env import STEP_MIN as UNDERWATER_STEP_MIN
 
-ROOT = REPO_ROOT
-DOC = PAPER_ROOT
-OUT = DOC / "figures" / "Fig7_Traditional_Planner_Rendering"
-SURFACE_MODEL = (
-    RUNS_ROOT
-    / "official"
-    / "models"
-    / "surface_main"
-    / "surface_n8_v12_s0.zip"
-)
+DOC = ROOT / "paper"
+OUT = DOC / "figures" / "FigB1_Traditional_Planner_Rendering"
+SURFACE_MODEL = Path(
+    os.environ.get(
+        "SURFACE_MODEL_DIR",
+        ROOT
+        / "runs"
+        / "surface"
+        / "models",
+    )
+) / "surface_n8_v12_s0.zip"
 UNDERWATER_MODEL = (
-    RUNS_ROOT
-    / "official"
+    ROOT
+    / "runs"
+    / "underwater"
     / "models"
-    / "underwater_main"
     / "uw_d30_v1.5_s0.zip"
 )
-STORM = "CHAMPI_2015_2015286"
+STORM = "MATMO_2025"
+STORM_T0 = 561
 SEED = 917
 DEPLOY_RADIUS_KM = 400.0
 DEPTH_M = 30.0
@@ -70,11 +86,13 @@ COLORS = {
 
 
 def representative_segment() -> pd.Series:
-    seg = pd.read_csv(ROOT / "data" / "segments_500.csv")
-    candidates = seg[seg.storm == STORM].reset_index(drop=True)
+    seg = pd.read_csv(ROOT / "data" / "segments_primary_400.csv")
+    candidates = seg[
+        (seg.storm == STORM) & (seg.t0 == STORM_T0)
+    ].reset_index(drop=True)
     if candidates.empty:
         raise ValueError(f"no representative segment for {STORM}")
-    return candidates.iloc[len(candidates) // 2]
+    return candidates.iloc[0]
 
 
 def surface_rollout(method: str, row: pd.Series, model: PPO):
@@ -109,27 +127,44 @@ def surface_rollout(method: str, row: pd.Series, model: PPO):
     planner = None if method == "ippo" else make_planner(method, "surface")
     if planner is not None:
         planner.reset(env)
-    obs = env._obs().reshape(-1).astype(np.float32)
+    rigid = rigid_formation_enabled()
+    obs = policy_observation(env._obs(), rigid)
     executed = np.zeros((env.n_auv, 2), dtype=np.float32)
     lats, lons, errors = [env.lats.copy()], [env.lons.copy()], []
     while True:
         if method == "ippo":
             raw, _ = model.predict(obs, deterministic=True)
-            raw = np.asarray(raw, dtype=np.float32).reshape(env.n_auv, 2)
         else:
-            raw = np.asarray(planner.act(obs, env), dtype=np.float32).reshape(
-                env.n_auv, 2
-            )
+            planner_obs = env._obs().reshape(-1).astype(np.float32)
+            raw = planner.act(planner_obs, env)
+        if rigid:
+            raw = coerce_formation_action(raw, env.n_auv)
+        else:
+            raw = np.asarray(raw, dtype=np.float32).reshape(env.n_auv, 2)
         executed = 0.2 * raw + 0.8 * executed
         action = executed / np.maximum(
             1.0, np.linalg.norm(executed, axis=1, keepdims=True)
         )
-        action = safety_filter(action, env.lons, env.lats, env.dist_interp, 100.0)
+        if rigid:
+            common = formation_safety_filter(
+                action[0], env.lons, env.lats, env.dist_interp, 100.0
+            )
+            action = np.repeat(common[None, :], env.n_auv, axis=0)
+        else:
+            action = safety_filter(
+                action, env.lons, env.lats, env.dist_interp, 100.0
+            )
         obs, _reward, terminated, truncated, info = env.step(action)
-        obs = obs.reshape(-1).astype(np.float32)
+        obs = policy_observation(obs, rigid)
         lats.append(env.lats.copy())
         lons.append(env.lons.copy())
-        errors.append(float(np.mean(info["dist_km"])))
+        rel_x = (
+            (env.lons - float(info["eye_lon"]))
+            * D2KM
+            * np.cos(np.deg2rad(float(info["eye_lat"])))
+        )
+        rel_y = (env.lats - float(info["eye_lat"])) * D2KM
+        errors.append(float(np.hypot(np.mean(rel_x), np.mean(rel_y))))
         if terminated or truncated:
             break
     final_t = int(env.t)
@@ -137,7 +172,6 @@ def surface_rollout(method: str, row: pd.Series, model: PPO):
         np.asarray(lats),
         np.asarray(lons),
         float(errors[-1]),
-        float(np.mean(errors)),
         d,
         final_t,
     )
@@ -182,18 +216,16 @@ def underwater_rollout(method: str, row: pd.Series, model: PPO):
     lats = np.asarray(lats)
     lons = np.asarray(lons)
     mean_current = float(np.mean(current))
-    cov_deg = float(env.cov_deg)
-    lat0 = float(np.min(env.d["lat"]))
-    lon0 = float(np.min(env.d["lon"]))
-    cells = {
-        (
-            int(np.floor((lat - lat0) / cov_deg)),
-            int(np.floor((lon - lon0) / cov_deg)),
-        )
-        for lat, lon in zip(lats.ravel(), lons.ravel())
-    }
-    coverage_area_km2 = float(len(cells) * env._cell_area_km2)
-    current_weighted_coverage = mean_current * coverage_area_km2
+    sampled_lats = lats[:-1]
+    sampled_lons = lons[:-1]
+    current = np.asarray(current, dtype=np.float64)
+    cells = native_hycom_cells(sampled_lats.ravel(), sampled_lons.ravel())
+    coverage_area_km2 = native_hycom_coverage_area(cells)
+    current_weighted_coverage = native_hycom_weighted_coverage(
+        sampled_lats.ravel(),
+        sampled_lons.ravel(),
+        current.ravel(),
+    )
     return (
         lats,
         lons,
@@ -217,7 +249,7 @@ def field_at(env, t: int, key: str = "spd"):
     return (1.0 - frac) * d[key][h0] + frac * d[key][h1]
 
 
-def draw_field(ax, env, t: int, xlim, ylim, label: str):
+def sample_field(env, t: int, xlim, ylim):
     center_lon = float(env.d["track_lon"][t])
     center_lat = float(env.d["track_lat"][t])
     xe = np.linspace(xlim[0], xlim[1], 260)
@@ -233,14 +265,18 @@ def draw_field(ax, env, t: int, xlim, ylim, label: str):
         bounds_error=False,
         fill_value=np.nan,
     )
-    values = interp(np.stack([lat, lon], axis=-1))
+    return xe, yn, interp(np.stack([lat, lon], axis=-1))
+
+
+def draw_field(ax, env, t: int, xlim, ylim, label: str, norm):
+    xe, yn, values = sample_field(env, t, xlim, ylim)
     mesh = ax.pcolormesh(
         xe,
         yn,
         values,
         shading="gouraud",
         cmap="YlGnBu",
-        norm=mcolors.Normalize(0.0, float(np.nanpercentile(values, 99))),
+        norm=norm,
         rasterized=True,
     )
     ax.contour(
@@ -260,27 +296,88 @@ def draw_field(ax, env, t: int, xlim, ylim, label: str):
     return mesh
 
 
-def plot_row(axs, row_label: str, results, field_label: str):
+def plot_row(
+    axs,
+    row_label: str,
+    results,
+    field_label: str,
+    hide_upper_x: bool = False,
+    *,
+    pad_fraction: float = 0.18,
+    min_pad_km: float = 60.0,
+    symmetric_about_tc: bool = False,
+    min_half_span_km: float | None = None,
+    min_width_km: float | None = None,
+    min_height_km: float | None = None,
+):
     all_xy = []
     for _name, xy, *_rest in results:
         all_xy.append(xy.reshape(-1, 2))
     all_xy = np.concatenate(all_xy, axis=0)
     xmin, ymin = np.nanmin(all_xy, axis=0)
     xmax, ymax = np.nanmax(all_xy, axis=0)
-    pad = max(25.0, 0.08 * max(xmax - xmin, ymax - ymin))
-    xlim = (min(xmin - pad, -30.0), max(xmax + pad, 30.0))
-    ylim = (min(ymin - pad, -30.0), max(ymax + pad, 30.0))
+    # Every task panel must retain the TC core as spatial context, even when
+    # paths are displaced far downstream by the environmental field.
+    xmin, xmax = min(float(xmin), 0.0), max(float(xmax), 0.0)
+    ymin, ymax = min(float(ymin), 0.0), max(float(ymax), 0.0)
+    pad = max(
+        float(min_pad_km),
+        float(pad_fraction) * max(xmax - xmin, ymax - ymin),
+    )
+    if symmetric_about_tc:
+        half_span = max(
+            abs(xmin),
+            abs(xmax),
+            abs(ymin),
+            abs(ymax),
+        ) + pad
+        if min_half_span_km is not None:
+            half_span = max(half_span, float(min_half_span_km))
+        xlim = (-half_span, half_span)
+        ylim = (-half_span, half_span)
+    else:
+        xlim = (xmin - pad, xmax + pad)
+        ylim = (ymin - pad, ymax + pad)
+        if min_width_km is not None and xlim[1] - xlim[0] < min_width_km:
+            center = 0.5 * (xlim[0] + xlim[1])
+            half = 0.5 * float(min_width_km)
+            xlim = (center - half, center + half)
+        if min_height_km is not None and ylim[1] - ylim[0] < min_height_km:
+            center = 0.5 * (ylim[0] + ylim[1])
+            half = 0.5 * float(min_height_km)
+            ylim = (center - half, center + half)
+    field_values = [
+        sample_field(result[3], result[4], xlim, ylim)[2]
+        for result in results
+    ]
+    finite_values = np.concatenate(
+        [values[np.isfinite(values)] for values in field_values]
+    )
+    norm = mcolors.Normalize(
+        0.0,
+        float(np.nanpercentile(finite_values, 99.0)),
+    )
     mesh = None
     for index, (ax, result) in enumerate(zip(axs, results)):
         name, xy, score_text, env, t = result
-        mesh = draw_field(ax, env, t, xlim, ylim, "TC-relative east (km)")
+        mesh = draw_field(
+            ax,
+            env,
+            t,
+            xlim,
+            ylim,
+            "TC-relative east (km)",
+            norm,
+        )
         for i in range(xy.shape[1]):
             ax.plot(
                 xy[:, i, 0],
                 xy[:, i, 1],
                 color=COLORS[name],
-                linewidth=1.2,
-                alpha=0.9,
+                linewidth=1.35,
+                alpha=0.94,
+                solid_capstyle="round",
+                zorder=4,
             )
             ax.scatter(
                 xy[0, i, 0],
@@ -288,8 +385,8 @@ def plot_row(axs, row_label: str, results, field_label: str):
                 facecolor="white",
                 edgecolor=COLORS[name],
                 marker="o",
-                s=34,
-                linewidth=0.9,
+                s=40,
+                linewidth=1.0,
                 zorder=5,
             )
             ax.scatter(
@@ -298,8 +395,8 @@ def plot_row(axs, row_label: str, results, field_label: str):
                 facecolor=COLORS[name],
                 edgecolor="white",
                 marker="^",
-                s=38,
-                linewidth=0.7,
+                s=44,
+                linewidth=0.85,
                 zorder=6,
             )
         ax.scatter([0], [0], marker="*", s=155, color="#d62728", zorder=7)
@@ -310,7 +407,12 @@ def plot_row(axs, row_label: str, results, field_label: str):
             f"{name}\n{score_text}",
             fontsize=7.4,
             fontweight="bold",
+            linespacing=1.18,
+            pad=3.5,
         )
+        if hide_upper_x and index < 3:
+            ax.tick_params(labelbottom=False)
+            ax.set_xlabel("")
     return mesh
 
 
@@ -330,14 +432,20 @@ def main():
 
     surface_results = []
     for name, method in METHODS:
-        lats, lons, final, mean, d, t = surface_rollout(
+        lats, lons, final, d, t = surface_rollout(
             method, row, surface_model
         )
         env = type("SurfaceField", (), {})()
         env.d = d
         xy = relative_km(lats, lons, d["track_lon"][t], d["track_lat"][t])
         surface_results.append(
-            (name, xy, f"Final {final:.1f} km | Mean {mean:.1f} km", env, t)
+            (
+                name,
+                xy,
+                f"Final tracking error: {final:.1f} km",
+                env,
+                t,
+            )
         )
 
     underwater_results = []
@@ -355,8 +463,8 @@ def main():
             (
                 name,
                 xy,
-                f"Mean current {mean_current:.3f} m/s\n"
-                f"Current-weighted coverage "
+                f"Mean current: {mean_current:.3f} m/s\n"
+                f"Current-weighted coverage:\n"
                 f"{weighted_coverage / 1000.0:.2f} × $10^3$",
                 env,
                 t,
@@ -367,13 +475,14 @@ def main():
     # each task nearly doubles the on-page map area relative to the previous
     # five-panel row while keeping all panels on one figure page.
     fig = plt.figure(
-        figsize=(7.2, 10.4),
+        figsize=(8.4, 9.2),
         constrained_layout=True,
     )
     grid = fig.add_gridspec(
         6,
         3,
-        height_ratios=(1.0, 1.0, 0.075, 1.0, 1.0, 0.075),
+        height_ratios=(1.08, 1.08, 0.065, 1.08, 1.08, 0.065),
+        hspace=0.08,
     )
     surface_axes = [
         fig.add_subplot(grid[0, 0]),
@@ -398,12 +507,22 @@ def main():
         "Surface, 12 m/s",
         surface_results,
         "TC-relative east (km)",
+        hide_upper_x=True,
+        pad_fraction=0.18,
+        min_pad_km=60.0,
+        symmetric_about_tc=True,
+        min_half_span_km=500.0,
     )
     underwater_mesh = plot_row(
         underwater_axes,
         "Subsurface, 30 m, 1.5 m/s",
         underwater_results,
         "TC-relative east (km)",
+        hide_upper_x=True,
+        pad_fraction=0.18,
+        min_pad_km=65.0,
+        min_width_km=720.0,
+        min_height_km=430.0,
     )
     handles = [
         Line2D([0], [0], marker="o", color="none", markerfacecolor="white",
@@ -411,7 +530,7 @@ def main():
         Line2D([0], [0], marker="^", color="none", markerfacecolor="black",
                markersize=5, label="Final position"),
         Line2D([0], [0], marker="*", color="none", markerfacecolor="#d62728",
-               markersize=8, label="TC center"),
+               markersize=8, label="TC core"),
     ]
     legend_surface.legend(
         handles=handles,
@@ -442,13 +561,22 @@ def main():
         label="HYCOM current speed at 30 m (m s$^{-1}$)",
     )
     fig.suptitle(
-        "Traditional planner comparison on CHAMPI_2015",
+        "Traditional planner comparison on MATMO (2025)",
         fontsize=9.5,
         fontweight="bold",
     )
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT.with_suffix(".pdf"), bbox_inches="tight")
-    fig.savefig(OUT.with_suffix(".png"), dpi=300, bbox_inches="tight")
+    fig.savefig(
+        OUT.with_suffix(".pdf"),
+        bbox_inches="tight",
+        facecolor="white",
+    )
+    fig.savefig(
+        OUT.with_suffix(".png"),
+        dpi=420,
+        bbox_inches="tight",
+        facecolor="white",
+    )
     print(OUT.with_suffix(".pdf"))
 
 

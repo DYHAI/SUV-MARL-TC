@@ -23,21 +23,18 @@ import pandas as pd
 from code.underwater.underwater_fleet_flow_env import UnderwaterFleetFlowEnv
 from code.underwater.underwater_flow_env import preload
 from code.surface.fleet_sb3 import SharedPerAgentPolicy
-from code.paths import REPO_ROOT, RUNS_ROOT
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
-BASE = str(REPO_ROOT)
+BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SPLIT = os.environ.get(
-    "SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_500.json")
+    "SPLIT_JSON", os.path.join(BASE, "data", "typhoon_split_400.json")
 )
 SEGCSV = os.environ.get(
-    "SEGMENTS_CSV", os.path.join(BASE, "data", "segments_500.csv")
+    "SEGMENTS_CSV", os.path.join(BASE, "data", "segments_primary_400.csv")
 )
 OUT = os.path.abspath(
-    os.environ.get(
-        "UWFLOW_MODEL_DIR", str(RUNS_ROOT / "underwater" / "official_models")
-    )
+    os.environ.get("UWFLOW_MODEL_DIR", os.path.join(BASE, "ppo_underwater_fleet"))
 )
 os.makedirs(OUT, exist_ok=True)
 
