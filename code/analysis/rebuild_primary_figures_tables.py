@@ -405,9 +405,8 @@ def write_planner_stratified() -> Path | None:
         r"surface speed limits and the two subsurface propulsion limits. For IPPO, "
         r"surface and subsurface entries are arithmetic means across training seeds "
         r"of within-seed episode medians. For deterministic planners, each entry is "
-        r"one episode median over the paired validation episodes. Geometric "
-        r"coverage counts unique native HYCOM cells of \(0.04^\circ\) latitude by "
-        r"\(0.08^\circ\) longitude. Current-weighted coverage is reported in "
+        r"one episode median over the paired validation episodes. "
+        r"Current-weighted coverage is reported in "
         r"\(10^3\) m\,s$^{-1}$\,km$^2$.}",
         r"\label{tab:planner_stratified}\\",
         r"\toprule",
