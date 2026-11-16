@@ -18,6 +18,7 @@ Run maintained modules from the repository root, for example:
 python -m code.official_experiments.validate_dynamics
 python -m code.analysis.make_surface_distance_figure
 python -m code.analysis.make_traditional_planner_renderings
+python -m code.analysis.make_underwater_planner_comparison
 ```
 
 Large datasets and model checkpoints are read from `data/` and `runs/` and are

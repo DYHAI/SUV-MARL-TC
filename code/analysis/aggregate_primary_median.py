@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Aggregate primary surface medians and subsurface means.
+"""Aggregate primary surface and subsurface results using episode medians.
 
 Surface protocol: compute one value per validation episode, take the median
 within each training seed and condition, then average seed medians.
-Subsurface protocol: compute one value per validation episode, take the mean
-within each training seed and condition, then average seed means.
+Subsurface protocol: compute one value per validation episode, take the median
+within each training seed and condition, then average seed medians.
 
 This script intentionally does not reuse the legacy aggregators that call
 ``DataFrame.mean`` directly on episode rows.
@@ -72,30 +72,6 @@ def seed_medians(
         .rename(columns={training_seed_col: "training_seed", **metric_cols})
     )
     return grouped
-
-
-def seed_means(
-    episodes: pd.DataFrame,
-    condition_cols: list[str],
-    training_seed_col: str,
-    metric_cols: dict[str, str],
-) -> pd.DataFrame:
-    """Return one arithmetic mean per condition and training seed."""
-    if episodes.empty:
-        return pd.DataFrame()
-    required = set(condition_cols) | {training_seed_col} | set(metric_cols)
-    missing = sorted(required - set(episodes.columns))
-    if missing:
-        raise ValueError(f"missing columns: {missing}")
-    return (
-        episodes.groupby(
-            [*condition_cols, training_seed_col],
-            dropna=False,
-        )[list(metric_cols)]
-        .mean()
-        .reset_index()
-        .rename(columns={training_seed_col: "training_seed", **metric_cols})
-    )
 
 
 def aggregate_per_seed_values(
@@ -204,14 +180,14 @@ def aggregate_classical_underwater() -> tuple[pd.DataFrame, pd.DataFrame]:
     # Deployment seeds are validation realizations, not trained models.
     episodes["training_seed"] = 0
     condition_cols = ["planner", "depth_m", "vmax_ms"]
-    per_seed = seed_means(
+    per_seed = seed_medians(
         episodes, condition_cols, "training_seed", UNDERWATER_METRICS
     )
     summary = aggregate_per_seed_values(
         per_seed, condition_cols, UNDERWATER_METRICS
     )
     _write_bundle(
-        "classical_underwater", per_seed, summary, granularity="means"
+        "classical_underwater", per_seed, summary, granularity="medians"
     )
     return per_seed, summary
 
@@ -254,13 +230,13 @@ def aggregate_underwater_ippo(
         return pd.DataFrame(), pd.DataFrame()
     episodes = pd.concat(frames, ignore_index=True)
     condition_cols = ["depth_m", "vmax_ms"]
-    per_seed = seed_means(
+    per_seed = seed_medians(
         episodes, condition_cols, "training_seed", UNDERWATER_METRICS
     )
     summary = aggregate_per_seed_values(
         per_seed, condition_cols, UNDERWATER_METRICS
     )
-    _write_bundle(name, per_seed, summary, granularity="means")
+    _write_bundle(name, per_seed, summary, granularity="medians")
     return per_seed, summary
 
 
@@ -302,14 +278,14 @@ def aggregate_underwater_algorithms(
         return pd.DataFrame(), pd.DataFrame()
     episodes = pd.concat(frames, ignore_index=True)
     condition_cols = ["algorithm", "depth_m", "vmax_ms"]
-    per_seed = seed_means(
+    per_seed = seed_medians(
         episodes, condition_cols, "training_seed", UNDERWATER_METRICS
     )
     summary = aggregate_per_seed_values(
         per_seed, condition_cols, UNDERWATER_METRICS
     )
     _write_bundle(
-        "underwater_algorithms", per_seed, summary, granularity="means"
+        "underwater_algorithms", per_seed, summary, granularity="medians"
     )
     return per_seed, summary
 

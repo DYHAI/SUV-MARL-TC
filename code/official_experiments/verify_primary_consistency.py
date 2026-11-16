@@ -40,7 +40,6 @@ from code.underwater.underwater_coverage import (
 )
 from code.analysis.aggregate_primary_median import (
     aggregate_per_seed_values,
-    seed_means,
     seed_medians,
 )
 
@@ -72,6 +71,12 @@ def verify_data_and_config() -> dict[str, object]:
         "all 262 held-out segments"
     )
     assert "subsurface_metric_aggregation" in config["traditional_algorithms"]
+    aggregation = config["evaluation_aggregation"]
+    assert "median" in aggregation["subsurface_episode_statistic"]
+    assert "medians" in aggregation["subsurface_seed_statistic"]
+    assert "median" in config["traditional_algorithms"][
+        "subsurface_metric_aggregation"
+    ]
     metrics = config["underwater_observation_metrics"]
     assert metrics["coverage_grid_lat_deg"] == 0.04
     assert metrics["coverage_grid_lon_deg"] == 0.08
@@ -146,7 +151,7 @@ def verify_manuscript() -> dict[str, bool]:
             "one joint formation action",
             "independent action",
             "median across validation episodes",
-            "arithmetic mean over validation episodes",
+            "median over validation episodes",
             "native HYCOM grid cell",
             "0.04^\\circ",
             "0.08^\\circ",
@@ -347,20 +352,15 @@ def verify_aggregation() -> dict[str, object]:
     medians = seed_medians(
         sample, ["condition"], "training_seed", mapping
     )
-    means = seed_means(sample, ["condition"], "training_seed", mapping)
     assert medians.metric.tolist() == [2.0, 4.0]
-    assert means.metric.tolist() == [4.0, 5.0]
-    assert aggregate_per_seed_values(
+    cross_seed = aggregate_per_seed_values(
         medians, ["condition"], mapping
-    ).metric_mean.tolist() == [3.0]
-    assert aggregate_per_seed_values(
-        means, ["condition"], mapping
-    ).metric_mean.tolist() == [4.5]
+    )
+    assert cross_seed.metric_mean.tolist() == [3.0]
     return {
         "surface_seed_medians": medians.metric.tolist(),
-        "subsurface_seed_means": means.metric.tolist(),
-        "surface_cross_seed_mean": 3.0,
-        "subsurface_cross_seed_mean": 4.5,
+        "subsurface_seed_medians": medians.metric.tolist(),
+        "cross_seed_mean": cross_seed.metric_mean.tolist(),
     }
 
 

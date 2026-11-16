@@ -49,12 +49,14 @@ algorithm:
 aggregate:
 	$(PYTHON) -m code.analysis.aggregate_primary_median
 	$(PYTHON) -m code.analysis.rebuild_primary_figures_tables
+	SKIP_COMPILE=1 $(PYTHON) -m code.analysis.sync_primary_tables_to_main
 
 figures:
 	$(PYTHON) -m code.analysis.make_surface_distance_figure
 	$(PYTHON) -m code.analysis.make_trajectory_result_figures
 	$(PYTHON) -m code.analysis.make_filter_path_comparison
 	$(PYTHON) -m code.analysis.make_traditional_planner_renderings
+	$(PYTHON) -m code.analysis.make_underwater_planner_comparison
 	$(PYTHON) -m code.analysis.make_rl_loop_diagram
 
 planner-rendering:

@@ -10,5 +10,6 @@
 __pycache__/
 *.pyc
 sections/
+generated_primary/
 __pycache__/
 *.pyc

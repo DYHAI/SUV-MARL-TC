@@ -25,6 +25,19 @@
     "plot_generators": true,
     "evaluation": true
   },
+  "primary_tables_and_figure": {
+    "synchronized_table_blocks": 5,
+    "underwater_ippo_conditions": 14,
+    "underwater_planner_conditions": 56,
+    "figure_c2_rows": 70,
+    "figure_c2_methods": {
+      "IPPO": 14,
+      "Potential field": 14,
+      "Receding-horizon A*": 14,
+      "Lawnmower coverage": 14,
+      "Information greedy": 14
+    }
+  },
   "environment_smoke": {
     "surface_observation_shape": [
       28
@@ -51,12 +64,13 @@
       2.0,
       4.0
     ],
-    "subsurface_seed_means": [
-      4.0,
-      5.0
+    "subsurface_seed_medians": [
+      2.0,
+      4.0
     ],
-    "surface_cross_seed_mean": 3.0,
-    "subsurface_cross_seed_mean": 4.5
+    "cross_seed_mean": [
+      3.0
+    ]
   },
   "status": "pass"
 }

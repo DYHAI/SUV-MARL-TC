@@ -216,8 +216,8 @@ subsurface sensing \citep{r28,r29,r30,r31}. The operational concept assumes
 that the SUVs are deployed from a mother ship, such as a large research vessel
 or an equivalent offshore support ship, or from an offshore floating platform
 such as the Shanghai Jiao Tong University Far-Seas Floating Island
-(Yuanhai Fudongdao). Such platforms can provide rapid relocation,
-long-duration station keeping, and deployment of heavy marine equipment
+(Yuanhai Fudongdao). Such platforms can support offshore deployment,
+sustained operations, and transport of heavy marine equipment
 \citep{r60,r61,r62}. The Blue Whale is used as an engineering reference: its
 public specifications indicate a surface speed of about 23 kn (11.83 m/s), a
 submerged speed of about 3 kn (1.54 m/s), and an observational payload that
@@ -287,8 +287,8 @@ The final 400-TC dataset is divided at the TC level into 360 training TCs and
 and one joint formation action for 4-, 8-, 12-, and 16-SUV fleets. Subsurface
 controllers retain decentralized current histories. Surface policies are tested at 100--800 km
 deployment offsets, and subsurface policies are tested at seven depths and two
-propulsion limits. Surface tracking statistics use episode medians, whereas
-subsurface current and coverage statistics use episode means.
+propulsion limits. Both surface tracking statistics and subsurface current and
+coverage statistics use episode medians.
 \item We compare IPPO with four traditional planners, including artificial
 potential field, receding-horizon A*, lawnmower coverage, and
 information-greedy control, under matched local observations, action
@@ -1019,15 +1019,16 @@ trained for the same \(2\times10^6\) environment steps on representative
 surface and subsurface cases with two independent training seeds. Surface
 case: eight SUVs, a rigid ring, 12 m/s, and 400 km evaluation offset.
 Subsurface case: four SUVs, 30 m depth, and 1.5 m/s propulsion limit. Surface
-metrics are summarized by episode medians and underwater metrics by episode
-means before averaging across the two seeds. On the surface task, IPPO obtains
+and underwater metrics are summarized by episode medians before averaging
+across the two seeds. On the surface task, IPPO obtains
 a final tracking error of \(96.9\pm5.4\) km and a final wind speed of
 \(10.71\pm0.18\) m/s, followed by SAC (\(105.3\pm6.8\) km,
 \(10.57\pm0.21\) m/s) and TD3 (\(108.9\pm0.9\) km,
-\(10.16\pm0.24\) m/s). On the subsurface task, IPPO retains the highest mean
-experienced current (\(0.446\pm0.007\) m/s) and geometric coverage
-(\(4210.2\pm14.8\) km\(^2\)), followed by SAC and TD3
-. This comparison is used only as
+\(10.16\pm0.24\) m/s). On the subsurface task, IPPO has the largest mean
+experienced current (\(0.408\pm0.007\) m/s), geometric coverage
+(\(4310.5\pm17.2\) km\(^2\)), and current-weighted coverage
+(\(1.661\pm0.028)\times10^3\) m\,s\(^{-1}\)\,km\(^2\)), with TD3 second and
+SAC third on all three subsurface metrics. This comparison is used only as
 bounded algorithm-choice evidence. IPPO requires no replay buffer and is
 therefore used for the main, formation, and planner comparisons.
 
@@ -1181,10 +1182,11 @@ reanalysis ERA5 field at the final SUV positions. ERA5 may underestimate
 real-world TC wind speeds, so the reported final wind speed is intended for
 comparison within the present dataset and should not be interpreted as an
 in-situ measured wind speed.
-For both surface indicators, the reported validation statistic is the median across validation episodes rather than the arithmetic mean.
-Subsurface metrics instead use the arithmetic mean over validation episodes
-within each trained policy seed; the reported uncertainty is the sample
-standard deviation of those seed-level means.
+For both surface indicators and all subsurface metrics, the reported validation
+statistic is the median across validation episodes within each trained policy
+seed. The cross-seed central value is the arithmetic mean of those ten
+seed-level medians, and the reported uncertainty is their sample standard
+deviation.
 
 For episode \(e\) at decision step \(k\), the formation center is
 \begin{equation}
@@ -1316,16 +1318,13 @@ depth \(z\), and \(\bar V_{e,p,q}(z)\) is the mean of all current-speed
 observations recorded in cell \((p,q)\) during the episode. Repeated visits to
 the same cell are therefore averaged before the area weighting, so visit
 frequency does not increase the value assigned to that cell. We aggregate this
-quantity by taking the arithmetic mean over validation episodes within each
-training seed, followed by the mean and sample standard deviation of the
-seed-level means. It assigns a higher value when strong-current observations
-are combined with a broad sampling footprint and captures observation value
-more directly than either the mean experienced current or geometric coverage
-alone.
-
-For all three underwater metrics, values are first averaged over the validation
-episodes within each training seed and then averaged across the ten independent
-seeds.
+quantity by taking the median over validation episodes within each training
+seed, then averaging the ten seed-level medians while reporting their sample
+standard deviation. It assigns a higher value when strong-current
+observations are combined with a broad sampling footprint and captures
+observation value more directly than either the mean experienced current or
+geometric coverage alone. The same median-within-seed aggregation is applied
+to all three underwater metrics.
 \subsection{Traditional Planning Baselines}\label{subsec:classical_planning}
 
 To provide a non-learned reference for the learned cooperative policy, we next
@@ -1389,8 +1388,9 @@ panel shows final tracking error, and the right panel shows the final mean
 Smaller final tracking error is better; larger final wind speed indicates that
 the fleet ended in a stronger-wind region. Colors denote fleet sizes and line
 styles denote the 20 and 12 m/s speed limits. Each point summarizes ten
-independently trained seeds. Error bars show the sample standard deviation
-across seeds.}
+independently trained seeds, with each seed represented by its episode median;
+plotted values are arithmetic means across the ten seed-level medians. Error
+bars show their sample standard deviation.}
 \label{fig:surface_vmax_comparison}
 \end{figure*}
 
@@ -1406,7 +1406,7 @@ because finite speed and episode duration cannot remove every initial
 displacement.
 
 The 12 m/s policy reduces path length per SUV by 132.4--392.6 km across the five
-radii and lowers mean ground speed by 2.5--6.8 m/s, whereas the 20 m/s policy
+radii and lowers mean ground speed by 2.4--6.8 m/s, whereas the 20 m/s policy
 achieves closer final tracking.
 
 This comparison also shows why the task cannot be reduced to correcting an
@@ -1449,23 +1449,6 @@ shared wind observations guide the fleet toward the same high-wind region.
 Deployment error therefore controls the required transit distance, whereas
 fleet size mainly controls how broadly the approach is sampled.
 
-Two retained long-tail episodes illustrate why the median is preferred for the
-main statistics. The first is the 2012 MARIA--PRAPIROON dual-TC case. Although
-MARIA is the designated target, PRAPIROON is simultaneously present in the
-same ERA5 wind field. The competing TC produces a stronger and more coherent
-local wind signature along part of the route, and the shared-observation policy
-moves into the corresponding branch, ending farther from the designated MARIA
-centre. This
-case reflects ambiguity in a multi-TC environment rather than the nominal
-single-target behaviour. The second is a 2021 OMAIS episode at a 200 km
-deployment radius. Around the fleet centre, the mean local wind speed is only
-about 4.2 m/s and the mean horizontal wind-speed gradient is approximately
-\(0.008\ \mathrm{m\,s^{-1}\,km^{-1}}\). Such a weak gradient does not provide a
-persistent centre-directed signal, so the policy can maintain an incorrect
-heading for a prolonged period. These episodes are retained in the evaluation
-and are revisited as limitations below; because they occupy the far tail, the
-median better represents typical performance than the arithmetic mean.
-
 \subsection{Subsurface Observation and Comparison with Traditional Planners}
 \label{subsec:subsurface_results}
 \label{subsec:classical_results}
@@ -1473,24 +1456,25 @@ median better represents typical performance than the arithmetic mean.
 Before comparing IPPO with non-learned planners, we first isolate its
 subsurface performance at each observation depth and propulsion limit.
 Appendix Table~\ref{tab:underwater_ippo_main} reports experienced current
-speed, geometric coverage, and current-weighted coverage after averaging over
-episodes within each training seed and then over ten seeds.
+speed, geometric coverage, and current-weighted coverage after taking episode
+medians within each training seed and then averaging over ten seeds.
 
-Mean experienced current decreases from 0.544 m/s at 0 m to 0.353 m/s at
-60 m for the 1.5 m/s policy, and from 0.547 to 0.357 m/s for the 2.0 m/s
-policy. At a fixed depth, the two speed limits differ by less than 0.006 m/s
-in mean experienced current. The faster envelope mainly expands the sampled
-region: relative to 1.5 m/s, geometric coverage is 1.225--1.243 times larger
-and current-weighted coverage is 1.202--1.231 times larger.
+The cross-episode median of the mean experienced current decreases from
+0.490 m/s at 0 m to 0.300 m/s at 60 m for the 1.5 m/s policy, and from 0.491
+to 0.298 m/s for the 2.0 m/s policy. At a fixed depth, the two speed limits
+differ by only 0.0009--0.0067 m/s in this statistic. The faster envelope mainly
+expands the sampled region: relative to 1.5 m/s, geometric coverage is
+1.233--1.254 times larger and current-weighted coverage is 1.218--1.253 times
+larger.
 The monotonic decrease of the sampled current velocity with depth is
 consistent with the attenuation of the TC-induced subsurface flow and is
 therefore also reflected in what the SUVs observe and perceive, rather than
 being imposed only as an evaluation statistic. The 2.0 m/s configuration
-increases path length by a factor of 1.251--1.273 while changing mean
-experienced current by only 0.003--0.005 m/s. Consequently, its advantage is
+increases path length by a factor of 1.263--1.285 while changing that median
+by only 0.0009--0.0067 m/s. Consequently, its advantage is
 not the detection of a faster local flow but a larger observational footprint:
-the longer, faster trajectories yield 1.225--1.243 times greater geometric
-coverage and 1.202--1.231 times greater current-weighted coverage. A future
+the longer, faster trajectories yield 1.233--1.254 times greater geometric
+coverage and 1.218--1.253 times greater current-weighted coverage. A future
 SUV upgrade to 2.0 m/s would therefore provide more observations and higher
 spatially weighted observational return, provided that the associated energy
 and endurance costs remain acceptable.
@@ -1499,7 +1483,7 @@ and endurance costs remain acceptable.
 % PRIMARY_TABLE_START: classical_planners
 \begin{table*}[t]
 \centering
-\caption{Method comparison using the primary 400-TC split. Surface errors use episode medians; subsurface current and coverage metrics use episode means.}
+\caption{Method comparison using the primary 400-TC split. Surface errors and subsurface current and coverage metrics use episode medians within each training seed, followed by arithmetic means across seeds. Panel A values are then averaged over the 40 fleet-size/speed/radius conditions, and Panel B values over the 14 depth-speed conditions. Deterministic planners use one episode median per condition.}
 \label{tab:classical_planners}
 \small
 \resizebox{\textwidth}{!}{%
@@ -1517,11 +1501,11 @@ Information greedy & 449.0 & 10.34 & 264.9 \\
 \multicolumn{4}{l}{\textbf{Panel B: subsurface observation}}\\
 Method & Mean current (m/s) & Geometric coverage (km$^2$) & Current-weighted coverage ($10^3$ m\,s$^{-1}$\,km$^2$) \\
 \midrule
-IPPO & 0.443 & \textbf{4678} & \textbf{2.279} \\
-Potential field & \textbf{0.488} & 2469 & 1.368 \\
-Receding-horizon A* & 0.461 & 2785 & 1.390 \\
-Lawnmower coverage & 0.428 & 2791 & 1.316 \\
-Information greedy & 0.458 & 1580 & 0.828 \\
+IPPO & 0.395 & \textbf{4809} & \textbf{1.795} \\
+Potential field & \textbf{0.435} & 2410 & 1.022 \\
+Receding-horizon A* & 0.409 & 2823 & 1.118 \\
+Lawnmower coverage & 0.387 & 2805 & 1.020 \\
+Information greedy & 0.406 & 1526 & 0.619 \\
 \bottomrule
 \end{tabular}
 }
@@ -1532,25 +1516,25 @@ Appendix Figure~\ref{fig:planner_rendering} shows one matched trajectory
 example. Table~\ref{tab:classical_planners} compares IPPO with four traditional
 planners. Its surface panel provides matched context, whereas the subsurface
 panel is the focus of this section. Across all 40 surface configurations,
-IPPO has the lowest final tracking error and shortest path length.
-It produces a lower final tracking error than potential field in 35 of 40 comparisons
-and than each remaining planner in all 40. Its path is shorter than those of
-potential field and A* in every comparison and shorter than those of the
-lawnmower and information-greedy planners in 26 and 34 of 40 comparisons.
-The path advantage over the latter two planners is therefore less uniform than
-the final-tracking-error advantage.
+IPPO has the lowest final tracking error; it outperforms potential field and
+each remaining planner in all 40 comparisons. It is not a path-length
+minimizer. Its trajectory is shorter than those of potential field and A* in
+25 and 10 of 40 comparisons and is longer than those of lawnmower and
+information-greedy control in every comparison. Its average path of 598.6 km
+is only 6.6 km shorter than that of potential field and is longer than the
+average paths of A*, lawnmower, and information-greedy planning.
 
 For the subsurface task, no planner leads all three metrics. Potential field
 has the highest mean experienced current in all 14 depth--speed settings,
-with a depth-averaged value of 0.488 m/s, whereas IPPO reaches 0.443 m/s.
+with a depth-averaged value of 0.435 m/s, whereas IPPO reaches 0.395 m/s.
 IPPO nevertheless has the largest geometric coverage at every setting,
-averaging 4678 km\(^2\), and the largest current-weighted coverage
+averaging 4809 km\(^2\), and the largest current-weighted coverage
 \(\mathcal C_{\mathrm w}(z)\), averaging
-\(2.279\times10^3\) m\,s\(^{-1}\)\,km\(^2\). Its geometric coverage exceeds
+\(1.795\times10^3\) m\,s\(^{-1}\)\,km\(^2\). Its geometric coverage exceeds
 that of potential field, A*, lawnmower, and information-greedy control by
-factors of 1.78--2.11, 1.64--1.74, 1.64--1.70, and 2.75--3.15,
+factors of 1.83--2.24, 1.65--1.77, 1.67--1.74, and 2.91--3.36,
 respectively. The corresponding current-weighted-coverage factors are
-1.61--1.76, 1.58--1.71, 1.62--1.83, and 2.53--2.97. Thus, potential field
+1.63--1.88, 1.50--1.71, 1.63--1.88, and 2.65--3.09. Thus, potential field
 concentrates more strongly on locally high-current regions, whereas IPPO
 provides broader and higher-value spatial sampling; no method leads all three
 metrics.
@@ -1564,7 +1548,8 @@ The surface metrics also clarify the relationship between center tracking and
 wind sampling. Across the IPPO summary conditions, smaller final tracking
 error is systematically associated with higher final wind speed, with a
 correlation coefficient of approximately \(-0.92\). At each deployment radius,
-the 20 m/s policy improves both quantities relative to the 12 m/s policy.
+the fleet-averaged 20 m/s result improves both quantities relative to the
+fleet-averaged 12 m/s result.
 Nevertheless, the fleet-averaged final 10 m wind speed in the population-level
 IPPO comparison is about 10.21 m/s, approximately Beaufort force 5. This is a
 useful relative indicator of proximity to the TC-core wind field, but it lies
@@ -1575,7 +1560,7 @@ The potential-field planner illustrates the opposite side of this trade-off.
 Its local wind-gradient objective often leads the formation toward the
 strongest resolvable wind rather than toward the center. In a moving
 Northern-Hemisphere TC, translation-induced flow asymmetry generally
-strengthens the wind on the right side of the TC motion vector. The formation
+strengthens the wind on the right side of the TC motion vector \citep{r63}. The formation
 can therefore settle in the faster right-hand sector, attaining the largest
 average final wind speed (13.13 m/s) but a substantially larger final tracking
 error (271.3 km) than IPPO (160.2 km). Because the dominant spatial component
@@ -1683,31 +1668,29 @@ filtering produces smoother paths under the same policy and initial positions.
 We therefore added an execution-layer low-pass filter that smooths successive
 commands while preserving the 10 min decision interval.
 Table~\ref{tab:surface_control_ablations} quantifies this change using the same
-trained actors over identical validation episodes. Without filtering, the
-4-, 8-, 12-, and 16-SUV configurations travel 1019.2--1160.0 km per vehicle,
-with mean speeds of 14.85--16.45 m/s and maximum speeds of 19.46--19.47 m/s.
+trained 12 m/s actors over identical validation episodes. Without filtering,
+the 4-, 8-, 12-, and 16-SUV configurations travel 621.2--622.7 km per vehicle,
+with mean speeds of 10.85--11.02 m/s and maximum speeds of 12.00 m/s.
 With the execution-layer filter (\(\beta=0.8\)), path length falls to
-497.4--670.8 km, mean speed to 8.49--11.01 m/s, and maximum speed to
-14.25--17.97 m/s. The final tracking error changes from 355.4 to 251.3 km for
-four SUVs, from 324.7 to 277.8 km for eight SUVs, from 312.0 to 278.8 km for
-12 SUVs, and from 260.2 to 256.1 km for 16 SUVs. Averaged over the four fleet
-sizes, it decreases from 313.1 to 266.0 km, a reduction of 47.1 km or 15.0\%.
-Filtering improves final tracking for every fleet size.
+486.5--512.3 km, mean speed to 8.63--9.05 m/s, and maximum speed to
+11.63--11.91 m/s. The final tracking error changes from 154.1 to 122.1 km for
+four SUVs, from 125.9 to 113.7 km for eight SUVs, from 144.3 to 126.3 km for
+12 SUVs, and from 157.2 to 134.9 km for 16 SUVs. Averaged over the four fleet
+sizes, it decreases from 145.4 to 124.3 km, a reduction of 21.1 km or 14.5\%.
 
-The same comparison shows reductions for every fleet size: path length
-decreases by 651.7, 614.9, 521.9, and 459.1 km for 4, 8, 12, and 16 SUVs,
-respectively, while maximum speed decreases by 5.22, 4.14, 3.50, and 1.49 m/s.
+Path length decreases for every fleet size by 109.0, 113.9, 131.9, and
+135.5 km for 4, 8, 12, and 16 SUVs, respectively. Filtering also reduces
+maximum speed by 0.12, 0.09, 0.11, and 0.37 m/s, respectively.
 
 \begin{figure*}[p]
 \centering
 \includegraphics[width=\textwidth]{figures/Fig6_Filter_Path_Comparison.pdf}
 \caption{Representative effect of execution-layer filtering on surface paths
-for four SUVs under the same trained policy, initial positions, deployment
-radius, and MATMO (2025) segment. The formation center is deployed at a fixed
-distance of 400 km from the TC core using a randomly selected bearing. The
-left panel uses the raw policy command, whereas the right panel applies the
-low-pass filter with \(\beta=0.8\). Open circles and triangles mark initial and
-final positions, respectively, and the red star marks the TC core.}
+for four SUVs at the 12 m/s speed limit on the same MATMO (2025) segment. The
+formation center is deployed 400 km from the TC core. The left panel uses the
+raw command, whereas the right panel applies the \(\beta=0.8\) low-pass filter.
+Open circles and triangles mark initial and final positions; the red star
+marks the TC core.}
 \label{fig:filter_path_comparison}
 \end{figure*}
 
@@ -1718,7 +1701,7 @@ final positions, respectively, and the red star marks the TC core.}
 \caption{Execution-layer action low-pass filtering for the 12 m/s surface fleets at a fixed 400 km deployment offset. For each fleet size and each of ten training seeds, the same frozen policy is evaluated without filtering (\(\beta=0\)) and with filtering (\(\beta=0.8\)) on the same 262 open-ocean validation episodes. Entries are medians over validation episodes within each training seed, then arithmetic means over the ten training seeds.}
 \label{tab:surface_control_ablations}
 \small
-\begin{tabular}{@{}rrrrrrr@{}}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}rrrrrrr@{}}
 \toprule
 Fleet & $\beta$ & Final error (km) & Final wind speed (m/s) & Path (km) & Mean speed (m/s) & Maximum speed (m/s) \\
 \midrule
@@ -1731,7 +1714,7 @@ Fleet & $\beta$ & Final error (km) & Final wind speed (m/s) & Path (km) & Mean s
 16 & 0 & 157.2 & 10.12 & 621.9 & 11.02 & 12.00 \\
 16 & 0.8 & \textbf{134.9} & \textbf{10.16} & \textbf{486.5} & \textbf{8.63} & \textbf{11.63} \\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table*}
 % PRIMARY_TABLE_END: surface_filter
 
@@ -1826,17 +1809,17 @@ the moving TC despite uncertain deployment. The 20 m/s maximum-speed
 configuration produced smaller final tracking errors at
 every deployment radius, and its final-tracking-error advantage grew with deployment
 error. The 12 m/s maximum-speed configuration produced shorter paths and lower
-speeds. Action filtering reduced the mean final tracking error at every fleet size
-and shortened paths and peak speed. In the eight-SUV formation comparison, no
+speeds. Action filtering reduced the episode-median final tracking error at
+every fleet size and shortened paths and peak speed. In the eight-SUV formation comparison, no
 layout was uniformly best: the line had the lowest final tracking error in six
 of ten speed--radius conditions, the V formation had the lowest average final
 tracking error, and the grid produced the shortest paths. The ring
 provided a broad, direction-independent sampling footprint and was retained as
 the main configuration. In
 the matched surface comparison with four traditional planners, IPPO had the
-lowest final tracking error and generally shorter paths.
-It had a lower final tracking error than potential field in most matched cases and
-consistently lower error than the other three planners.
+lowest final tracking error. Its average path was slightly shorter than that
+of potential field but longer than those of A*, lawnmower, and
+information-greedy planning.
 
 At the subsurface, four SUVs sampled one of seven fixed layers using only their local
 current histories. The comparison with four traditional planners showed no
@@ -1861,7 +1844,7 @@ communication loss, and adaptive formation operation.
 \begin{sloppypar}
 The code and processed results are available at\newline
 \url{https://github.com/DYHAI/SUV-MARL-TC}. The experiments used Python 3.11,
-PyTorch 2.11.0 (CUDA 12.8 build), Stable-Baselines3 2.9.0, and Gymnasium
+PyTorch 2.11.0, Stable-Baselines3 2.9.0, and Gymnasium
 1.2.2 for policy training; NumPy 2.4.6 and pandas 2.3.3 for numerical and
 tabular processing; SciPy 1.17.1, xarray 2026.7.0, netCDF4 1.7.4, and h5py
 3.16.0 for analysis and NetCDF processing; and Matplotlib 3.11.1 for
@@ -1932,7 +1915,6 @@ Envelope & \multicolumn{2}{c}{Segments within speed} &
 \end{center}
 
 % PRIMARY_TABLE_START: formation_comparison
-% Table A.2: Surface initial-formation comparison
 \centering
 \captionof{table}{Surface initial-formation comparison for eight SUVs. All four layouts use a mean radius of 100 km. This is a matched single-seed sensitivity study using training seed 0, with formation-center offsets sampled inside an 800 km radius and evaluation without retraining at fixed offsets of 100, 200, 400, 600, and 800 km on the same 262 held-out TC segments. Final tracking error is the fleet-center-to-TC-core distance at the end of the episode, and final wind speed is the fleet-mean 10 m wind speed at the final positions. Entries are medians over validation episodes. Bold entries are the best value in each speed/radius row, with smaller final tracking error and larger final wind speed preferred. Final tracking error and mean radius are in km, and final wind speed is in m\,s$^{-1}$.}
 \label{tab:formation_comparison}
@@ -1960,33 +1942,32 @@ Speed & Train upper bound & Eval radius & \multicolumn{2}{c}{Ring} & \multicolum
 % PRIMARY_TABLE_END: formation_comparison
 
 % PRIMARY_TABLE_START: underwater_ippo
-% Table A.3: IPPO subsurface metrics
-\begin{table*}[t]
+\begin{center}
 \centering
-\caption{IPPO subsurface metrics using episode means averaged over ten seeds. Geometric coverage is computed on unique native HYCOM cells of \(0.04^\circ\) latitude by \(0.08^\circ\) longitude. Current-weighted coverage is reported in \(10^3\) m\,s$^{-1}$\,km$^2$.}
+\captionof{table}{IPPO subsurface metrics using episode medians averaged over ten seeds. Geometric coverage is computed on unique native HYCOM cells of \(0.04^\circ\) latitude by \(0.08^\circ\) longitude. Current-weighted coverage is reported in \(10^3\) m\,s$^{-1}$\,km$^2$.}
 \label{tab:underwater_ippo_main}
 \small
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}rrrrr@{}}
 \toprule
 Depth (m) & $V_{\max}$ (m/s) & Current (m/s) & Geometric coverage (km$^2$) & Current-weighted coverage \\
 \midrule
-0 & 1.5 & 0.544 & 4381 & 2.688 \\
-0 & 2.0 & 0.547 & 5365 & 3.231 \\
-10 & 1.5 & 0.497 & 4320 & 2.365 \\
-10 & 2.0 & 0.501 & 5301 & 2.873 \\
-20 & 1.5 & 0.477 & 4273 & 2.239 \\
-20 & 2.0 & 0.481 & 5243 & 2.716 \\
-30 & 1.5 & 0.442 & 4192 & 2.034 \\
-30 & 2.0 & 0.446 & 5170 & 2.473 \\
-40 & 1.5 & 0.405 & 4117 & 1.843 \\
-40 & 2.0 & 0.409 & 5091 & 2.248 \\
-50 & 1.5 & 0.372 & 4034 & 1.666 \\
-50 & 2.0 & 0.374 & 5014 & 2.036 \\
-60 & 1.5 & 0.353 & 4012 & 1.568 \\
-60 & 2.0 & 0.357 & 4976 & 1.930 \\
+0 & 1.5 & 0.490 & 4425 & 2.047 \\
+0 & 2.0 & \textbf{0.491} & \textbf{5467} & \textbf{2.538} \\
+10 & 1.5 & 0.457 & 4416 & 1.895 \\
+10 & 2.0 & \textbf{0.458} & \textbf{5445} & \textbf{2.343} \\
+20 & 1.5 & 0.434 & 4360 & 1.804 \\
+20 & 2.0 & \textbf{0.441} & \textbf{5396} & \textbf{2.259} \\
+30 & 1.5 & 0.404 & 4292 & 1.642 \\
+30 & 2.0 & \textbf{0.405} & \textbf{5336} & \textbf{2.030} \\
+40 & 1.5 & 0.357 & 4233 & 1.432 \\
+40 & 2.0 & \textbf{0.359} & \textbf{5266} & \textbf{1.778} \\
+50 & 1.5 & 0.318 & 4153 & 1.231 \\
+50 & 2.0 & \textbf{0.319} & \textbf{5206} & \textbf{1.530} \\
+60 & 1.5 & \textbf{0.300} & 4151 & 1.172 \\
+60 & 2.0 & 0.298 & \textbf{5185} & \textbf{1.427} \\
 \bottomrule
 \end{tabular*}
-\end{table*}
+\end{center}
 % PRIMARY_TABLE_END: underwater_ippo
 
 \clearpage
@@ -2016,21 +1997,19 @@ yellow star marks the TC core at the end of the episode.}
 \renewcommand{\theHtable}{B.\arabic{table}}
 
 \begin{center}
-\includegraphics[width=\textwidth,height=0.78\textheight,keepaspectratio]
+\centering
+\includegraphics[width=1.02\textwidth,height=0.80\textheight,keepaspectratio]
   {figures/FigB1_Traditional_Planner_Rendering.pdf}
-\small
-\captionof{figure}{Comparison between IPPO and the four traditional planners on
-the same MATMO (2025) segment. The upper two rows show 12 m/s surface trajectories
-over the ERA5 10 m wind-speed field. The lower two rows show 1.5 m/s subsurface
-trajectories at 30 m over the HYCOM current-speed field. All methods use the
-same initial deployment. The surface formation center is deployed at a distance
-of 400 km from the TC core, and the subsurface SUVs are initialized
-within a 200 km radius of the TC core. Panel titles report final tracking
-errors for the surface task and mean experienced current
-and cell-wise current-weighted coverage for the subsurface task; coverage uses
-the native \(0.04^\circ\times0.08^\circ\) HYCOM grid. Open
-circles mark initial positions, triangles mark final positions, and the red
-star marks the TC core.}
+\footnotesize
+\captionof{figure}{Comparison between IPPO and four traditional planners on
+the same MATMO (2025) segment. Top: 12 m/s surface trajectories over ERA5 10 m
+wind. Bottom: 1.5 m/s subsurface trajectories at 30 m over HYCOM current.
+Methods share the same deployment: a 400 km surface offset and subsurface
+initialization within 200 km of the TC core. Panels report final tracking error
+or mean current and native-grid current-weighted coverage. Open circles,
+triangles, and stars mark initial positions, final positions, and the TC core.
+These are descriptive values for one representative episode and are not the
+population-level episode-median summaries in Table~\ref{tab:classical_planners}.}
 \label{fig:planner_rendering}
 \end{center}
 
@@ -2052,17 +2031,10 @@ the background is the instantaneous ERA5 10 m wind field.}
 \end{center}
 
 % PRIMARY_TABLE_START: planner_stratified
-% Table B.1: Planner-stratified primary results
 \footnotesize
 \renewcommand{\arraystretch}{0.92}
 \begin{longtable}{@{\extracolsep{\fill}}lllrrrrr@{}}
-\caption{Planner-stratified primary results reported separately for the two
-surface speed limits and the two subsurface propulsion limits. Surface entries
-use episode medians averaged across IPPO seeds, or one episode median for
-deterministic planners. Subsurface entries use episode means. Geometric
-coverage counts unique native HYCOM cells of \(0.04^\circ\) latitude by
-\(0.08^\circ\) longitude. Current-weighted coverage is reported in
-\(10^3\) m\,s$^{-1}$\,km$^2$.}
+\caption{Planner-stratified primary results reported separately for the two surface speed limits and the two subsurface propulsion limits. For IPPO, surface and subsurface entries are arithmetic means across training seeds of within-seed episode medians. For deterministic planners, each entry is one episode median over the paired validation episodes. Geometric coverage counts unique native HYCOM cells of \(0.04^\circ\) latitude by \(0.08^\circ\) longitude. Current-weighted coverage is reported in \(10^3\) m\,s$^{-1}$\,km$^2$.}
 \label{tab:planner_stratified}\\
 \toprule
 \multicolumn{8}{l}{\textbf{Panel A: surface tracking}}\\
@@ -2107,61 +2079,61 @@ Speed (m/s) & Radius/depth & Metric & IPPO & PF & A* & Lawn & Greedy \\
 \midrule
 \multicolumn{8}{l}{\textbf{Panel B: subsurface observation}}\\
 \midrule
-1.5 & 0 m & Mean experienced current (m/s) & 0.544 & \textbf{0.576} & 0.556 & 0.541 & 0.556 \\
-1.5 & 0 m & Geometric coverage (km$^2$) & \textbf{4381} & 2439 & 2525 & 2676 & 1537 \\
-1.5 & 0 m & Current-weighted coverage & \textbf{2.688} & 1.629 & 1.570 & 1.660 & 1.017 \\
+1.5 & 0 m & Mean experienced current (m/s) & 0.490 & \textbf{0.519} & 0.501 & 0.498 & 0.502 \\
+1.5 & 0 m & Geometric coverage (km$^2$) & \textbf{4425} & 2353 & 2503 & 2615 & 1468 \\
+1.5 & 0 m & Current-weighted coverage & \textbf{2.047} & 1.184 & 1.196 & 1.259 & 0.735 \\
 \addlinespace[1.0pt]
-1.5 & 10 m & Mean experienced current (m/s) & 0.497 & \textbf{0.527} & 0.510 & 0.488 & 0.509 \\
-1.5 & 10 m & Geometric coverage (km$^2$) & \textbf{4320} & 2427 & 2537 & 2581 & 1568 \\
-1.5 & 10 m & Current-weighted coverage & \textbf{2.365} & 1.463 & 1.421 & 1.404 & 0.934 \\
+1.5 & 10 m & Mean experienced current (m/s) & 0.457 & \textbf{0.478} & 0.462 & 0.451 & 0.455 \\
+1.5 & 10 m & Geometric coverage (km$^2$) & \textbf{4416} & 2331 & 2534 & 2564 & 1481 \\
+1.5 & 10 m & Current-weighted coverage & \textbf{1.895} & 1.112 & 1.134 & 1.060 & 0.693 \\
 \addlinespace[1.0pt]
-1.5 & 20 m & Mean experienced current (m/s) & 0.477 & \textbf{0.508} & 0.488 & 0.465 & 0.486 \\
-1.5 & 20 m & Geometric coverage (km$^2$) & \textbf{4273} & 2404 & 2502 & 2534 & 1556 \\
-1.5 & 20 m & Current-weighted coverage & \textbf{2.239} & 1.388 & 1.339 & 1.304 & 0.865 \\
+1.5 & 20 m & Mean experienced current (m/s) & 0.434 & \textbf{0.459} & 0.439 & 0.427 & 0.443 \\
+1.5 & 20 m & Geometric coverage (km$^2$) & \textbf{4360} & 2368 & 2509 & 2503 & 1500 \\
+1.5 & 20 m & Current-weighted coverage & \textbf{1.804} & 1.103 & 1.086 & 1.033 & 0.680 \\
 \addlinespace[1.0pt]
-1.5 & 30 m & Mean experienced current (m/s) & 0.442 & \textbf{0.481} & 0.459 & 0.429 & 0.458 \\
-1.5 & 30 m & Geometric coverage (km$^2$) & \textbf{4192} & 2328 & 2465 & 2487 & 1483 \\
-1.5 & 30 m & Current-weighted coverage & \textbf{2.034} & 1.267 & 1.226 & 1.179 & 0.774 \\
+1.5 & 30 m & Mean experienced current (m/s) & 0.404 & \textbf{0.427} & 0.412 & 0.395 & 0.424 \\
+1.5 & 30 m & Geometric coverage (km$^2$) & \textbf{4292} & 2343 & 2475 & 2475 & 1435 \\
+1.5 & 30 m & Current-weighted coverage & \textbf{1.642} & 1.004 & 1.015 & 0.926 & 0.585 \\
 \addlinespace[1.0pt]
-1.5 & 40 m & Mean experienced current (m/s) & 0.405 & \textbf{0.442} & 0.418 & 0.385 & 0.416 \\
-1.5 & 40 m & Geometric coverage (km$^2$) & \textbf{4117} & 2200 & 2411 & 2429 & 1436 \\
-1.5 & 40 m & Current-weighted coverage & \textbf{1.843} & 1.104 & 1.094 & 1.032 & 0.698 \\
+1.5 & 40 m & Mean experienced current (m/s) & 0.357 & \textbf{0.387} & 0.365 & 0.340 & 0.357 \\
+1.5 & 40 m & Geometric coverage (km$^2$) & \textbf{4233} & 2120 & 2468 & 2430 & 1387 \\
+1.5 & 40 m & Current-weighted coverage & \textbf{1.432} & 0.778 & 0.848 & 0.763 & 0.483 \\
 \addlinespace[1.0pt]
-1.5 & 50 m & Mean experienced current (m/s) & 0.372 & \textbf{0.412} & 0.389 & 0.353 & 0.383 \\
-1.5 & 50 m & Geometric coverage (km$^2$) & \textbf{4034} & 2135 & 2379 & 2389 & 1370 \\
-1.5 & 50 m & Current-weighted coverage & \textbf{1.666} & 0.999 & 1.009 & 0.926 & 0.613 \\
+1.5 & 50 m & Mean experienced current (m/s) & 0.318 & \textbf{0.355} & 0.330 & 0.309 & 0.325 \\
+1.5 & 50 m & Geometric coverage (km$^2$) & \textbf{4153} & 2086 & 2408 & 2406 & 1313 \\
+1.5 & 50 m & Current-weighted coverage & \textbf{1.231} & 0.662 & 0.780 & 0.687 & 0.421 \\
 \addlinespace[1.0pt]
-1.5 & 60 m & Mean experienced current (m/s) & 0.353 & \textbf{0.394} & 0.373 & 0.335 & 0.367 \\
-1.5 & 60 m & Geometric coverage (km$^2$) & \textbf{4012} & 2066 & 2364 & 2364 & 1361 \\
-1.5 & 60 m & Current-weighted coverage & \textbf{1.568} & 0.927 & 0.967 & 0.863 & 0.583 \\
+1.5 & 60 m & Mean experienced current (m/s) & 0.300 & \textbf{0.344} & 0.320 & 0.293 & 0.313 \\
+1.5 & 60 m & Geometric coverage (km$^2$) & \textbf{4151} & 2012 & 2404 & 2389 & 1329 \\
+1.5 & 60 m & Current-weighted coverage & \textbf{1.172} & 0.650 & 0.728 & 0.649 & 0.408 \\
 \midrule
-2.0 & 0 m & Mean experienced current (m/s) & 0.547 & \textbf{0.596} & 0.565 & 0.540 & 0.563 \\
-2.0 & 0 m & Geometric coverage (km$^2$) & \textbf{5365} & 2844 & 3196 & 3261 & 1705 \\
-2.0 & 0 m & Current-weighted coverage & \textbf{3.231} & 1.927 & 1.948 & 1.950 & 1.088 \\
+2.0 & 0 m & Mean experienced current (m/s) & 0.491 & \textbf{0.543} & 0.512 & 0.495 & 0.505 \\
+2.0 & 0 m & Geometric coverage (km$^2$) & \textbf{5467} & 2745 & 3180 & 3267 & 1654 \\
+2.0 & 0 m & Current-weighted coverage & \textbf{2.538} & 1.469 & 1.546 & 1.528 & 0.830 \\
 \addlinespace[1.0pt]
-2.0 & 10 m & Mean experienced current (m/s) & 0.501 & \textbf{0.547} & 0.518 & 0.488 & 0.516 \\
-2.0 & 10 m & Geometric coverage (km$^2$) & \textbf{5301} & 2843 & 3200 & 3167 & 1779 \\
-2.0 & 10 m & Current-weighted coverage & \textbf{2.873} & 1.726 & 1.765 & 1.670 & 1.022 \\
+2.0 & 10 m & Mean experienced current (m/s) & 0.458 & \textbf{0.494} & 0.466 & 0.451 & 0.458 \\
+2.0 & 10 m & Geometric coverage (km$^2$) & \textbf{5445} & 2783 & 3246 & 3195 & 1708 \\
+2.0 & 10 m & Current-weighted coverage & \textbf{2.343} & 1.327 & 1.484 & 1.357 & 0.790 \\
 \addlinespace[1.0pt]
-2.0 & 20 m & Mean experienced current (m/s) & 0.481 & \textbf{0.527} & 0.499 & 0.465 & 0.494 \\
-2.0 & 20 m & Geometric coverage (km$^2$) & \textbf{5243} & 2805 & 3200 & 3125 & 1769 \\
-2.0 & 20 m & Current-weighted coverage & \textbf{2.716} & 1.642 & 1.692 & 1.564 & 0.963 \\
+2.0 & 20 m & Mean experienced current (m/s) & 0.441 & \textbf{0.489} & 0.451 & 0.427 & 0.450 \\
+2.0 & 20 m & Geometric coverage (km$^2$) & \textbf{5396} & 2764 & 3273 & 3156 & 1727 \\
+2.0 & 20 m & Current-weighted coverage & \textbf{2.259} & 1.311 & 1.465 & 1.260 & 0.764 \\
 \addlinespace[1.0pt]
-2.0 & 30 m & Mean experienced current (m/s) & 0.446 & \textbf{0.503} & 0.469 & 0.430 & 0.470 \\
-2.0 & 30 m & Geometric coverage (km$^2$) & \textbf{5170} & 2684 & 3115 & 3081 & 1722 \\
-2.0 & 30 m & Current-weighted coverage & \textbf{2.473} & 1.483 & 1.547 & 1.420 & 0.878 \\
+2.0 & 30 m & Mean experienced current (m/s) & 0.405 & \textbf{0.450} & 0.422 & 0.393 & 0.435 \\
+2.0 & 30 m & Geometric coverage (km$^2$) & \textbf{5336} & 2645 & 3175 & 3129 & 1666 \\
+2.0 & 30 m & Current-weighted coverage & \textbf{2.030} & 1.186 & 1.290 & 1.138 & 0.708 \\
 \addlinespace[1.0pt]
-2.0 & 40 m & Mean experienced current (m/s) & 0.409 & \textbf{0.463} & 0.427 & 0.386 & 0.424 \\
-2.0 & 40 m & Geometric coverage (km$^2$) & \textbf{5091} & 2564 & 3072 & 3031 & 1647 \\
-2.0 & 40 m & Current-weighted coverage & \textbf{2.248} & 1.307 & 1.384 & 1.259 & 0.772 \\
+2.0 & 40 m & Mean experienced current (m/s) & 0.359 & \textbf{0.403} & 0.378 & 0.340 & 0.360 \\
+2.0 & 40 m & Geometric coverage (km$^2$) & \textbf{5266} & 2488 & 3166 & 3067 & 1607 \\
+2.0 & 40 m & Current-weighted coverage & \textbf{1.778} & 0.948 & 1.128 & 0.951 & 0.576 \\
 \addlinespace[1.0pt]
-2.0 & 50 m & Mean experienced current (m/s) & 0.374 & \textbf{0.434} & 0.399 & 0.354 & 0.393 \\
-2.0 & 50 m & Geometric coverage (km$^2$) & \textbf{5014} & 2468 & 3026 & 2987 & 1603 \\
-2.0 & 50 m & Current-weighted coverage & \textbf{2.036} & 1.187 & 1.287 & 1.132 & 0.706 \\
+2.0 & 50 m & Mean experienced current (m/s) & 0.319 & \textbf{0.375} & 0.341 & 0.305 & 0.334 \\
+2.0 & 50 m & Geometric coverage (km$^2$) & \textbf{5206} & 2390 & 3108 & 3041 & 1550 \\
+2.0 & 50 m & Current-weighted coverage & \textbf{1.530} & 0.813 & 1.006 & 0.849 & 0.513 \\
 \addlinespace[1.0pt]
-2.0 & 60 m & Mean experienced current (m/s) & 0.357 & \textbf{0.416} & 0.382 & 0.336 & 0.377 \\
-2.0 & 60 m & Geometric coverage (km$^2$) & \textbf{4976} & 2364 & 2992 & 2956 & 1580 \\
-2.0 & 60 m & Current-weighted coverage & \textbf{1.930} & 1.099 & 1.207 & 1.057 & 0.671 \\
+2.0 & 60 m & Mean experienced current (m/s) & 0.298 & \textbf{0.361} & 0.327 & 0.297 & 0.322 \\
+2.0 & 60 m & Geometric coverage (km$^2$) & \textbf{5185} & 2313 & 3073 & 3033 & 1543 \\
+2.0 & 60 m & Current-weighted coverage & \textbf{1.427} & 0.762 & 0.951 & 0.816 & 0.489 \\
 \end{longtable}
 \renewcommand{\arraystretch}{1.0}
 \normalsize
@@ -2174,10 +2146,12 @@ Speed (m/s) & Radius/depth & Metric & IPPO & PF & A* & Lawn & Greedy \\
 \renewcommand{\thetable}{C.\arabic{table}}
 \renewcommand{\theHtable}{C.\arabic{table}}
 
+\begin{flushleft}
 Table~\ref{tab:reward_parameters} summarizes the reward, action-filter, and
 safety parameters used in the surface and underwater experiments.
 Table~\ref{tab:ippo_hyperparams} lists the shared IPPO network and training
 hyperparameters.
+\end{flushleft}
 
 % ============================================================
 % Table C.1: Merged reward and safety parameters
@@ -2264,7 +2238,7 @@ action is removed. The subsurface comparison does not use this filter. \\
 % ============================================================
 \noindent\begin{minipage}{\textwidth}
 \centering
-\fontsize{7.3pt}{8.2pt}\selectfont
+\fontsize{8.1pt}{8.9pt}\selectfont
 \captionof{table}{Shared-action and parameter-sharing IPPO network, training, and deployment
 hyperparameters used in the final surface and subsurface experiments.}
 \label{tab:ippo_hyperparams}

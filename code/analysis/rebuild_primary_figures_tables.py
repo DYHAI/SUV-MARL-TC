@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild paper-facing results from canonical surface-median and underwater-mean summaries.
+"""Rebuild paper-facing results from canonical surface- and underwater-median summaries.
 
 Only summaries produced by ``aggregate_primary_median.py`` are accepted.
 Legacy 500-TC and episode-arithmetic-mean files are intentionally ignored.
@@ -115,7 +115,7 @@ def write_classical_table() -> Path | None:
     lines = [
         r"\begin{table*}[t]",
         r"\centering",
-        r"\caption{Method comparison using the primary 400-TC split. Surface errors use episode medians; subsurface current and coverage metrics use episode means.}",
+        r"\caption{Method comparison using the primary 400-TC split. Surface errors and subsurface current and coverage metrics use episode medians within each training seed, followed by arithmetic means across seeds. Panel A values are then averaged over the 40 fleet-size/speed/radius conditions, and Panel B values over the 14 depth-speed conditions. Deterministic planners use one episode median per condition.}",
         r"\label{tab:classical_planners}",
         r"\small",
         r"\resizebox{\textwidth}{!}{%",
@@ -258,24 +258,38 @@ def write_underwater_table() -> Path | None:
         return None
     frame = pd.read_csv(path)
     lines = [
-        r"\begin{table*}[t]",
+        r"\begin{center}",
         r"\centering",
-        r"\caption{IPPO subsurface metrics using episode means averaged over ten seeds. Geometric coverage is computed on unique native HYCOM cells of \(0.04^\circ\) latitude by \(0.08^\circ\) longitude. Current-weighted coverage is reported in \(10^3\) m\,s$^{-1}$\,km$^2$.}",
+        r"\captionof{table}{IPPO subsurface metrics using episode medians averaged over ten seeds. Geometric coverage is computed on unique native HYCOM cells of \(0.04^\circ\) latitude by \(0.08^\circ\) longitude. Current-weighted coverage is reported in \(10^3\) m\,s$^{-1}$\,km$^2$.}",
         r"\label{tab:underwater_ippo_main}",
         r"\small",
-        r"\begin{tabular}{@{}rrrrr@{}}",
+        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}rrrrr@{}}",
         r"\toprule",
         r"Depth (m) & $V_{\max}$ (m/s) & Current (m/s) & Geometric coverage (km$^2$) & Current-weighted coverage \\",
         r"\midrule",
     ]
-    for _, row in frame.sort_values(["depth_m", "vmax_ms"]).iterrows():
-        lines.append(
-            f"{fmt(row.depth_m, 0)} & {fmt(row.vmax_ms, 1)} & "
-            f"{fmt(row.mean_current_speed_ms_mean, 3)} & "
-            f"{fmt(row.geometric_coverage_km2_mean, 0)} & "
-            f"{fmt(row.current_weighted_coverage_mean / 1.0e3, 3)} \\\\"
-        )
-    lines += [r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""]
+    metrics = (
+        ("mean_current_speed_ms_mean", 3, 1.0),
+        ("geometric_coverage_km2_mean", 0, 1.0),
+        ("current_weighted_coverage_mean", 3, 1.0e3),
+    )
+    for _depth, part in frame.sort_values(
+        ["depth_m", "vmax_ms"]
+    ).groupby("depth_m", sort=True):
+        best = {
+            column: float(part[column].max())
+            for column, _digits, _scale in metrics
+        }
+        for _, row in part.iterrows():
+            cells = [fmt(row.depth_m, 0), fmt(row.vmax_ms, 1)]
+            for column, digits, scale in metrics:
+                value = float(row[column]) / scale
+                text = fmt(value, digits)
+                if abs(float(row[column]) - best[column]) < 1e-12:
+                    text = rf"\textbf{{{text}}}"
+                cells.append(text)
+            lines.append(" & ".join(cells) + r" \\")
+    lines += [r"\bottomrule", r"\end{tabular*}", r"\end{center}", ""]
     out = OUT / "underwater_ippo_primary.tex"
     out.write_text("\n".join(lines), encoding="utf-8")
     return out
@@ -300,7 +314,7 @@ def write_filter_table() -> Path | None:
         r"seed, then arithmetic means over the ten training seeds.}",
         r"\label{tab:surface_control_ablations}",
         r"\small",
-        r"\begin{tabular}{@{}rrrrrrr@{}}",
+        r"\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}rrrrrrr@{}}",
         r"\toprule",
         r"Fleet & $\beta$ & Final error (km) & Final wind speed (m/s) & "
         r"Path (km) & Mean speed (m/s) & Maximum speed (m/s) \\",
@@ -330,7 +344,7 @@ def write_filter_table() -> Path | None:
                     value = rf"\textbf{{{value}}}"
                 cells.append(value)
             lines.append(" & ".join(cells) + r" \\")
-    lines += [r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""]
+    lines += [r"\bottomrule", r"\end{tabular*}", r"\end{table*}", ""]
     out = OUT / "surface_filter_primary.tex"
     out.write_text("\n".join(lines), encoding="utf-8")
     return out
@@ -388,9 +402,10 @@ def write_planner_stratified() -> Path | None:
         r"\renewcommand{\arraystretch}{0.92}",
         r"\begin{longtable}{@{\extracolsep{\fill}}lllrrrrr@{}}",
         r"\caption{Planner-stratified primary results reported separately for the two "
-        r"surface speed limits and the two subsurface propulsion limits. Surface entries "
-        r"use episode medians averaged across IPPO seeds, or one episode median for "
-        r"deterministic planners. Subsurface entries use episode means. Geometric "
+        r"surface speed limits and the two subsurface propulsion limits. For IPPO, "
+        r"surface and subsurface entries are arithmetic means across training seeds "
+        r"of within-seed episode medians. For deterministic planners, each entry is "
+        r"one episode median over the paired validation episodes. Geometric "
         r"coverage counts unique native HYCOM cells of \(0.04^\circ\) latitude by "
         r"\(0.08^\circ\) longitude. Current-weighted coverage is reported in "
         r"\(10^3\) m\,s$^{-1}$\,km$^2$.}",
@@ -524,11 +539,13 @@ def write_algorithm_table() -> Path | None:
     lines = [
         r"\begin{table*}[t]",
         r"\centering",
-        r"\caption{Representative algorithm comparison under the primary 400-TC setup. Surface metrics use seed medians; subsurface metrics use seed means.}",
+        r"\caption{Representative algorithm comparison under the primary 400-TC setup. Surface and subsurface metrics use episode medians within each training seed, followed by arithmetic means across seeds.}",
         r"\small",
         r"\begin{tabular}{@{}lrrrrr@{}}",
         r"\toprule",
-        r"Algorithm & Surface final error & Surface path & Underwater current & Underwater coverage & Weighted coverage \\",
+        r"Algorithm & Surface final error (km) & Surface path (km) & "
+        r"Underwater current (m/s) & Underwater coverage (km$^2$) & "
+        r"Weighted coverage ($10^3$ m\,s$^{-1}$\,km$^2$) \\",
         r"\midrule",
     ]
     for algorithm in ("IPPO", "SAC", "TD3"):
@@ -539,7 +556,7 @@ def write_algorithm_table() -> Path | None:
             f"{fmt(s.path_km_mean, 1)} & "
             f"{fmt(u.mean_current_speed_ms_mean, 3)} & "
             f"{fmt(u.geometric_coverage_km2_mean, 0)} & "
-            f"{fmt(u.current_weighted_coverage_mean, 3)} \\\\"
+            f"{fmt(u.current_weighted_coverage_mean / 1.0e3, 3)} \\\\"
         )
     lines += [r"\bottomrule", r"\end{tabular}", r"\end{table*}", ""]
     out = OUT / "algorithm_comparison_primary.tex"

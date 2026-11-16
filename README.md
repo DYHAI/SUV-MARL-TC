@@ -76,7 +76,9 @@ and 262 validation segments.
 - Initialization: uniform sampling inside the 0--200 km disk around the TC
   center.
 - Metrics: mean experienced current, native-HYCOM geometric coverage, and
-  current-weighted coverage.
+  current-weighted coverage. Each metric is summarized by the median over
+  validation episodes within a seed, followed by the mean and sample standard
+  deviation of the ten seed-level medians.
 
 ### Constrained motion
 

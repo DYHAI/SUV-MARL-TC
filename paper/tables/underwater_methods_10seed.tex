@@ -1,0 +1,75 @@
+\begin{table*}[p]
+\centering
+\caption{Subsurface observation comparison among IPPO and four traditional planners over seven depths and two propulsion limits. Values are episode medians averaged over ten IPPO training seeds, or one deterministic planner evaluation. Higher values are better. Geometric coverage and current-weighted coverage are reported in $10^3$ km$^2$ and $10^3$ m s$^{-1}$ km$^2$, respectively.}
+\label{tab:underwater_methods_10seed}
+\scriptsize
+\setlength{\tabcolsep}{5pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}rrlrrrrr@{}}
+\toprule
+Depth & $V_{\max}$ & Metric & IPPO & PF & A* & Lawn & Greedy \\
+\midrule
+0 & 1.5 & Mean current (m/s) & 0.490 & \textbf{0.519} & 0.501 & 0.498 & 0.502 \\
+ &  & Geometric coverage & \textbf{4.42} & 2.35 & 2.50 & 2.61 & 1.47 \\
+ &  & Current-weighted coverage & \textbf{2.05} & 1.18 & 1.20 & 1.26 & 0.73 \\
+\addlinespace[1pt]
+0 & 2.0 & Mean current (m/s) & 0.491 & \textbf{0.543} & 0.512 & 0.495 & 0.505 \\
+ &  & Geometric coverage & \textbf{5.47} & 2.75 & 3.18 & 3.27 & 1.65 \\
+ &  & Current-weighted coverage & \textbf{2.54} & 1.47 & 1.55 & 1.53 & 0.83 \\
+\addlinespace[1pt]
+\midrule
+10 & 1.5 & Mean current (m/s) & 0.457 & \textbf{0.478} & 0.462 & 0.451 & 0.455 \\
+ &  & Geometric coverage & \textbf{4.42} & 2.33 & 2.53 & 2.56 & 1.48 \\
+ &  & Current-weighted coverage & \textbf{1.89} & 1.11 & 1.13 & 1.06 & 0.69 \\
+\addlinespace[1pt]
+10 & 2.0 & Mean current (m/s) & 0.458 & \textbf{0.494} & 0.466 & 0.451 & 0.458 \\
+ &  & Geometric coverage & \textbf{5.45} & 2.78 & 3.25 & 3.19 & 1.71 \\
+ &  & Current-weighted coverage & \textbf{2.34} & 1.33 & 1.48 & 1.36 & 0.79 \\
+\addlinespace[1pt]
+\midrule
+20 & 1.5 & Mean current (m/s) & 0.434 & \textbf{0.459} & 0.439 & 0.427 & 0.443 \\
+ &  & Geometric coverage & \textbf{4.36} & 2.37 & 2.51 & 2.50 & 1.50 \\
+ &  & Current-weighted coverage & \textbf{1.80} & 1.10 & 1.09 & 1.03 & 0.68 \\
+\addlinespace[1pt]
+20 & 2.0 & Mean current (m/s) & 0.441 & \textbf{0.489} & 0.451 & 0.427 & 0.450 \\
+ &  & Geometric coverage & \textbf{5.40} & 2.76 & 3.27 & 3.16 & 1.73 \\
+ &  & Current-weighted coverage & \textbf{2.26} & 1.31 & 1.46 & 1.26 & 0.76 \\
+\addlinespace[1pt]
+\midrule
+30 & 1.5 & Mean current (m/s) & 0.404 & \textbf{0.427} & 0.412 & 0.395 & 0.424 \\
+ &  & Geometric coverage & \textbf{4.29} & 2.34 & 2.48 & 2.48 & 1.44 \\
+ &  & Current-weighted coverage & \textbf{1.64} & 1.00 & 1.02 & 0.93 & 0.58 \\
+\addlinespace[1pt]
+30 & 2.0 & Mean current (m/s) & 0.405 & \textbf{0.450} & 0.422 & 0.393 & 0.435 \\
+ &  & Geometric coverage & \textbf{5.34} & 2.64 & 3.18 & 3.13 & 1.67 \\
+ &  & Current-weighted coverage & \textbf{2.03} & 1.19 & 1.29 & 1.14 & 0.71 \\
+\addlinespace[1pt]
+\midrule
+40 & 1.5 & Mean current (m/s) & 0.357 & \textbf{0.387} & 0.365 & 0.340 & 0.357 \\
+ &  & Geometric coverage & \textbf{4.23} & 2.12 & 2.47 & 2.43 & 1.39 \\
+ &  & Current-weighted coverage & \textbf{1.43} & 0.78 & 0.85 & 0.76 & 0.48 \\
+\addlinespace[1pt]
+40 & 2.0 & Mean current (m/s) & 0.359 & \textbf{0.403} & 0.378 & 0.340 & 0.360 \\
+ &  & Geometric coverage & \textbf{5.27} & 2.49 & 3.17 & 3.07 & 1.61 \\
+ &  & Current-weighted coverage & \textbf{1.78} & 0.95 & 1.13 & 0.95 & 0.58 \\
+\addlinespace[1pt]
+\midrule
+50 & 1.5 & Mean current (m/s) & 0.318 & \textbf{0.355} & 0.330 & 0.309 & 0.325 \\
+ &  & Geometric coverage & \textbf{4.15} & 2.09 & 2.41 & 2.41 & 1.31 \\
+ &  & Current-weighted coverage & \textbf{1.23} & 0.66 & 0.78 & 0.69 & 0.42 \\
+\addlinespace[1pt]
+50 & 2.0 & Mean current (m/s) & 0.319 & \textbf{0.375} & 0.341 & 0.305 & 0.334 \\
+ &  & Geometric coverage & \textbf{5.21} & 2.39 & 3.11 & 3.04 & 1.55 \\
+ &  & Current-weighted coverage & \textbf{1.53} & 0.81 & 1.01 & 0.85 & 0.51 \\
+\addlinespace[1pt]
+\midrule
+60 & 1.5 & Mean current (m/s) & 0.300 & \textbf{0.344} & 0.320 & 0.293 & 0.313 \\
+ &  & Geometric coverage & \textbf{4.15} & 2.01 & 2.40 & 2.39 & 1.33 \\
+ &  & Current-weighted coverage & \textbf{1.17} & 0.65 & 0.73 & 0.65 & 0.41 \\
+\addlinespace[1pt]
+60 & 2.0 & Mean current (m/s) & 0.298 & \textbf{0.361} & 0.327 & 0.297 & 0.322 \\
+ &  & Geometric coverage & \textbf{5.19} & 2.31 & 3.07 & 3.03 & 1.54 \\
+ &  & Current-weighted coverage & \textbf{1.43} & 0.76 & 0.95 & 0.82 & 0.49 \\
+\addlinespace[1pt]
+\bottomrule
+\end{tabular*}
+\end{table*}

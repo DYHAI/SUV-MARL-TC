@@ -2,6 +2,9 @@
 
 Date: 2026-11-14
 
+Updated: 2026-11-16, after unifying the subsurface aggregation with the
+surface episode-median protocol.
+
 ## Data
 
 - 400 TCs: 360 training and 40 validation TCs.
@@ -48,8 +51,8 @@ Date: 2026-11-14
 - Coverage grid: 0.25 degrees, cell area 770.0625 square km.
 - Only valid ocean positions contribute to experienced current, coverage, and
   current-weighted coverage.
-- Subsurface statistics: arithmetic mean over validation episodes within each
-  seed, then arithmetic mean over seeds.
+- Subsurface statistics: median over validation episodes within each seed,
+  then arithmetic mean over seed-level medians.
 
 ## Manuscript formulas checked
 
@@ -70,8 +73,8 @@ Date: 2026-11-14
   interpolation of `u,v` followed by their vector norm.
 - Land positions are excluded from underwater current and coverage metrics.
 - Current-weighted coverage is computed per episode before aggregation.
-- Surface and subsurface aggregation were separated into median and mean
-  protocols respectively.
+- Surface and subsurface metrics both use median episode aggregation, followed
+  by an arithmetic mean across training seeds.
 - Primary underwater models are isolated in `models/underwater_primary` so the
   scheduler cannot mistake old 500-TC models for completed 400-TC runs.
 - Random control and passive drift were removed from primary underwater
@@ -89,7 +92,8 @@ training and evaluation matrices complete.
   relative-offset drift approximately `2.5e-13 km`.
 - Underwater smoke test: observation `(4,19)`, action space `(4,2)`, and
   component-interpolated current-speed error `0.0`.
-- Surface median and subsurface mean aggregation pass synthetic two-seed tests.
+- Surface and subsurface median aggregation pass the shared synthetic two-seed
+  test.
 - Regenerated 0.25-degree traditional underwater outputs have coverage areas
   that are exact integer multiples of 770.0625 square km, and current-weighted
   coverage equals the per-episode product of fleet-mean current and coverage.

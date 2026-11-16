@@ -2,7 +2,7 @@
   "status": "primary_configuration_active_training",
   "name": "Primary open-ocean single-PPO rigid-formation configuration",
   "adopted_on": "2026-11-13",
-  "updated_on": "2026-11-14",
+  "updated_on": "2026-11-16",
   "open_ocean_definition": {
     "criterion": "Every 10 min TC-track point in a retained segment is at least 200 km from land.",
     "exclude_formation_start": true,
@@ -13,8 +13,8 @@
     "training_seeds": 10,
     "surface_episode_statistic": "median over validation episodes within each training seed",
     "surface_seed_statistic": "arithmetic mean of the ten seed-level episode medians",
-    "subsurface_episode_statistic": "arithmetic mean over validation episodes within each training seed",
-    "subsurface_seed_statistic": "arithmetic mean of the ten seed-level episode means",
+    "subsurface_episode_statistic": "median over validation episodes within each training seed",
+    "subsurface_seed_statistic": "arithmetic mean of the ten seed-level episode medians",
     "uncertainty": "sample standard deviation across the ten seed-level values",
     "applies_to": ["main surface IPPO matrix", "surface execution filtering", "main subsurface IPPO matrix"]
   },
@@ -101,7 +101,7 @@
     "surface_evaluation": "all 262 held-out segments",
     "underwater_evaluation": "40 held-out TCs x 10 deployment seeds per depth-speed setting",
     "surface_metric_aggregation": "episode median; deterministic planners have no training-seed variance",
-    "subsurface_metric_aggregation": "episode arithmetic mean; deployment seeds are validation realizations"
+    "subsurface_metric_aggregation": "episode median; deployment seeds are validation realizations, with one median over all paired episodes"
   },
   "recent_comparison": {
     "result_dir": "runs/algorithms_primary",

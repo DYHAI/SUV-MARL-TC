@@ -1,4 +1,42 @@
 {
+  "classical_surface": {
+    "seed_rows": 160,
+    "condition_rows": 160
+  },
+  "classical_underwater": {
+    "seed_rows": 56,
+    "condition_rows": 56
+  },
+  "surface_main": {
+    "source": "runs/surface_primary_circle/segments",
+    "available": true,
+    "seed_rows": 400,
+    "condition_rows": 40
+  },
+  "surface_formation": {
+    "source": "runs/surface_rigid_formation_primary/formation/segments",
+    "available": true,
+    "seed_rows": 40,
+    "condition_rows": 40
+  },
+  "surface_algorithm": {
+    "source": "runs/algorithms_primary/surface/segments",
+    "available": true,
+    "seed_rows": 6,
+    "condition_rows": 3
+  },
+  "surface_filter": {
+    "source": "runs/surface_primary_filter/segments",
+    "available": true,
+    "seed_rows": 80,
+    "condition_rows": 8
+  },
+  "underwater_ippo": {
+    "source": "runs/underwater_primary",
+    "available": true,
+    "seed_rows": 140,
+    "condition_rows": 14
+  },
   "underwater_algorithms": {
     "source": "runs/algorithms_primary/underwater",
     "available": true,
