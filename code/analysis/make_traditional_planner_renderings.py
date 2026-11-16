@@ -52,16 +52,16 @@ SURFACE_MODEL = Path(
     os.environ.get(
         "SURFACE_MODEL_DIR",
         ROOT
-        / "runs"
-        / "surface"
-        / "models",
+        / "constrained_dynamics_experiments"
+        / "models"
+        / "surface_primary_circle",
     )
 ) / "surface_n8_v12_s0.zip"
 UNDERWATER_MODEL = (
     ROOT
-    / "runs"
-    / "underwater"
+    / "constrained_dynamics_experiments"
     / "models"
+    / "underwater_primary"
     / "uw_d30_v1.5_s0.zip"
 )
 STORM = "MATMO_2025"
@@ -302,6 +302,7 @@ def plot_row(
     results,
     field_label: str,
     hide_upper_x: bool = False,
+    panel_offset: int = 0,
     *,
     pad_fraction: float = 0.18,
     min_pad_km: float = 60.0,
@@ -379,6 +380,22 @@ def plot_row(
                 solid_capstyle="round",
                 zorder=4,
             )
+            if xy.shape[0] >= 5:
+                arrow_index = max(1, min(xy.shape[0] - 2, int(0.56 * xy.shape[0])))
+                ax.annotate(
+                    "",
+                    xy=xy[arrow_index + 1, i],
+                    xytext=xy[arrow_index, i],
+                    arrowprops=dict(
+                        arrowstyle="-|>",
+                        color=COLORS[name],
+                        lw=1.2,
+                        mutation_scale=9,
+                        shrinkA=0,
+                        shrinkB=0,
+                    ),
+                    zorder=5,
+                )
             ax.scatter(
                 xy[0, i, 0],
                 xy[0, i, 1],
@@ -402,6 +419,24 @@ def plot_row(
         ax.scatter([0], [0], marker="*", s=155, color="#d62728", zorder=7)
         ax.set_ylabel(
             f"{row_label}\nTC-relative north (km)" if index == 0 else ""
+        )
+        ax.text(
+            0.025,
+            0.975,
+            f"({chr(ord('a') + panel_offset + index)})",
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=7.6,
+            fontweight="bold",
+            color="#15324a",
+            bbox=dict(
+                boxstyle="round,pad=0.16",
+                facecolor="white",
+                edgecolor="none",
+                alpha=0.82,
+            ),
+            zorder=10,
         )
         ax.set_title(
             f"{name}\n{score_text}",
@@ -508,6 +543,7 @@ def main():
         surface_results,
         "TC-relative east (km)",
         hide_upper_x=True,
+        panel_offset=0,
         pad_fraction=0.18,
         min_pad_km=60.0,
         symmetric_about_tc=True,
@@ -519,6 +555,7 @@ def main():
         underwater_results,
         "TC-relative east (km)",
         hide_upper_x=True,
+        panel_offset=5,
         pad_fraction=0.18,
         min_pad_km=65.0,
         min_width_km=720.0,
