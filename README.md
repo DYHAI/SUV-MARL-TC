@@ -14,7 +14,7 @@ Cyclones Using Submersible Unmanned Vessels**.
 
 ### Agent-environment interaction
 
-<img src="paper/figures/Fig2_RL_Agent_Environment_Loop.png" alt="Closed-loop SUV fleet and atmosphere-ocean environment" width="900">
+<img src="paper/figures/Fig2_RL_Agent_Environment_Loop_MLP.png" alt="Closed-loop SUV fleet, policy network, and atmosphere-ocean environment" width="900">
 
 ### Surface tracking
 

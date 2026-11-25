@@ -19,6 +19,7 @@ from matplotlib.patches import Ellipse, FancyArrowPatch, FancyBboxPatch
 ROOT = Path(__file__).resolve().parents[2]
 FIGDIR = ROOT / "paper" / "figures"
 LANG = os.environ.get("RL_LOOP_LANG", "en").lower()
+SHOW_MLP = os.environ.get("RL_LOOP_MLP", "0") == "1"
 if LANG == "zh":
     FONT_PATH = os.environ.get("RL_LOOP_FONT", "/tmp/NotoSansCJKsc-Regular.otf")
     if Path(FONT_PATH).exists():
@@ -142,9 +143,9 @@ def draw_environment(ax):
         color="#175d78",
         fontweight="bold",
     )
-def draw_agent(ax, auv_image):
+def draw_agent(ax, auv_image, show_policy=True, y_shift=0.0):
     card = FancyBboxPatch(
-        (0.03, 0.18),
+        (0.03, 0.18 + y_shift),
         0.24,
         0.58,
         boxstyle="round,pad=0.012,rounding_size=0.018",
@@ -156,7 +157,7 @@ def draw_agent(ax, auv_image):
     ax.add_patch(card)
     ax.text(
         0.15,
-        0.71,
+        0.71 + y_shift,
         tr("SUV fleet agent", "SUV集群智能体"),
         ha="center",
         va="top",
@@ -166,22 +167,137 @@ def draw_agent(ax, auv_image):
     )
 
     for xy in (
-        (0.085, 0.54),
-        (0.215, 0.54),
-        (0.085, 0.31),
-        (0.215, 0.31),
+        (0.085, 0.54 + y_shift),
+        (0.215, 0.54 + y_shift),
+        (0.085, 0.31 + y_shift),
+        (0.215, 0.31 + y_shift),
     ):
         add_auv(ax, auv_image, xy, zoom=0.285)
 
     ax.text(
         0.15,
-        0.64,
-        tr("shared policy ", "共享策略 ") + r"$\pi_\theta$",
+        0.64 + y_shift,
+        (
+            tr("shared policy ", "共享策略 ") + r"$\pi_\theta$"
+            if show_policy
+            else tr("shared fleet observations", "共享集群观测")
+        ),
         ha="center",
         va="center",
-        fontsize=10,
+        fontsize=10 if show_policy else 9.4,
         color="#40545f",
         zorder=7,
+    )
+
+
+def draw_mlp(ax):
+    """Draw an unboxed 3-4-3 MLP between the fleet and environment."""
+
+    layer_x = (0.300, 0.375, 0.450)
+    layer_sizes = (3, 4, 3)
+    layer_centers = []
+    for x, size in zip(layer_x, layer_sizes):
+        ys = 0.49 + (np.arange(size) - (size - 1) / 2.0) * 0.095
+        layer_centers.append(ys)
+
+    colors = ("#72a9c8", "#508dad", "#d6814d")
+    for left_x, left_ys, right_x, right_ys, color in zip(
+        layer_x[:-1],
+        layer_centers[:-1],
+        layer_x[1:],
+        layer_centers[1:],
+        colors[:-1],
+    ):
+        for y0 in left_ys:
+            for y1 in right_ys:
+                ax.plot(
+                    (left_x, right_x),
+                    (y0, y1),
+                    color=color,
+                    linewidth=0.52,
+                    alpha=0.42,
+                    zorder=5,
+                )
+
+    for x, ys, color in zip(layer_x, layer_centers, colors):
+        ax.scatter(
+            np.full(len(ys), x),
+            ys,
+            s=68,
+            facecolor=color,
+            edgecolor="white",
+            linewidth=0.9,
+            zorder=7,
+        )
+
+
+def draw_mlp_loop(ax):
+    """Draw the action annotation and environment feedback around the MLP."""
+
+    action_arrow = FancyArrowPatch(
+        (0.27, 0.70),
+        (0.49, 0.70),
+        connectionstyle="arc3,rad=-0.45",
+        arrowstyle="-|>",
+        mutation_scale=16,
+        linewidth=1.8,
+        color="#2b6fa8",
+        zorder=6,
+    )
+    ax.add_patch(action_arrow)
+    ax.text(
+        0.38,
+        0.84,
+        tr("action ", "动作 ") + r"$\mathbf{a}_{t}$",
+        ha="center",
+        va="center",
+        fontsize=10.3,
+        color="#204f76",
+        bbox={"boxstyle": "round,pad=0.45", "fc": "white", "ec": "none", "alpha": 1.0},
+        zorder=10,
+    )
+
+    feedback_arrow = FancyArrowPatch(
+        (0.49, 0.30),
+        (0.27, 0.30),
+        connectionstyle="arc3,rad=-0.45",
+        arrowstyle="-|>",
+        mutation_scale=16,
+        linewidth=1.8,
+        color="#b65c2b",
+        zorder=6,
+    )
+    ax.add_patch(feedback_arrow)
+    ax.text(
+        0.38,
+        0.16,
+        tr("next state ", "下一状态 ")
+        + r"$\mathbf{s}_{t+1}$"
+        + "\n"
+        + tr("next observation ", "下一观测 ")
+        + r"$\mathbf{o}_{t+1}$"
+        + "\n"
+        + tr("reward ", "奖励 ")
+        + r"$r_{t}$",
+        ha="center",
+        va="center",
+        fontsize=10.3,
+        linespacing=1.08,
+        color="#7a3a1d",
+        bbox={"boxstyle": "round,pad=0.25", "fc": "white", "ec": "none", "alpha": 1.0},
+        zorder=10,
+    )
+    ax.text(
+        0.375,
+        0.705,
+        tr("10 min interval\nclosed-loop decision", "10分钟间隔\n闭环决策"),
+        ha="center",
+        va="center",
+        fontsize=8.5,
+        color="#5b6670",
+        style="italic",
+        linespacing=1.08,
+        zorder=10,
     )
 
 
@@ -193,7 +309,15 @@ def main() -> None:
     ax.set_axis_off()
 
     draw_environment(ax)
-    draw_agent(ax, auv)
+    draw_agent(
+        ax,
+        auv,
+        show_policy=True,
+        y_shift=0.03 if SHOW_MLP else 0.0,
+    )
+    if SHOW_MLP:
+        draw_mlp(ax)
+        draw_mlp_loop(ax)
     add_auv(ax, np.fliplr(auv), (0.895, 0.47), zoom=0.22)
     add_auv(ax, np.fliplr(auv), (0.70, 0.47), zoom=0.22)
     add_auv(ax, np.fliplr(auv), (0.70, 0.28), zoom=0.22)
@@ -249,72 +373,83 @@ def main() -> None:
         zorder=9,
     )
 
-    action_arrow = FancyArrowPatch(
-        (0.27, 0.58),
-        (0.49, 0.58),
-        connectionstyle="arc3,rad=-0.70",
-        arrowstyle="-|>",
-        mutation_scale=16,
-        linewidth=1.8,
-        color="#2b6fa8",
-        zorder=6,
-    )
-    feedback_arrow = FancyArrowPatch(
-        (0.49, 0.32),
-        (0.27, 0.32),
-        connectionstyle="arc3,rad=-0.70",
-        arrowstyle="-|>",
-        mutation_scale=16,
-        linewidth=1.8,
-        color="#b65c2b",
-        zorder=6,
-    )
-    ax.add_patch(action_arrow)
-    ax.add_patch(feedback_arrow)
+    if not SHOW_MLP:
+        action_arrow = FancyArrowPatch(
+            (0.27, 0.58),
+            (0.49, 0.58),
+            connectionstyle="arc3,rad=-0.70",
+            arrowstyle="-|>",
+            mutation_scale=16,
+            linewidth=1.8,
+            color="#2b6fa8",
+            zorder=6,
+        )
+        feedback_arrow = FancyArrowPatch(
+            (0.49, 0.32),
+            (0.27, 0.32),
+            connectionstyle="arc3,rad=-0.70",
+            arrowstyle="-|>",
+            mutation_scale=16,
+            linewidth=1.8,
+            color="#b65c2b",
+            zorder=6,
+        )
+        ax.add_patch(action_arrow)
+        ax.add_patch(feedback_arrow)
 
-    ax.text(
-        0.38,
-        0.77,
-        tr("action ", "动作 ") + r"$\mathbf{a}_{t}$",
-        ha="center",
-        va="center",
-        fontsize=10.3,
-        color="#204f76",
-        bbox={"boxstyle": "round,pad=0.45", "fc": "white", "ec": "none", "alpha": 1.0},
-        zorder=10,
-    )
-    ax.text(
-        0.38,
-        0.14,
-        tr("next state ", "下一状态 ")
-        + r"$\mathbf{s}_{t+1}$"
-        "\n"
-        + tr("next observation ", "下一观测 ")
-        + r"$\mathbf{o}_{t+1}$"
-        "\n"
-        + tr("reward ", "奖励 ")
-        + r"$r_{t}$",
-        ha="center",
-        va="center",
-        fontsize=10.0,
-        linespacing=1.12,
-        color="#7a3a1d",
-        bbox={"boxstyle": "round,pad=0.28", "fc": "white", "ec": "none", "alpha": 1.0},
-        zorder=10,
-    )
-    ax.text(
-        0.38,
-        0.50,
-        tr("10 min interval\nclosed-loop decision", "10分钟间隔\n闭环决策"),
-        ha="center",
-        va="center",
-        fontsize=9.2,
-        color="#5b6670",
-        style="italic",
-    )
+        ax.text(
+            0.38,
+            0.77,
+            tr("action ", "动作 ") + r"$\mathbf{a}_{t}$",
+            ha="center",
+            va="center",
+            fontsize=10.3,
+            color="#204f76",
+            bbox={
+                "boxstyle": "round,pad=0.45",
+                "fc": "white",
+                "ec": "none",
+                "alpha": 1.0,
+            },
+            zorder=10,
+        )
+        ax.text(
+            0.38,
+            0.14,
+            tr("next state ", "下一状态 ")
+            + r"$\mathbf{s}_{t+1}$"
+            "\n"
+            + tr("next observation ", "下一观测 ")
+            + r"$\mathbf{o}_{t+1}$"
+            "\n"
+            + tr("reward ", "奖励 ")
+            + r"$r_{t}$",
+            ha="center",
+            va="center",
+            fontsize=10.0,
+            linespacing=1.12,
+            color="#7a3a1d",
+            bbox={
+                "boxstyle": "round,pad=0.28",
+                "fc": "white",
+                "ec": "none",
+                "alpha": 1.0,
+            },
+            zorder=10,
+        )
+        ax.text(
+            0.38,
+            0.50,
+            tr("10 min interval\nclosed-loop decision", "10分钟间隔\n闭环决策"),
+            ha="center",
+            va="center",
+            fontsize=9.2,
+            color="#5b6670",
+            style="italic",
+        )
 
     FIGDIR.mkdir(parents=True, exist_ok=True)
-    suffix = "_zh" if LANG == "zh" else ""
+    suffix = ("_MLP" if SHOW_MLP else "") + ("_zh" if LANG == "zh" else "")
     fig.savefig(
         FIGDIR / f"Fig2_RL_Agent_Environment_Loop{suffix}.pdf",
         bbox_inches="tight",
