@@ -367,11 +367,12 @@ def make_surface_matrix(row, storm):
             if c == 0:
                 ax.set_ylabel("Latitude (°N)")
     cbar = fig.colorbar(mesh, ax=axes, shrink=0.62, pad=0.018)
-    cbar.set_label("10 m wind speed (m s$^{-1}$)")
+    cbar.set_label("10 m wind speed (m s$^{-1}$)", fontsize=14)
+    cbar.ax.tick_params(labelsize=12)
     fig.suptitle(
         "Formation-center trajectories for 4/8/12/16 SUVs of ring formation "
         r"at five deployment radii ($V_{\max}=20$ m/s)",
-        fontsize=15, fontweight="bold",
+        fontsize=18, fontweight="bold",
     )
     out = FIGDIR / "FigA1_Surface_Trajectory_Matrix"
     fig.savefig(out.with_suffix(".pdf"), bbox_inches="tight")

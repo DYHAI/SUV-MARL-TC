@@ -1,0 +1,36 @@
+\begin{table*}[t]
+\centering
+\caption{Algorithm comparison of centralized surface PPO, shared-parameter
+subsurface IPPO, SAC, and TD3 on representative surface and subsurface tasks.
+Each algorithm uses two independent training runs and
+$2\times10^6$ environment steps per run. Surface and subsurface values are
+episode medians within each run, followed by the mean $\pm$ sample standard
+deviation across the two runs.}
+\label{tab:algorithm_comparison}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{minipage}[t]{0.49\textwidth}
+\centering\textbf{(a) Surface: 8 SUVs, 12 m/s, 400 km}\\
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lrrr@{}}
+\toprule
+Algorithm & Final error (km) & Final wind (m/s) & Path (km) \\
+\midrule
+Centralized PPO & $96.9\pm5.4$ & $10.71\pm0.18$ & $534.2\pm18.3$ \\
+SAC & $105.3\pm6.8$ & $10.57\pm0.21$ & $506.8\pm23.0$ \\
+TD3 & $108.9\pm0.9$ & $10.16\pm0.24$ & $499.0\pm31.4$ \\
+\bottomrule
+\end{tabular*}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
+\centering\textbf{(b) Subsurface: 30 m, 1.5 m/s}\\
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lrrr@{}}
+\toprule
+Algorithm & Current (m/s) & Coverage (km$^2$) & Path (km) \\
+\midrule
+IPPO & $0.408\pm0.007$ & $4310.5\pm17.2$ & $129.95\pm0.01$ \\
+SAC & $0.401\pm0.006$ & $3976.4\pm13.8$ & $122.94\pm0.60$ \\
+TD3 & $0.403\pm0.002$ & $4062.8\pm44.2$ & $127.49\pm0.63$ \\
+\bottomrule
+\end{tabular*}
+\end{minipage}
+\end{table*}
